@@ -32,9 +32,9 @@ spec:
               namespace: crossplane-system
             skuName: "{{ .postgresSku }}"
             version: "{{ .postgresVersion }}"
-            storageMb: "{{ .postgresStorageMb }}"
-            backupRetentionDays: "{{ .postgresBackupRetentionDays }}"
-            geoRedundantBackupEnabled: "{{ .postgresGeoRedundantBackup }}"
+            storageMb: { { .postgresStorageMb } }
+            backupRetentionDays: { { .postgresBackupRetentionDays } }
+            geoRedundantBackupEnabled: { { .postgresGeoRedundantBackup } }
             tags:
               Environment: "{{ .environment }}"
               BusinessUnit: "{{ .businessUnit }}"
@@ -76,7 +76,7 @@ spec:
             accountReplicationType: "{{ .storageAccountReplication }}"
             accountKind: "{{ .storageAccountKind }}"
             minTlsVersion: "{{ .storageMinTlsVersion }}"
-            allowNestedItemsToBePublic: "{{ .storageAllowPublic }}"
+            allowNestedItemsToBePublic: { { .storageAllowPublic } }
             tags:
               Environment: "{{ .environment }}"
               BusinessUnit: "{{ .businessUnit }}"
@@ -104,10 +104,10 @@ spec:
             resourceGroupName: "{{ .resourceGroupName }}"
             tenantId: "{{ .tenantId }}"
             skuName: "{{ .keyVaultSku }}"
-            enabledForDiskEncryption: "{{ .keyVaultDiskEncryption }}"
-            enabledForTemplateDeployment: "{{ .keyVaultTemplateDeployment }}"
-            enableRbacAuthorization: "{{ .keyVaultRbacAuth }}"
-            purgeProtectionEnabled: "{{ .keyVaultPurgeProtection }}"
+            enabledForDiskEncryption: { { .keyVaultDiskEncryption } }
+            enabledForTemplateDeployment: { { .keyVaultTemplateDeployment } }
+            enableRbacAuthorization: { { .keyVaultRbacAuth } }
+            purgeProtectionEnabled: { { .keyVaultPurgeProtection } }
             tags:
               Environment: "{{ .environment }}"
               BusinessUnit: "{{ .businessUnit }}"
@@ -124,9 +124,10 @@ spec:
             location: "{{ .location }}"
             resourceGroupName: "{{ .resourceGroupName }}"
             applicationType: "{{ .appInsightsType }}"
-            retentionInDays: "{{ .appInsightsRetentionDays }}"
-            dailyDataCapInGb: "{{ .appInsightsDailyDataCap }}"
-            dailyDataCapNotificationsDisabled: "{{ .appInsightsDataCapNotificationsDisabled }}"
+            retentionInDays: { { .appInsightsRetentionDays } }
+            dailyDataCapInGb: { { .appInsightsDailyDataCap } }
+            dailyDataCapNotificationsDisabled:
+              { { .appInsightsDataCapNotificationsDisabled } }
             tags:
               Environment: "{{ .environment }}"
               BusinessUnit: "{{ .businessUnit }}"
