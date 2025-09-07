@@ -1,0 +1,24 @@
+# GCP Provider Configuration
+# This configuration allows Crossplane to authenticate with GCP using OIDC
+
+apiVersion: gcp.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: gcp-config
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: gcp-credentials
+      key: credentials
+  projectID: delivery-platform-test-15357
+---
+# GCP Service Account for OIDC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crossplane-gcp-sa
+  namespace: crossplane-system
+  annotations:
+    iam.gke.io/gcp-service-account: crossplane@delivery-platform-test-15357.iam.gserviceaccount.com

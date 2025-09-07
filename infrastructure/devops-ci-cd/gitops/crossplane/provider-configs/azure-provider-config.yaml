@@ -1,0 +1,26 @@
+# Azure Provider Configuration
+# This configuration allows Crossplane to authenticate with Azure using OIDC
+
+apiVersion: azure.upbound.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: azure-config
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: azure-credentials
+      key: credentials
+  subscriptionID: ecd977ed-b8df-4eb6-9cba-98397e1b2491
+  tenantID: a4474822-c84f-4bd1-bc35-baed17234c9f
+---
+# Azure Service Account for OIDC
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: crossplane-azure-sa
+  namespace: crossplane-system
+  annotations:
+    azure.workload.identity/client-id: "762fa0d0-5911-49b5-8d4c-88516b14f1c4"
+    azure.workload.identity/tenant-id: "a4474822-c84f-4bd1-bc35-baed17234c9f"

@@ -1,0 +1,68 @@
+graph LR
+    subgraph "Core Tables"
+        USERS[Users]
+        USER_ROLES[User Roles]
+        LOCATIONS[Locations]
+        DELIVERY_ZONES[Delivery Zones]
+    end
+    
+    subgraph "Business Tables"
+        MERCHANTS[Merchants]
+        PRODUCTS[Products]
+        CATEGORIES[Categories]
+        ORDERS[Orders]
+        ORDER_ITEMS[Order Items]
+    end
+    
+    subgraph "Payment Tables"
+        PAYMENTS[Payments]
+        PAYMENT_METHODS[Payment Methods]
+    end
+    
+    subgraph "Delivery Tables"
+        DELIVERY_PARTNERS[Delivery Partners]
+        DELIVERY_TRACKING[Delivery Tracking]
+    end
+    
+    subgraph "Review Tables"
+        REVIEWS[Reviews]
+        REVIEW_IMAGES[Review Images]
+    end
+    
+    subgraph "Communication Tables"
+        NOTIFICATIONS[Notifications]
+        NOTIFICATION_TEMPLATES[Notification Templates]
+    end
+    
+    subgraph "Analytics Tables"
+        ANALYTICS_EVENTS[Analytics Events]
+        USER_SESSIONS[User Sessions]
+    end
+    
+    USERS --> USER_ROLES
+    USERS --> MERCHANTS
+    USERS --> ORDERS
+    USERS --> DELIVERY_PARTNERS
+    USERS --> REVIEWS
+    USERS --> NOTIFICATIONS
+    USERS --> ANALYTICS_EVENTS
+    
+    LOCATIONS --> MERCHANTS
+    LOCATIONS --> DELIVERY_ZONES
+    LOCATIONS --> LOCATIONS
+    
+    MERCHANTS --> PRODUCTS
+    MERCHANTS --> ORDERS
+    MERCHANTS --> REVIEWS
+    
+    PRODUCTS --> ORDER_ITEMS
+    CATEGORIES --> PRODUCTS
+    
+    ORDERS --> ORDER_ITEMS
+    ORDERS --> PAYMENTS
+    ORDERS --> DELIVERY_TRACKING
+    ORDERS --> REVIEWS
+    
+    DELIVERY_PARTNERS --> DELIVERY_TRACKING
+    DELIVERY_PARTNERS --> ORDERS
+    DELIVERY_PARTNERS --> REVIEWS

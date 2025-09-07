@@ -1,0 +1,27 @@
+# NGINX Ingress Controller System Pod Affinity Configuration
+# Ensures NGINX Ingress Controller runs only on system nodes
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingress-nginx-controller
+  namespace: ingress-nginx
+spec:
+  template:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.azure.com/mode
+                    operator: In
+                    values: ["system"]
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: ingress-nginx
+                topologyKey: kubernetes.io/hostname
+              weight: 100

@@ -1,0 +1,104 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: backstage-{{ .Values.environment }}-{{ .Values.businessUnit }}-{{ .Values.country }}
+  namespace: argocd
+  labels:
+    environment: "{{ .Values.environment }}"
+    business-unit: "{{ .Values.businessUnit }}"
+    country: "{{ .Values.country }}"
+    service: backstage
+    managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: msdp-platform
+  source:
+    repoURL: "{{ .Values.sourceRepo }}"
+    targetRevision: "{{ .Values.sourceRevision }}"
+    path: "infrastructure/kubernetes/backstage/{{ .Values.environment }}/{{ .Values.businessUnit }}/{{ .Values.country }}"
+    helm:
+      valueFiles:
+        - "values-{{ .Values.environment }}.yaml"
+        - "values-{{ .Values.businessUnit }}.yaml"
+        - "values-{{ .Values.country }}.yaml"
+      parameters:
+        # Environment-specific values
+        - name: "environment"
+          value: "{{ .Values.environment }}"
+        - name: "businessUnit"
+          value: "{{ .Values.businessUnit }}"
+        - name: "country"
+          value: "{{ .Values.country }}"
+        - name: "namespace"
+          value: "{{ .Values.namespace }}"
+        # Infrastructure connection details from Crossplane
+        - name: "postgres.host"
+          value: "{{ .Values.postgresHost }}"
+        - name: "postgres.port"
+          value: "{{ .Values.postgresPort }}"
+        - name: "postgres.database"
+          value: "{{ .Values.postgresDatabase }}"
+        - name: "postgres.user"
+          value: "{{ .Values.postgresUser }}"
+        - name: "storage.accountName"
+          value: "{{ .Values.storageAccountName }}"
+        - name: "storage.containerName"
+          value: "{{ .Values.storageContainerName }}"
+        - name: "keyVault.uri"
+          value: "{{ .Values.keyVaultUri }}"
+        - name: "appInsights.connectionString"
+          value: "{{ .Values.appInsightsConnectionString }}"
+        - name: "appInsights.instrumentationKey"
+          value: "{{ .Values.appInsightsInstrumentationKey }}"
+        # Backstage configuration
+        - name: "backstage.app.title"
+          value: "{{ .Values.backstageAppTitle }}"
+        - name: "backstage.app.baseUrl"
+          value: "{{ .Values.backstageAppBaseUrl }}"
+        - name: "backstage.backend.baseUrl"
+          value: "{{ .Values.backstageBackendBaseUrl }}"
+        - name: "backstage.organization.name"
+          value: "{{ .Values.backstageOrganizationName }}"
+        - name: "backstage.organization.logo"
+          value: "{{ .Values.backstageOrganizationLogo }}"
+        # Multi-BU specific configuration
+        - name: "backstage.businessUnit"
+          value: "{{ .Values.businessUnit }}"
+        - name: "backstage.country"
+          value: "{{ .Values.country }}"
+        - name: "backstage.supportedBusinessUnits"
+          value: "{{ .Values.supportedBusinessUnits }}"
+        - name: "backstage.supportedCountries"
+          value: "{{ .Values.supportedCountries }}"
+        # Security configuration
+        - name: "backstage.auth.providers"
+          value: "{{ .Values.authProviders }}"
+        - name: "backstage.auth.session.secret"
+          value: "{{ .Values.sessionSecret }}"
+        # Integrations
+        - name: "backstage.integrations.github"
+          value: "{{ .Values.githubIntegration }}"
+        - name: "backstage.integrations.azure"
+          value: "{{ .Values.azureIntegration }}"
+        - name: "backstage.integrations.argocd"
+          value: "{{ .Values.argocdIntegration }}"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: "{{ .Values.namespace }}"
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

@@ -1,0 +1,175 @@
+# ArgoCD Applications for Multi-Cloud Delivery Platform
+# This file defines all ArgoCD applications for deploying the platform
+
+---
+# ArgoCD Project
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: delivery-platform
+  namespace: argocd
+spec:
+  description: "Multi-Cloud Delivery Platform Project"
+
+  sourceRepos:
+    - https://github.com/santanubiswas2k1/multi-service-delivery-platform
+
+  destinations:
+    - namespace: delivery-platform
+      server: https://kubernetes.default.svc
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: ""
+      kind: ServiceAccount
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: Deployment
+    - group: ""
+      kind: StatefulSet
+    - group: ""
+      kind: Ingress
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+
+  roles:
+    - name: admin
+      description: "Admin role for delivery platform"
+      policies:
+        - p, proj:delivery-platform:admin, applications, *, delivery-platform/*, allow
+        - p, proj:delivery-platform:admin, repositories, *, *, allow
+        - p, proj:delivery-platform:admin, clusters, *, *, allow
+      groups:
+        - delivery-platform:admins
+
+    - name: developer
+      description: "Developer role for delivery platform"
+      policies:
+        - p, proj:delivery-platform:developer, applications, get, delivery-platform/*, allow
+        - p, proj:delivery-platform:developer, applications, sync, delivery-platform/*, allow
+        - p, proj:delivery-platform:developer, applications, action/*, delivery-platform/*, allow
+      groups:
+        - delivery-platform:developers
+
+---
+# Development Application (Local/Control Plane)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-platform-dev
+  namespace: argocd
+  labels:
+    environment: development
+    cloud-provider: local
+    region: local
+spec:
+  project: delivery-platform
+  source:
+    repoURL: https://github.com/santanubiswas2k1/multi-service-delivery-platform
+    targetRevision: HEAD
+    path: infrastructure/argocd/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: delivery-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# Crossplane Compositions Application
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-platform-crossplane
+  namespace: argocd
+  labels:
+    component: crossplane
+    environment: development
+spec:
+  project: delivery-platform
+  source:
+    repoURL: https://github.com/santanubiswas2k1/multi-service-delivery-platform
+    targetRevision: HEAD
+    path: infrastructure/crossplane/compositions
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: crossplane-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+---
+# Application of Applications (App of Apps)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: delivery-platform-app-of-apps
+  namespace: argocd
+  labels:
+    type: app-of-apps
+    environment: development
+spec:
+  project: delivery-platform
+  source:
+    repoURL: https://github.com/santanubiswas2k1/multi-service-delivery-platform
+    targetRevision: HEAD
+    path: infrastructure/argocd/applications
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

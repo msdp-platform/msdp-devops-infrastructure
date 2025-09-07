@@ -1,0 +1,54 @@
+apiVersion: msdp.io/v1alpha1
+kind: XBackstageInfrastructure
+metadata:
+  name: backstage-prod-platform-core-global
+  namespace: crossplane-system
+  labels:
+    environment: prod
+    business-unit: platform-core
+    country: global
+    service: backstage
+spec:
+  # Environment Configuration
+  environment: "prod"
+  businessUnit: "platform-core"
+  country: "global"
+
+  # Azure Configuration
+  location: "UK South"
+  resourceGroupName: "msdp-prod-rg"
+  tenantId: "${AZURE_TENANT_ID}"
+
+  # PostgreSQL Configuration (Prod - Larger, more reliable)
+  postgresAdminUser: "backstageadmin"
+  postgresPasswordSecret: "backstage-postgres-password-prod"
+  postgresSku: "GP_Standard_D2s_v3"
+  postgresVersion: "13"
+  postgresStorageMb: 131072
+  postgresBackupRetentionDays: 30
+  postgresGeoRedundantBackup: true
+  postgresCharset: "UTF8"
+  postgresCollation: "en_US.utf8"
+  postgresStartIp: "0.0.0.0"
+  postgresEndIp: "255.255.255.255"
+
+  # Storage Configuration (Prod - Premium tier)
+  storageAccountTier: "Standard"
+  storageAccountReplication: "GRS"
+  storageAccountKind: "StorageV2"
+  storageMinTlsVersion: "TLS1_2"
+  storageAllowPublic: false
+  storageContainerAccessType: "private"
+
+  # Key Vault Configuration (Prod - Enhanced security)
+  keyVaultSku: "premium"
+  keyVaultDiskEncryption: true
+  keyVaultTemplateDeployment: true
+  keyVaultRbacAuth: true
+  keyVaultPurgeProtection: true
+
+  # Application Insights Configuration (Prod - Full monitoring)
+  appInsightsType: "web"
+  appInsightsRetentionDays: 365
+  appInsightsDailyDataCap: 10
+  appInsightsDataCapNotificationsDisabled: false

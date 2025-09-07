@@ -1,0 +1,142 @@
+# Database Composition for Multi-Cloud Delivery Platform
+# This composition creates a complete database infrastructure across multiple clouds
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: delivery-platform-database
+  labels:
+    provider: azure
+    service: database
+spec:
+  compositeTypeRef:
+    apiVersion: delivery-platform.io/v1alpha1
+    kind: Database
+  resources:
+    # PostgreSQL Database
+    - name: postgresql
+      base:
+        apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+        kind: FlexibleServer
+        spec:
+          forProvider:
+            location: "East US"
+            resourceGroupName: "delivery-platform-rg"
+            administratorLogin: postgres
+            administratorPasswordSecretRef:
+              name: postgresql-admin-password
+              key: password
+            version: "15"
+            skuName: Standard_B2s
+            storageMb: 131072
+            backupRetentionDays: 7
+            geoRedundantBackup: false
+            highAvailability:
+              mode: Disabled
+            maintenanceWindow:
+              dayOfWeek: 1
+              startHour: 4
+              startMinute: 0
+            storageProfile:
+              storageAutogrow: Enabled
+              storageIops: 500
+              storageMb: 131072
+            network:
+              publicNetworkAccess: Enabled
+          writeConnectionSecretsToRef:
+            name: postgresql-connection-secret
+            namespace: default
+            keys:
+              - username
+              - password
+              - endpoint
+              - port
+              - database
+
+    # Redis Cache
+    - name: redis
+      base:
+        apiVersion: cache.azure.crossplane.io/v1beta1
+        kind: Redis
+        spec:
+          forProvider:
+            location: "East US"
+            resourceGroupName: "delivery-platform-rg"
+            skuName: Standard
+            skuFamily: C
+            skuCapacity: 1
+            enableNonSslPort: false
+            minimumTlsVersion: "1.2"
+            redisConfiguration:
+              maxmemoryPolicy: allkeys-lru
+              maxmemoryReserved: 2
+              maxmemoryDelta: 2
+          writeConnectionSecretsToRef:
+            name: redis-connection-secret
+            namespace: default
+            keys:
+              - endpoint
+              - port
+              - password
+
+---
+# Composite Resource Definition
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: databases.delivery-platform.io
+spec:
+  group: delivery-platform.io
+  names:
+    kind: Database
+    plural: databases
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum: ["azure"]
+                environment:
+                  type: string
+                  enum: ["dev", "staging", "prod"]
+                location:
+                  type: string
+                resource-group:
+                  type: string
+                subnet-id:
+                  type: string
+                private-dns-zone:
+                  type: string
+                redis-subnet-id:
+                  type: string
+                redis-static-ip:
+                  type: string
+              required:
+                - provider
+                - environment
+                - location
+                - resource-group
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string

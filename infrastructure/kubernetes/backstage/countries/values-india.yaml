@@ -1,0 +1,111 @@
+# India country-specific values for Backstage
+global:
+  country: "india"
+
+# Backstage configuration for India
+backstage:
+  app:
+    title: "MSDP Developer Portal - India"
+    organization:
+      name: "MSDP Platform - India"
+
+  # India specific templates
+  templates:
+    - name: "msdp-india-service"
+      title: "MSDP India Service"
+      description: "Create a new service for India market"
+      path: "templates/msdp-india-service"
+    - name: "msdp-fssai-compliant-service"
+      title: "MSDP FSSAI Compliant Service"
+      description: "Create a FSSAI-compliant service for India"
+      path: "templates/msdp-fssai-compliant-service"
+    - name: "msdp-india-payment-service"
+      title: "MSDP India Payment Service"
+      description: "Create an India payment processing service"
+      path: "templates/msdp-india-payment-service"
+    - name: "msdp-gst-service"
+      title: "MSDP GST Service"
+      description: "Create a GST calculation service for India"
+      path: "templates/msdp-gst-service"
+
+  # India specific integrations
+  integrations:
+    razorpay:
+      - host: "api.razorpay.com"
+        token: "{{ .Values.integrations.razorpay.token }}"
+    paytm:
+      - host: "api.paytm.com"
+        token: "{{ .Values.integrations.paytm.token }}"
+    upi:
+      - host: "api.upi.com"
+        token: "{{ .Values.integrations.upi.token }}"
+    fssai:
+      - host: "api.fssai.gov.in"
+        token: "{{ .Values.integrations.fssai.token }}"
+    gst:
+      - host: "api.gst.gov.in"
+        token: "{{ .Values.integrations.gst.token }}"
+
+# India specific configuration
+india:
+  enabled: true
+  compliance:
+    dataProtection:
+      enabled: true
+      dataRetentionDays: 1095 # 3 years
+      consentRequired: true
+      dataLocalization: true
+    foodSafety:
+      enabled: true
+      fssaiCompliance: true
+      licenseRequired: true
+      allergenTracking: true
+      temperatureMonitoring: true
+    tax:
+      enabled: true
+      gstRate: 0.18 # 18% GST
+      gstRegistrationRequired: true
+      gstIntegration: true
+    labor:
+      enabled: true
+      minimumWage: 178 # INR per day
+      workingHours: 8 # hours per day
+      holidayEntitlement: 12 # days per year
+
+  paymentMethods:
+    - name: "razorpay"
+      description: "Razorpay payment processing"
+      enabled: true
+    - name: "paytm"
+      description: "Paytm payment processing"
+      enabled: true
+    - name: "upi"
+      description: "Unified Payments Interface"
+      enabled: true
+    - name: "net-banking"
+      description: "Net banking"
+      enabled: true
+    - name: "wallet"
+      description: "Digital wallet"
+      enabled: true
+
+  localization:
+    language: "hi-IN"
+    currency: "INR"
+    timezone: "Asia/Kolkata"
+    dateFormat: "DD/MM/YYYY"
+    numberFormat: "1,23,456.78"
+
+  regulations:
+    - name: "Personal Data Protection Bill 2019"
+      description: "India Data Protection Law"
+      compliance: "required"
+    - name: "FSSAI Act 2006"
+      description: "Food Safety and Standards Authority of India"
+      compliance: "required"
+    - name: "Consumer Protection Act 2019"
+      description: "India Consumer Protection"
+      compliance: "required"
+    - name: "Industrial Disputes Act 1947"
+      description: "India Labor Law"
+      compliance: "required"

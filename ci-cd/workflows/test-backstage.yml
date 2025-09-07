@@ -1,0 +1,559 @@
+name: Test Backstage Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to test"
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      business_unit:
+        description: "Business Unit to test"
+        required: true
+        type: choice
+        options:
+          - platform-core
+          - food-delivery
+          - grocery-delivery
+          - cleaning-services
+          - repair-services
+      country:
+        description: "Country to test"
+        required: true
+        type: choice
+        options:
+          - global
+          - uk
+          - india
+      test_type:
+        description: "Type of test to run"
+        required: true
+        type: choice
+        options:
+          - health-check
+          - smoke-test
+          - integration-test
+          - load-test
+          - security-test
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  KUBECONFIG: /tmp/kubeconfig
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'health-check'
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Health check - Pods
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking pod health..."
+          kubectl get pods -n $NAMESPACE -l app=backstage
+
+          # Check if all pods are running
+          RUNNING_PODS=$(kubectl get pods -n $NAMESPACE -l app=backstage --field-selector=status.phase=Running --no-headers | wc -l)
+          TOTAL_PODS=$(kubectl get pods -n $NAMESPACE -l app=backstage --no-headers | wc -l)
+
+          echo "Running pods: $RUNNING_PODS/$TOTAL_PODS"
+
+          if [ "$RUNNING_PODS" -eq "$TOTAL_PODS" ] && [ "$TOTAL_PODS" -gt 0 ]; then
+            echo "✅ All pods are healthy"
+          else
+            echo "❌ Some pods are not healthy"
+            kubectl describe pods -n $NAMESPACE -l app=backstage
+            exit 1
+          fi
+
+      - name: Health check - Services
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking service health..."
+          kubectl get services -n $NAMESPACE -l app=backstage
+
+          # Check if services have endpoints
+          for service in $(kubectl get services -n $NAMESPACE -l app=backstage -o name); do
+            SERVICE_NAME=$(echo $service | cut -d'/' -f2)
+            ENDPOINTS=$(kubectl get endpoints $SERVICE_NAME -n $NAMESPACE -o jsonpath='{.subsets[*].addresses[*].ip}' | wc -w)
+            
+            if [ "$ENDPOINTS" -gt 0 ]; then
+              echo "✅ Service $SERVICE_NAME has $ENDPOINTS endpoints"
+            else
+              echo "❌ Service $SERVICE_NAME has no endpoints"
+              exit 1
+            fi
+          done
+
+      - name: Health check - Ingress
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking ingress health..."
+          kubectl get ingress -n $NAMESPACE -l app=backstage
+
+          # Check if ingress has an address
+          for ingress in $(kubectl get ingress -n $NAMESPACE -l app=backstage -o name); do
+            INGRESS_NAME=$(echo $ingress | cut -d'/' -f2)
+            ADDRESS=$(kubectl get ingress $INGRESS_NAME -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+            
+            if [ -n "$ADDRESS" ]; then
+              echo "✅ Ingress $INGRESS_NAME has address: $ADDRESS"
+            else
+              echo "❌ Ingress $INGRESS_NAME has no address"
+              exit 1
+            fi
+          done
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'smoke-test'
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Port forward to Backstage
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          # Start port forwarding in background
+          kubectl port-forward -n $NAMESPACE svc/backstage 8080:80 &
+          PORT_FORWARD_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 10
+
+          echo "PORT_FORWARD_PID=$PORT_FORWARD_PID" >> $GITHUB_ENV
+
+      - name: Test Backstage endpoints
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+
+          echo "🔍 Testing Backstage endpoints..."
+
+          # Test health endpoint
+          if curl -f -s http://localhost:8080/health > /dev/null; then
+            echo "✅ Health endpoint is accessible"
+          else
+            echo "❌ Health endpoint is not accessible"
+            exit 1
+          fi
+
+          # Test main page
+          if curl -f -s http://localhost:8080/ > /dev/null; then
+            echo "✅ Main page is accessible"
+          else
+            echo "❌ Main page is not accessible"
+            exit 1
+          fi
+
+          # Test API endpoint
+          if curl -f -s http://localhost:8080/api/catalog/entities > /dev/null; then
+            echo "✅ API endpoint is accessible"
+          else
+            echo "❌ API endpoint is not accessible"
+            exit 1
+          fi
+
+      - name: Cleanup port forward
+        if: always()
+        run: |
+          if [ -n "$PORT_FORWARD_PID" ]; then
+            kill $PORT_FORWARD_PID
+          fi
+
+  integration-test:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'integration-test'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install test dependencies
+        run: |
+          npm install -g @playwright/test
+          npm install axios
+
+      - name: Run integration tests
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          BU="${{ github.event.inputs.business_unit }}"
+          COUNTRY="${{ github.event.inputs.country }}"
+          NAMESPACE="backstage-${ENV}"
+
+          # Create test script
+          cat > test-backstage.js << 'EOF'
+          const axios = require('axios');
+
+          async function testBackstage() {
+            const baseUrl = 'http://localhost:8080';
+            const tests = [
+              {
+                name: 'Health Check',
+                url: `${baseUrl}/health`,
+                expectedStatus: 200
+              },
+              {
+                name: 'Main Page',
+                url: `${baseUrl}/`,
+                expectedStatus: 200
+              },
+              {
+                name: 'API Catalog',
+                url: `${baseUrl}/api/catalog/entities`,
+                expectedStatus: 200
+              },
+              {
+                name: 'Service Templates',
+                url: `${baseUrl}/api/scaffolder/v2/templates`,
+                expectedStatus: 200
+              }
+            ];
+            
+            for (const test of tests) {
+              try {
+                console.log(`Testing ${test.name}...`);
+                const response = await axios.get(test.url, { timeout: 10000 });
+                
+                if (response.status === test.expectedStatus) {
+                  console.log(`✅ ${test.name} passed`);
+                } else {
+                  console.log(`❌ ${test.name} failed - Expected ${test.expectedStatus}, got ${response.status}`);
+                  process.exit(1);
+                }
+              } catch (error) {
+                console.log(`❌ ${test.name} failed - ${error.message}`);
+                process.exit(1);
+              }
+            }
+            
+            console.log('✅ All integration tests passed');
+          }
+
+          testBackstage();
+          EOF
+
+          # Start port forwarding
+          kubectl port-forward -n $NAMESPACE svc/backstage 8080:80 &
+          PORT_FORWARD_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 15
+
+          # Run tests
+          node test-backstage.js
+
+          # Cleanup
+          kill $PORT_FORWARD_PID
+
+  load-test:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'load-test'
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+
+      - name: Run load tests
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          # Create k6 test script
+          cat > load-test.js << 'EOF'
+          import http from 'k6/http';
+          import { check, sleep } from 'k6';
+
+          export let options = {
+            stages: [
+              { duration: '2m', target: 10 }, // Ramp up to 10 users
+              { duration: '5m', target: 10 }, // Stay at 10 users
+              { duration: '2m', target: 0 },  // Ramp down to 0 users
+            ],
+            thresholds: {
+              http_req_duration: ['p(95)<2000'], // 95% of requests must complete below 2s
+              http_req_failed: ['rate<0.1'],     // Error rate must be below 10%
+            },
+          };
+
+          export default function () {
+            const baseUrl = 'http://localhost:8080';
+            
+            // Test main page
+            let response = http.get(`${baseUrl}/`);
+            check(response, {
+              'main page status is 200': (r) => r.status === 200,
+              'main page response time < 2s': (r) => r.timings.duration < 2000,
+            });
+            
+            // Test API endpoint
+            response = http.get(`${baseUrl}/api/catalog/entities`);
+            check(response, {
+              'API status is 200': (r) => r.status === 200,
+              'API response time < 1s': (r) => r.timings.duration < 1000,
+            });
+            
+            sleep(1);
+          }
+          EOF
+
+          # Start port forwarding
+          kubectl port-forward -n $NAMESPACE svc/backstage 8080:80 &
+          PORT_FORWARD_PID=$!
+
+          # Wait for port forward to be ready
+          sleep 15
+
+          # Run load tests
+          k6 run load-test.js
+
+          # Cleanup
+          kill $PORT_FORWARD_PID
+
+  security-test:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.test_type == 'security-test'
+    steps:
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --name ${{ secrets.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Security scan - Pod security
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking pod security..."
+
+          # Check if pods are running as non-root
+          for pod in $(kubectl get pods -n $NAMESPACE -l app=backstage -o name); do
+            POD_NAME=$(echo $pod | cut -d'/' -f2)
+            SECURITY_CONTEXT=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.securityContext}')
+            
+            echo "Pod: $POD_NAME"
+            echo "Security Context: $SECURITY_CONTEXT"
+            
+            # Check if running as root
+            RUN_AS_USER=$(kubectl get pod $POD_NAME -n $NAMESPACE -o jsonpath='{.spec.securityContext.runAsUser}')
+            if [ "$RUN_AS_USER" = "0" ] || [ -z "$RUN_AS_USER" ]; then
+              echo "❌ Pod $POD_NAME is running as root or no user specified"
+            else
+              echo "✅ Pod $POD_NAME is running as non-root user: $RUN_AS_USER"
+            fi
+          done
+
+      - name: Security scan - Network policies
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking network policies..."
+
+          # Check if network policies exist
+          NETWORK_POLICIES=$(kubectl get networkpolicies -n $NAMESPACE --no-headers | wc -l)
+
+          if [ "$NETWORK_POLICIES" -gt 0 ]; then
+            echo "✅ Network policies found: $NETWORK_POLICIES"
+            kubectl get networkpolicies -n $NAMESPACE
+          else
+            echo "⚠️ No network policies found"
+          fi
+
+      - name: Security scan - RBAC
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking RBAC..."
+
+          # Check service accounts
+          kubectl get serviceaccounts -n $NAMESPACE
+
+          # Check roles and role bindings
+          kubectl get roles,rolebindings -n $NAMESPACE
+
+          # Check cluster roles and cluster role bindings
+          kubectl get clusterroles,clusterrolebindings | grep backstage
+
+      - name: Security scan - Secrets
+        run: |
+          ENV="${{ github.event.inputs.environment }}"
+          NAMESPACE="backstage-${ENV}"
+
+          echo "🔍 Checking secrets..."
+
+          # Check if secrets are properly configured
+          kubectl get secrets -n $NAMESPACE -l app=backstage
+
+          # Check if secrets have proper labels
+          for secret in $(kubectl get secrets -n $NAMESPACE -l app=backstage -o name); do
+            SECRET_NAME=$(echo $secret | cut -d'/' -f2)
+            LABELS=$(kubectl get secret $SECRET_NAME -n $NAMESPACE -o jsonpath='{.metadata.labels}')
+            
+            if [ -n "$LABELS" ]; then
+              echo "✅ Secret $SECRET_NAME has labels: $LABELS"
+            else
+              echo "⚠️ Secret $SECRET_NAME has no labels"
+            fi
+          done
+
+  test-summary:
+    runs-on: ubuntu-latest
+    needs:
+      [health-check, smoke-test, integration-test, load-test, security-test]
+    if: always()
+    steps:
+      - name: Test summary
+        run: |
+          echo "🧪 Test Summary"
+          echo "==============="
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Business Unit: ${{ github.event.inputs.business_unit }}"
+          echo "Country: ${{ github.event.inputs.country }}"
+          echo "Test Type: ${{ github.event.inputs.test_type }}"
+          echo
+
+          if [ "${{ github.event.inputs.test_type }}" = "health-check" ]; then
+            if [ "${{ needs.health-check.result }}" = "success" ]; then
+              echo "✅ Health check passed"
+            else
+              echo "❌ Health check failed"
+            fi
+          elif [ "${{ github.event.inputs.test_type }}" = "smoke-test" ]; then
+            if [ "${{ needs.smoke-test.result }}" = "success" ]; then
+              echo "✅ Smoke test passed"
+            else
+              echo "❌ Smoke test failed"
+            fi
+          elif [ "${{ github.event.inputs.test_type }}" = "integration-test" ]; then
+            if [ "${{ needs.integration-test.result }}" = "success" ]; then
+              echo "✅ Integration test passed"
+            else
+              echo "❌ Integration test failed"
+            fi
+          elif [ "${{ github.event.inputs.test_type }}" = "load-test" ]; then
+            if [ "${{ needs.load-test.result }}" = "success" ]; then
+              echo "✅ Load test passed"
+            else
+              echo "❌ Load test failed"
+            fi
+          elif [ "${{ github.event.inputs.test_type }}" = "security-test" ]; then
+            if [ "${{ needs.security-test.result }}" = "success" ]; then
+              echo "✅ Security test passed"
+            else
+              echo "❌ Security test failed"
+            fi
+          fi

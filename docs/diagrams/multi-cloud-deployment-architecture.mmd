@@ -1,0 +1,132 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#ff6b6b',
+    'primaryTextColor': '#000000',
+    'primaryBorderColor': '#ff6b6b',
+    'lineColor': '#4ecdc4',
+    'secondaryColor': '#45b7d1',
+    'tertiaryColor': '#96ceb4',
+    'background': '#ffffff',
+    'mainBkg': '#ffffff',
+    'secondBkg': '#f8f9fa',
+    'tertiaryBkg': '#e9ecef'
+  },
+  'flowchart': {
+    'nodeSpacing': 50,
+    'rankSpacing': 80,
+    'curve': 'basis',
+    'padding': 20
+  },
+  'fontSize': 16,
+  'fontFamily': 'Arial, sans-serif'
+}}%%
+
+flowchart TD
+    %% Development Environment
+    subgraph DEV["🖥️ Development Environment (Local Laptop)"]
+        direction TB
+        MINIKUBE["🚀 Minikube Cluster<br/>16GB RAM, i7 CPU"]
+        
+        subgraph K8S["Kubernetes Services"]
+            CROSSPLANE["🔧 Crossplane<br/>Multi-cloud Management"]
+            ARGOCD["⚡ ArgoCD<br/>GitOps Deployment"]
+            SERVICES["📦 Microservices<br/>Local Development"]
+        end
+        
+        subgraph LOCAL["Local Services"]
+            POSTGRES["🐘 PostgreSQL<br/>Docker Container"]
+            REDIS["🔴 Redis<br/>Docker Container"]
+        end
+    end
+    
+    %% Multi-Cloud Services
+    subgraph AWS["☁️ AWS (Free Tier - 12 months)"]
+        direction TB
+        AWS_DB["🗄️ Database Services<br/>RDS PostgreSQL (20GB)<br/>ElastiCache Redis<br/>DynamoDB (25GB)"]
+        AWS_COMPUTE["⚡ Compute Services<br/>Lambda (1M requests)<br/>API Gateway (1M calls)<br/>EC2 t2.micro (750h)"]
+        AWS_STORAGE["💾 Storage Services<br/>S3 (5GB)<br/>EBS (30GB)"]
+        AWS_SERVICES["🔧 Core Services<br/>User Service<br/>Order Service<br/>Payment Service"]
+    end
+    
+    subgraph GCP["☁️ GCP ($300 Credit - 10 months)"]
+        direction TB
+        GCP_DB["🗄️ Database Services<br/>Cloud SQL (10GB)<br/>Firestore (1GB)<br/>Memorystore ($30/month)"]
+        GCP_COMPUTE["⚡ Compute Services<br/>Cloud Functions (2M requests)<br/>Cloud Run (2M requests)<br/>Compute Engine f1-micro"]
+        GCP_STORAGE["💾 Storage Services<br/>Cloud Storage (5GB)"]
+        GCP_SERVICES["🔧 Backup Services<br/>Location Service<br/>Delivery Service<br/>Analytics Service"]
+    end
+    
+    subgraph AZURE["☁️ Azure (£100 Credit - 6 months)"]
+        direction TB
+        AZURE_DB["🗄️ Database Services<br/>PostgreSQL (32GB)<br/>Cosmos DB (5GB)<br/>Redis ($15/month)"]
+        AZURE_COMPUTE["⚡ Compute Services<br/>Functions (1M requests)<br/>App Service (10 apps)<br/>VMs B1S (750h)"]
+        AZURE_STORAGE["💾 Storage Services<br/>Blob Storage (5GB)"]
+        AZURE_SERVICES["🔧 DR Services<br/>Notification Service<br/>Review Service<br/>Admin Services"]
+    end
+    
+    %% External Services
+    subgraph EXTERNAL["🌐 External Services (Free/Low-cost)"]
+        direction TB
+        GITHUB["📝 GitHub Actions<br/>2,000 minutes/month"]
+        DOCKER["🐳 Docker Hub<br/>1 private repo"]
+        CLOUDFLARE["🌍 Cloudflare<br/>CDN + DNS + SSL"]
+        SENDGRID["📧 SendGrid<br/>100 emails/day"]
+        TWILIO["📱 Twilio<br/>$15 credit"]
+        STRIPE["💳 Stripe<br/>No monthly fees"]
+        MAPS["🗺️ Google Maps<br/>$200 credit/month"]
+    end
+    
+    %% Cost Summary
+    subgraph COSTS["💰 Cost Summary"]
+        direction TB
+        DEV_COST["🆓 Development<br/>$0/month<br/>Local Minikube"]
+        AWS_COST["🆓 AWS Free Tier<br/>$0/month<br/>12 months"]
+        GCP_COST["💳 GCP Credit<br/>$30/month<br/>10 months covered"]
+        AZURE_COST["💳 Azure Credit<br/>$15/month<br/>6 months covered"]
+        TOTAL_COST["🎯 Total Cost<br/>$0-30/month<br/>for 12+ months"]
+    end
+    
+    %% Connections
+    MINIKUBE --> CROSSPLANE
+    CROSSPLANE --> ARGOCD
+    ARGOCD --> SERVICES
+    
+    CROSSPLANE --> AWS_SERVICES
+    CROSSPLANE --> GCP_SERVICES
+    CROSSPLANE --> AZURE_SERVICES
+    
+    AWS_SERVICES --> AWS_DB
+    AWS_SERVICES --> AWS_COMPUTE
+    AWS_SERVICES --> AWS_STORAGE
+    
+    GCP_SERVICES --> GCP_DB
+    GCP_SERVICES --> GCP_COMPUTE
+    GCP_SERVICES --> GCP_STORAGE
+    
+    AZURE_SERVICES --> AZURE_DB
+    AZURE_SERVICES --> AZURE_COMPUTE
+    AZURE_SERVICES --> AZURE_STORAGE
+    
+    SERVICES --> EXTERNAL
+    
+    %% Cost connections
+    DEV_COST --> TOTAL_COST
+    AWS_COST --> TOTAL_COST
+    GCP_COST --> TOTAL_COST
+    AZURE_COST --> TOTAL_COST
+    
+    %% Styling
+    classDef devClass fill:#e1f5fe,stroke:#01579b,stroke-width:3px,color:#000000
+    classDef awsClass fill:#fff3e0,stroke:#e65100,stroke-width:3px,color:#000000
+    classDef gcpClass fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000000
+    classDef azureClass fill:#f3e5f5,stroke:#4a148c,stroke-width:3px,color:#000000
+    classDef externalClass fill:#fce4ec,stroke:#880e4f,stroke-width:3px,color:#000000
+    classDef costClass fill:#fff8e1,stroke:#f57f17,stroke-width:3px,color:#000000
+    
+    class DEV,K8S,LOCAL devClass
+    class AWS,AWS_DB,AWS_COMPUTE,AWS_STORAGE,AWS_SERVICES awsClass
+    class GCP,GCP_DB,GCP_COMPUTE,GCP_STORAGE,GCP_SERVICES gcpClass
+    class AZURE,AZURE_DB,AZURE_COMPUTE,AZURE_STORAGE,AZURE_SERVICES azureClass
+    class EXTERNAL externalClass
+    class COSTS,DEV_COST,AWS_COST,GCP_COST,AZURE_COST,TOTAL_COST costClass

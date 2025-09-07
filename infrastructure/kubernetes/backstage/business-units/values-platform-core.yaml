@@ -1,0 +1,89 @@
+# Platform Core business unit values for Backstage
+global:
+  businessUnit: "platform-core"
+
+# Backstage configuration for platform core
+backstage:
+  app:
+    title: "MSDP Platform Core - Developer Portal"
+    organization:
+      name: "MSDP Platform Core"
+
+  # Platform core specific templates
+  templates:
+    - name: "msdp-platform-service"
+      title: "MSDP Platform Service"
+      description: "Create a new platform service (user, payment, location, etc.)"
+      path: "templates/msdp-platform-service"
+    - name: "msdp-shared-library"
+      title: "MSDP Shared Library"
+      description: "Create a new shared library for the platform"
+      path: "templates/msdp-shared-library"
+    - name: "msdp-api-gateway"
+      title: "MSDP API Gateway"
+      description: "Create a new API Gateway configuration"
+      path: "templates/msdp-api-gateway"
+    - name: "msdp-database-schema"
+      title: "MSDP Database Schema"
+      description: "Create a new database schema for platform services"
+      path: "templates/msdp-database-schema"
+
+  # Platform core specific integrations
+  integrations:
+    crossplane:
+      - host: "crossplane.{{ .Values.global.environment }}.msdp.com"
+        username: "{{ .Values.integrations.crossplane.username }}"
+        password: "{{ .Values.integrations.crossplane.password }}"
+    argocd:
+      - host: "argocd.{{ .Values.global.environment }}.msdp.com"
+        username: "{{ .Values.integrations.argocd.username }}"
+        password: "{{ .Values.integrations.argocd.password }}"
+    monitoring:
+      - host: "prometheus.{{ .Values.global.environment }}.msdp.com"
+        username: "{{ .Values.integrations.monitoring.username }}"
+        password: "{{ .Values.integrations.monitoring.password }}"
+
+# Platform core specific configuration
+platformCore:
+  enabled: true
+  services:
+    - name: "user-service"
+      description: "Unified user management service"
+      owner: "platform-team"
+    - name: "payment-service"
+      description: "Cross-BU payment processing service"
+      owner: "platform-team"
+    - name: "location-service"
+      description: "GPS and geospatial services"
+      owner: "platform-team"
+    - name: "notification-service"
+      description: "Unified notification service"
+      owner: "platform-team"
+    - name: "loyalty-service"
+      description: "Cross-BU loyalty programs"
+      owner: "platform-team"
+    - name: "policy-engine"
+      description: "Country/BU-specific policy engine"
+      owner: "platform-team"
+
+  libraries:
+    - name: "msdp-common"
+      description: "Common utilities and helpers"
+      owner: "platform-team"
+    - name: "msdp-database"
+      description: "Database utilities and migrations"
+      owner: "platform-team"
+    - name: "msdp-messaging"
+      description: "Event handling and messaging"
+      owner: "platform-team"
+    - name: "msdp-security"
+      description: "Authentication and encryption"
+      owner: "platform-team"
+
+  apis:
+    - name: "msdp-api-gateway"
+      description: "Main API Gateway for all services"
+      owner: "platform-team"
+    - name: "msdp-shared-api"
+      description: "Shared API components"
+      owner: "platform-team"

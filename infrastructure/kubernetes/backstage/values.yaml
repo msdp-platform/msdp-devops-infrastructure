@@ -1,0 +1,279 @@
+# Default values for backstage
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global configuration
+global:
+  environment: "dev"
+  businessUnit: "platform-core"
+  country: "global"
+  namespace: "backstage"
+
+# Backstage application configuration
+backstage:
+  # Application metadata
+  app:
+    title: "MSDP Developer Portal"
+    baseUrl: "https://backstage.{{ .Values.global.environment }}.msdp.com"
+    organization:
+      name: "MSDP Platform"
+      logo: "/logo.png"
+
+  # Backend configuration
+  backend:
+    baseUrl: "https://backstage-api.{{ .Values.global.environment }}.msdp.com"
+    cors:
+      origin: "https://backstage.{{ .Values.global.environment }}.msdp.com"
+      methods: ["GET", "HEAD", "PATCH", "POST", "PUT", "DELETE"]
+      credentials: true
+
+  # Database configuration
+  database:
+    client: pg
+    connection:
+      host: "{{ .Values.postgres.host }}"
+      port: "{{ .Values.postgres.port }}"
+      user: "{{ .Values.postgres.user }}"
+      password: "{{ .Values.postgres.password }}"
+      database: "{{ .Values.postgres.database }}"
+      ssl: { rejectUnauthorized: false }
+
+  # Cache configuration
+  cache:
+    store: redis
+    connection: "redis://{{ .Values.redis.host }}:{{ .Values.redis.port }}"
+
+  # Authentication configuration
+  auth:
+    providers:
+      github:
+        development:
+          clientId: "{{ .Values.auth.github.clientId }}"
+          clientSecret: "{{ .Values.auth.github.clientSecret }}"
+      microsoft:
+        development:
+          clientId: "{{ .Values.auth.microsoft.clientId }}"
+          clientSecret: "{{ .Values.auth.microsoft.clientSecret }}"
+          tenantId: "{{ .Values.auth.microsoft.tenantId }}"
+    session:
+      secret: "{{ .Values.auth.session.secret }}"
+
+  # Integrations
+  integrations:
+    github:
+      - host: "github.com"
+        token: "{{ .Values.integrations.github.token }}"
+    azure:
+      - host: "dev.azure.com"
+        token: "{{ .Values.integrations.azure.token }}"
+    argocd:
+      - host: "argocd.{{ .Values.global.environment }}.msdp.com"
+        username: "{{ .Values.integrations.argocd.username }}"
+        password: "{{ .Values.integrations.argocd.password }}"
+
+  # Multi-BU configuration
+  businessUnit: "{{ .Values.global.businessUnit }}"
+  country: "{{ .Values.global.country }}"
+  supportedBusinessUnits:
+    [
+      "food-delivery",
+      "grocery-delivery",
+      "cleaning-services",
+      "repair-services",
+    ]
+  supportedCountries: ["uk", "india"]
+
+  # Service templates
+  templates:
+    - name: "msdp-microservice"
+      title: "MSDP Microservice"
+      description: "Create a new microservice for MSDP platform"
+      path: "templates/msdp-microservice"
+    - name: "msdp-country-service"
+      title: "MSDP Country Service"
+      description: "Create a new service for specific country and business unit"
+      path: "templates/msdp-country-service"
+    - name: "msdp-business-unit-service"
+      title: "MSDP Business Unit Service"
+      description: "Create a new service for specific business unit"
+      path: "templates/msdp-business-unit-service"
+
+# PostgreSQL configuration
+postgres:
+  enabled: false # Use external PostgreSQL from Crossplane
+  host: ""
+  port: "5432"
+  user: ""
+  password: ""
+  database: ""
+
+# Redis configuration
+redis:
+  enabled: false # Use external Redis if needed
+  host: ""
+  port: "6379"
+
+# Authentication configuration
+auth:
+  github:
+    clientId: ""
+    clientSecret: ""
+  microsoft:
+    clientId: ""
+    clientSecret: ""
+    tenantId: ""
+  session:
+    secret: ""
+
+# Integrations configuration
+integrations:
+  github:
+    token: ""
+  azure:
+    token: ""
+  argocd:
+    username: ""
+    password: ""
+
+# Kubernetes deployment configuration
+deployment:
+  replicas: 2
+  image:
+    repository: "backstage/backstage"
+    tag: "latest"
+    pullPolicy: "IfNotPresent"
+
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  # Environment variables
+  env:
+    - name: "NODE_ENV"
+      value: "production"
+    - name: "BACKSTAGE_APP_TITLE"
+      value: "{{ .Values.backstage.app.title }}"
+    - name: "BACKSTAGE_APP_BASE_URL"
+      value: "{{ .Values.backstage.app.baseUrl }}"
+    - name: "BACKSTAGE_BACKEND_BASE_URL"
+      value: "{{ .Values.backstage.backend.baseUrl }}"
+
+# Service configuration
+service:
+  type: "ClusterIP"
+  port: 80
+  targetPort: 7007
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+  hosts:
+    - host: "backstage.{{ .Values.global.environment }}.msdp.com"
+      paths:
+        - path: "/"
+          pathType: "Prefix"
+  tls:
+    - secretName: "backstage-tls"
+      hosts:
+        - "backstage.{{ .Values.global.environment }}.msdp.com"
+
+# ConfigMap for Backstage configuration
+configMap:
+  enabled: true
+  data:
+    app-config.yaml: |
+      app:
+        title: "{{ .Values.backstage.app.title }}"
+        baseUrl: "{{ .Values.backstage.app.baseUrl }}"
+        organization:
+          name: "{{ .Values.backstage.app.organization.name }}"
+          logo: "{{ .Values.backstage.app.organization.logo }}"
+
+      backend:
+        baseUrl: "{{ .Values.backstage.backend.baseUrl }}"
+        cors:
+          origin: "{{ .Values.backstage.backend.cors.origin }}"
+          methods: {{ .Values.backstage.backend.cors.methods | toJson }}
+          credentials: {{ .Values.backstage.backend.cors.credentials }}
+
+      database:
+        client: "{{ .Values.backstage.database.client }}"
+        connection:
+          host: "{{ .Values.backstage.database.connection.host }}"
+          port: "{{ .Values.backstage.database.connection.port }}"
+          user: "{{ .Values.backstage.database.connection.user }}"
+          password: "{{ .Values.backstage.database.connection.password }}"
+          database: "{{ .Values.backstage.database.connection.database }}"
+          ssl: {{ .Values.backstage.database.connection.ssl | toJson }}
+
+      cache:
+        store: "{{ .Values.backstage.cache.store }}"
+        connection: "{{ .Values.backstage.cache.connection }}"
+
+      auth:
+        providers: {{ .Values.backstage.auth.providers | toJson }}
+        session:
+          secret: "{{ .Values.backstage.auth.session.secret }}"
+
+      integrations:
+        github: {{ .Values.backstage.integrations.github | toJson }}
+        azure: {{ .Values.backstage.integrations.azure | toJson }}
+        argocd: {{ .Values.backstage.integrations.argocd | toJson }}
+
+      # Multi-BU specific configuration
+      msdp:
+        businessUnit: "{{ .Values.backstage.businessUnit }}"
+        country: "{{ .Values.backstage.country }}"
+        supportedBusinessUnits: {{ .Values.backstage.supportedBusinessUnits | toJson }}
+        supportedCountries: {{ .Values.backstage.supportedCountries | toJson }}
+
+      # Service templates
+      templates: {{ .Values.backstage.templates | toJson }}
+
+# Secrets configuration
+secrets:
+  enabled: true
+  data:
+    postgres-password: ""
+    github-token: ""
+    azure-token: ""
+    argocd-password: ""
+    session-secret: ""
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    labels:
+      app: backstage
+    interval: "30s"
+    scrapeTimeout: "10s"
+    path: "/health"
+    port: "http"
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80

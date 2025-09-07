@@ -1,0 +1,128 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#2E8B57',
+    'primaryTextColor': '#000000',
+    'primaryBorderColor': '#1B5E20',
+    'lineColor': '#FF6B35',
+    'secondaryColor': '#4A90E2',
+    'tertiaryColor': '#F5A623',
+    'background': '#ffffff',
+    'mainBkg': '#f8f9fa',
+    'secondBkg': '#e9ecef',
+    'tertiaryBkg': '#dee2e6',
+    'nodeBkg': '#ffffff',
+    'nodeBorder': '#2E8B57',
+    'clusterBkg': '#f0f8ff',
+    'clusterBorder': '#4A90E2',
+    'defaultLinkColor': '#FF6B35',
+    'titleColor': '#1B5E20',
+    'textColor': '#000000',
+    'nodeTextColor': '#000000',
+    'clusterTextColor': '#000000'
+  },
+  'flowchart': {
+    'nodeSpacing': 80,
+    'rankSpacing': 120,
+    'curve': 'basis',
+    'padding': 35,
+    'useMaxWidth': true,
+    'htmlLabels': true,
+    'diagramPadding': 30
+  },
+  'fontFamily': 'Segoe UI, Arial, sans-serif',
+  'fontSize': 18,
+  'fontWeight': '600'
+}}%%
+graph TB
+    subgraph APP["🖥️ APPLICATION LAYER"]
+        API["<b>🌐 API Gateway</b><br/><span style='color:#666;font-size:14px'>Port: 3001</span>"]
+        AUTH["<b>🔐 Authentication Service</b><br/><span style='color:#666;font-size:14px'>Port: 3002</span>"]
+        ORDER["<b>📦 Order Service</b><br/><span style='color:#666;font-size:14px'>Port: 3003</span>"]
+        PAYMENT["<b>💳 Payment Service</b><br/><span style='color:#666;font-size:14px'>Port: 3004</span>"]
+        DELIVERY["<b>🚚 Delivery Service</b><br/><span style='color:#666;font-size:14px'>Port: 3005</span>"]
+        NOTIFICATION["<b>📱 Notification Service</b><br/><span style='color:#666;font-size:14px'>Port: 3006</span>"]
+    end
+    
+    subgraph DB["🗄️ DATABASE LAYER"]
+        subgraph PRIMARY["📊 PRIMARY DATABASE"]
+            POSTGRES[("<b>🐘 PostgreSQL 15+</b><br/><span style='color:#666;font-size:14px'>with PostGIS</span><br/><span style='color:#666;font-size:14px'>Port: 5432</span>")]
+            USERS["<b>👥 Users & Roles</b>"]
+            ORDERS["<b>📋 Orders & Items</b>"]
+            MERCHANTS["<b>🏪 Merchants & Products</b>"]
+            LOCATIONS["<b>📍 Locations & Zones</b>"]
+            PAYMENTS["<b>💰 Payments</b>"]
+            TRACKING["<b>📍 Delivery Tracking</b>"]
+            REVIEWS["<b>⭐ Reviews & Ratings</b>"]
+            NOTIFICATIONS["<b>🔔 Notifications</b>"]
+            ANALYTICS["<b>📈 Analytics Events</b>"]
+        end
+        
+        subgraph CACHE["⚡ CACHE LAYER"]
+            REDIS[("<b>🔴 Redis 7+</b><br/><span style='color:#666;font-size:14px'>Port: 6379</span>")]
+            SESSIONS["<b>🔑 User Sessions</b>"]
+            CACHE_DATA["<b>💾 API Response Cache</b>"]
+            REALTIME["<b>⚡ Real-time Data</b>"]
+            RATELIMIT["<b>🚦 Rate Limiting</b>"]
+        end
+        
+        subgraph SEARCH["🔍 SEARCH ENGINE"]
+            ELASTIC[("<b>🔎 Elasticsearch 8.8+</b><br/><span style='color:#666;font-size:14px'>Port: 9200</span>")]
+            SEARCH_ORDERS["<b>🔍 Order Search</b>"]
+            SEARCH_PRODUCTS["<b>🔍 Product Search</b>"]
+            SEARCH_MERCHANTS["<b>🔍 Merchant Search</b>"]
+            SEARCH_USERS["<b>🔍 User Search</b>"]
+            SEARCH_ANALYTICS["<b>🔍 Analytics Search</b>"]
+        end
+    end
+    
+    subgraph EXTERNAL["🌐 EXTERNAL SERVICES"]
+        STRIPE["<b>💳 Stripe Payment</b><br/><span style='color:#666;font-size:12px'>API</span>"]
+        MAPS["<b>🗺️ Google Maps</b><br/><span style='color:#666;font-size:12px'>API</span>"]
+        SMS["<b>📱 Twilio SMS</b><br/><span style='color:#666;font-size:12px'>API</span>"]
+        EMAIL["<b>📧 SendGrid Email</b><br/><span style='color:#666;font-size:12px'>API</span>"]
+    end
+    
+    %% Connections
+    API -.->|"<b>HTTP/HTTPS</b>"| POSTGRES
+    API -.->|"<b>Redis Protocol</b>"| REDIS
+    API -.->|"<b>HTTP</b>"| ELASTIC
+    
+    AUTH -.->|"<b>SQL</b>"| POSTGRES
+    AUTH -.->|"<b>Redis Protocol</b>"| REDIS
+    
+    ORDER -.->|"<b>SQL</b>"| POSTGRES
+    ORDER -.->|"<b>Redis Protocol</b>"| REDIS
+    ORDER -.->|"<b>HTTP</b>"| ELASTIC
+    
+    PAYMENT -.->|"<b>SQL</b>"| POSTGRES
+    PAYMENT -.->|"<b>HTTPS</b>"| STRIPE
+    
+    DELIVERY -.->|"<b>SQL</b>"| POSTGRES
+    DELIVERY -.->|"<b>HTTPS</b>"| MAPS
+    
+    NOTIFICATION -.->|"<b>SQL</b>"| POSTGRES
+    NOTIFICATION -.->|"<b>HTTPS</b>"| SMS
+    NOTIFICATION -.->|"<b>HTTPS</b>"| EMAIL
+    
+    %% Internal connections
+    POSTGRES --> USERS
+    POSTGRES --> ORDERS
+    POSTGRES --> MERCHANTS
+    POSTGRES --> LOCATIONS
+    POSTGRES --> PAYMENTS
+    POSTGRES --> TRACKING
+    POSTGRES --> REVIEWS
+    POSTGRES --> NOTIFICATIONS
+    POSTGRES --> ANALYTICS
+    
+    REDIS --> SESSIONS
+    REDIS --> CACHE_DATA
+    REDIS --> REALTIME
+    REDIS --> RATELIMIT
+    
+    ELASTIC --> SEARCH_ORDERS
+    ELASTIC --> SEARCH_PRODUCTS
+    ELASTIC --> SEARCH_MERCHANTS
+    ELASTIC --> SEARCH_USERS
+    ELASTIC --> SEARCH_ANALYTICS

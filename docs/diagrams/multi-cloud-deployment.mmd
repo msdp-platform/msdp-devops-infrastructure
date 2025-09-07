@@ -1,0 +1,200 @@
+%%{init: {
+  'theme': 'base',
+  'themeVariables': {
+    'primaryColor': '#1f77b4',
+    'primaryTextColor': '#000000',
+    'primaryBorderColor': '#0d47a1',
+    'lineColor': '#ff7f0e',
+    'secondaryColor': '#2ca02c',
+    'tertiaryColor': '#d62728',
+    'background': '#ffffff',
+    'mainBkg': '#f8f9fa',
+    'secondBkg': '#e9ecef',
+    'tertiaryBkg': '#dee2e6',
+    'nodeBkg': '#ffffff',
+    'nodeBorder': '#1f77b4',
+    'clusterBkg': '#f0f8ff',
+    'clusterBorder': '#4A90E2',
+    'defaultLinkColor': '#ff7f0e',
+    'titleColor': '#0d47a1',
+    'textColor': '#000000',
+    'nodeTextColor': '#000000',
+    'clusterTextColor': '#000000'
+  },
+  'flowchart': {
+    'nodeSpacing': 80,
+    'rankSpacing': 120,
+    'curve': 'basis',
+    'padding': 35,
+    'useMaxWidth': true,
+    'htmlLabels': true,
+    'diagramPadding': 30
+  },
+  'fontFamily': 'Segoe UI, Arial, sans-serif',
+  'fontSize': 18,
+  'fontWeight': '600'
+}}%%
+graph TB
+    subgraph CI_CD["🚀 CI/CD PIPELINE"]
+        GITHUB["<b>📦 GitHub Actions</b><br/><span style='color:#666;font-size:14px'>Source Control & Triggers</span>"]
+        BUILD["<b>🔨 Build Pipeline</b><br/><span style='color:#666;font-size:14px'>Docker, Tests, Security</span>"]
+        REGISTRY["<b>📋 Container Registry</b><br/><span style='color:#666;font-size:14px'>Multi-Cloud Registry</span>"]
+        DEPLOY["<b>🚀 Deployment Engine</b><br/><span style='color:#666;font-size:14px'>ArgoCD + Flux</span>"]
+    end
+    
+    subgraph AWS["☁️ AWS CLOUD"]
+        subgraph AWS_REGIONS["🌍 AWS REGIONS"]
+            subgraph AWS_US_EAST["📍 US-East-1 (Virginia)"]
+                AWS_EKS_1["<b>☸️ EKS Cluster</b><br/><span style='color:#666;font-size:14px'>Production</span>"]
+                AWS_RDS_1["<b>🐘 RDS PostgreSQL</b><br/><span style='color:#666;font-size:14px'>Multi-AZ</span>"]
+                AWS_ELASTIC_1["<b>🔎 OpenSearch</b><br/><span style='color:#666;font-size:14px'>Managed</span>"]
+                AWS_REDIS_1["<b>🔴 ElastiCache</b><br/><span style='color:#666;font-size:14px'>Redis Cluster</span>"]
+                AWS_LAMBDA_1["<b>⚡ Lambda Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+            
+            subgraph AWS_US_WEST["📍 US-West-2 (Oregon)"]
+                AWS_EKS_2["<b>☸️ EKS Cluster</b><br/><span style='color:#666;font-size:14px'>DR/Backup</span>"]
+                AWS_RDS_2["<b>🐘 RDS PostgreSQL</b><br/><span style='color:#666;font-size:14px'>Read Replica</span>"]
+                AWS_ELASTIC_2["<b>🔎 OpenSearch</b><br/><span style='color:#666;font-size:14px'>Cross-Region</span>"]
+                AWS_REDIS_2["<b>🔴 ElastiCache</b><br/><span style='color:#666;font-size:14px'>Global Datastore</span>"]
+                AWS_LAMBDA_2["<b>⚡ Lambda Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+            
+            subgraph AWS_EU["📍 EU-West-1 (Ireland)"]
+                AWS_EKS_3["<b>☸️ EKS Cluster</b><br/><span style='color:#666;font-size:14px'>EU Region</span>"]
+                AWS_RDS_3["<b>🐘 RDS PostgreSQL</b><br/><span style='color:#666;font-size:14px'>EU Data</span>"]
+                AWS_ELASTIC_3["<b>🔎 OpenSearch</b><br/><span style='color:#666;font-size:14px'>EU Search</span>"]
+                AWS_REDIS_3["<b>🔴 ElastiCache</b><br/><span style='color:#666;font-size:14px'>EU Cache</span>"]
+                AWS_LAMBDA_3["<b>⚡ Lambda Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+        end
+        
+        subgraph AWS_SERVICES["🔧 AWS SERVICES"]
+            AWS_ALB["<b>⚖️ Application Load Balancer</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            AWS_CLOUDFRONT["<b>🌐 CloudFront CDN</b><br/><span style='color:#666;font-size:14px'>Global Edge</span>"]
+            AWS_ROUTE53["<b>🌍 Route 53</b><br/><span style='color:#666;font-size:14px'>DNS & Health Checks</span>"]
+            AWS_SECRETS["<b>🔐 Secrets Manager</b><br/><span style='color:#666;font-size:14px'>Centralized</span>"]
+            AWS_IAM["<b>🛡️ IAM & KMS</b><br/><span style='color:#666;font-size:14px'>Security</span>"]
+        end
+    end
+    
+    subgraph GCP["☁️ GOOGLE CLOUD"]
+        subgraph GCP_REGIONS["🌍 GCP REGIONS"]
+            subgraph GCP_US_CENTRAL["📍 US-Central1 (Iowa)"]
+                GCP_GKE_1["<b>☸️ GKE Cluster</b><br/><span style='color:#666;font-size:14px'>Production</span>"]
+                GCP_CLOUD_SQL_1["<b>🐘 Cloud SQL</b><br/><span style='color:#666;font-size:14px'>PostgreSQL</span>"]
+                GCP_ELASTIC_1["<b>🔎 Elasticsearch</b><br/><span style='color:#666;font-size:14px'>GKE Managed</span>"]
+                GCP_REDIS_1["<b>🔴 Memorystore</b><br/><span style='color:#666;font-size:14px'>Redis</span>"]
+                GCP_CLOUD_FUNCTIONS_1["<b>⚡ Cloud Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+            
+            subgraph GCP_ASIA["📍 Asia-Southeast1 (Singapore)"]
+                GCP_GKE_2["<b>☸️ GKE Cluster</b><br/><span style='color:#666;font-size:14px'>Asia Pacific</span>"]
+                GCP_CLOUD_SQL_2["<b>🐘 Cloud SQL</b><br/><span style='color:#666;font-size:14px'>Regional</span>"]
+                GCP_ELASTIC_2["<b>🔎 Elasticsearch</b><br/><span style='color:#666;font-size:14px'>Regional</span>"]
+                GCP_REDIS_2["<b>🔴 Memorystore</b><br/><span style='color:#666;font-size:14px'>Regional</span>"]
+                GCP_CLOUD_FUNCTIONS_2["<b>⚡ Cloud Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+        end
+        
+        subgraph GCP_SERVICES["🔧 GCP SERVICES"]
+            GCP_LOAD_BALANCER["<b>⚖️ Global Load Balancer</b><br/><span style='color:#666;font-size:14px'>HTTP(S)</span>"]
+            GCP_CDN["<b>🌐 Cloud CDN</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            GCP_DNS["<b>🌍 Cloud DNS</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            GCP_SECRET_MANAGER["<b>🔐 Secret Manager</b><br/><span style='color:#666;font-size:14px'>Centralized</span>"]
+            GCP_IAM["<b>🛡️ IAM & KMS</b><br/><span style='color:#666;font-size:14px'>Security</span>"]
+        end
+    end
+    
+    subgraph AZURE["☁️ MICROSOFT AZURE"]
+        subgraph AZURE_REGIONS["🌍 AZURE REGIONS"]
+            subgraph AZURE_US_EAST["📍 East US (Virginia)"]
+                AZURE_AKS_1["<b>☸️ AKS Cluster</b><br/><span style='color:#666;font-size:14px'>Production</span>"]
+                AZURE_POSTGRES_1["<b>🐘 Azure Database</b><br/><span style='color:#666;font-size:14px'>PostgreSQL</span>"]
+                AZURE_ELASTIC_1["<b>🔎 Elasticsearch</b><br/><span style='color:#666;font-size:14px'>AKS Managed</span>"]
+                AZURE_REDIS_1["<b>🔴 Azure Cache</b><br/><span style='color:#666;font-size:14px'>Redis</span>"]
+                AZURE_FUNCTIONS_1["<b>⚡ Azure Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+            
+            subgraph AZURE_EUROPE["📍 West Europe (Netherlands)"]
+                AZURE_AKS_2["<b>☸️ AKS Cluster</b><br/><span style='color:#666;font-size:14px'>EU Region</span>"]
+                AZURE_POSTGRES_2["<b>🐘 Azure Database</b><br/><span style='color:#666;font-size:14px'>EU Data</span>"]
+                AZURE_ELASTIC_2["<b>🔎 Elasticsearch</b><br/><span style='color:#666;font-size:14px'>EU Search</span>"]
+                AZURE_REDIS_2["<b>🔴 Azure Cache</b><br/><span style='color:#666;font-size:14px'>EU Cache</span>"]
+                AZURE_FUNCTIONS_2["<b>⚡ Azure Functions</b><br/><span style='color:#666;font-size:14px'>Serverless</span>"]
+            end
+        end
+        
+        subgraph AZURE_SERVICES["🔧 AZURE SERVICES"]
+            AZURE_LOAD_BALANCER["<b>⚖️ Load Balancer</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            AZURE_CDN["<b>🌐 Azure CDN</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            AZURE_DNS["<b>🌍 Azure DNS</b><br/><span style='color:#666;font-size:14px'>Global</span>"]
+            AZURE_KEY_VAULT["<b>🔐 Key Vault</b><br/><span style='color:#666;font-size:14px'>Centralized</span>"]
+            AZURE_IAM["<b>🛡️ Azure AD & RBAC</b><br/><span style='color:#666;font-size:14px'>Security</span>"]
+        end
+    end
+    
+    subgraph MONITORING["📊 MONITORING & OBSERVABILITY"]
+        PROMETHEUS["<b>📈 Prometheus</b><br/><span style='color:#666;font-size:14px'>Multi-Cloud</span>"]
+        GRAFANA["<b>📊 Grafana</b><br/><span style='color:#666;font-size:14px'>Dashboards</span>"]
+        JAEGER["<b>🔍 Jaeger</b><br/><span style='color:#666;font-size:14px'>Distributed Tracing</span>"]
+        ELK["<b>📝 ELK Stack</b><br/><span style='color:#666;font-size:14px'>Logging</span>"]
+        ALERTMANAGER["<b>🚨 AlertManager</b><br/><span style='color:#666;font-size:14px'>Multi-Cloud</span>"]
+    end
+    
+    subgraph SECURITY["🛡️ SECURITY & COMPLIANCE"]
+        VAULT["<b>🔐 HashiCorp Vault</b><br/><span style='color:#666;font-size:14px'>Secrets Management</span>"]
+        FALCO["<b>🔍 Falco</b><br/><span style='color:#666;font-size:14px'>Runtime Security</span>"]
+        TRIVY["<b>🔒 Trivy</b><br/><span style='color:#666;font-size:14px'>Vulnerability Scanning</span>"]
+        OPA["<b>📋 Open Policy Agent</b><br/><span style='color:#666;font-size:14px'>Policy Engine</span>"]
+        CIS_BENCHMARK["<b>✅ CIS Benchmark</b><br/><span style='color:#666;font-size:14px'>Compliance</span>"]
+    end
+    
+    %% CI/CD Connections
+    GITHUB --> BUILD
+    BUILD --> REGISTRY
+    REGISTRY --> DEPLOY
+    
+    %% Deployment to Clouds
+    DEPLOY --> AWS_EKS_1
+    DEPLOY --> AWS_EKS_2
+    DEPLOY --> AWS_EKS_3
+    DEPLOY --> GCP_GKE_1
+    DEPLOY --> GCP_GKE_2
+    DEPLOY --> AZURE_AKS_1
+    DEPLOY --> AZURE_AKS_2
+    
+    %% Load Balancer Connections
+    AWS_ALB --> AWS_EKS_1
+    AWS_ALB --> AWS_EKS_2
+    GCP_LOAD_BALANCER --> GCP_GKE_1
+    GCP_LOAD_BALANCER --> GCP_GKE_2
+    AZURE_LOAD_BALANCER --> AZURE_AKS_1
+    AZURE_LOAD_BALANCER --> AZURE_AKS_2
+    
+    %% CDN Connections
+    AWS_CLOUDFRONT --> AWS_ALB
+    GCP_CDN --> GCP_LOAD_BALANCER
+    AZURE_CDN --> AZURE_LOAD_BALANCER
+    
+    %% DNS Connections
+    AWS_ROUTE53 --> AWS_CLOUDFRONT
+    GCP_DNS --> GCP_CDN
+    AZURE_DNS --> AZURE_CDN
+    
+    %% Monitoring Connections
+    PROMETHEUS --> AWS_EKS_1
+    PROMETHEUS --> GCP_GKE_1
+    PROMETHEUS --> AZURE_AKS_1
+    GRAFANA --> PROMETHEUS
+    JAEGER --> AWS_EKS_1
+    JAEGER --> GCP_GKE_1
+    JAEGER --> AZURE_AKS_1
+    
+    %% Security Connections
+    VAULT --> AWS_EKS_1
+    VAULT --> GCP_GKE_1
+    VAULT --> AZURE_AKS_1
+    FALCO --> AWS_EKS_1
+    FALCO --> GCP_GKE_1
+    FALCO --> AZURE_AKS_1

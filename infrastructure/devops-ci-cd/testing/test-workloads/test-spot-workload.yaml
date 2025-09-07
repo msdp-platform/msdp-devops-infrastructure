@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-spot-workload
+  namespace: default
+  labels:
+    app: test-spot-workload
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: test-spot-workload
+  template:
+    metadata:
+      labels:
+        app: test-spot-workload
+    spec:
+      # This will trigger Karpenter to provision Spot nodes
+      nodeSelector:
+        cost-optimization: "true"
+      tolerations:
+        - key: karpenter.sh/capacity-type
+          operator: Equal
+          value: spot
+          effect: NoSchedule
+      containers:
+      - name: nginx
+        image: nginx:1.21
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"

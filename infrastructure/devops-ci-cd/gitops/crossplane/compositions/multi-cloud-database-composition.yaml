@@ -1,0 +1,306 @@
+# Multi-Cloud Database Composition
+# Supports AWS, GCP, and Azure for database infrastructure
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: multi-cloud-database-composition
+  labels:
+    provider: multi-cloud
+    service: database
+spec:
+  compositeTypeRef:
+    apiVersion: delivery-platform.io/v1alpha1
+    kind: Database
+  resources:
+    # AWS RDS PostgreSQL
+    - name: aws-postgresql
+      base:
+        apiVersion: rds.aws.crossplane.io/v1alpha1
+        kind: DBInstance
+        spec:
+          forProvider:
+            dbInstanceClass: db.t3.medium
+            engine: postgres
+            engineVersion: "15.4"
+            allocatedStorage: 100
+            storageType: gp2
+            backupRetentionPeriod: 7
+            backupWindow: "03:00-04:00"
+            maintenanceWindow: "Mon:04:00-Mon:05:00"
+            skipFinalSnapshot: false
+            deletionProtection: false
+            vpcSecurityGroupIds:
+              - !Ref aws-security-group
+            dbSubnetGroupName: !Ref aws-db-subnet-group
+            masterUsername: postgres
+            masterPasswordSecretRef:
+              name: postgresql-admin-password
+              key: password
+          writeConnectionSecretsToRef:
+            name: aws-postgresql-connection-secret
+            namespace: default
+            keys:
+              - username
+              - password
+              - endpoint
+              - port
+              - database
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+    # AWS ElastiCache Redis
+    - name: aws-redis
+      base:
+        apiVersion: elasticache.aws.crossplane.io/v1alpha1
+        kind: ReplicationGroup
+        spec:
+          forProvider:
+            nodeType: cache.t3.micro
+            port: 6379
+            parameterGroupName: default.redis7
+            numCacheClusters: 2
+            subnetGroupName: !Ref aws-cache-subnet-group
+            securityGroupIds:
+              - !Ref aws-cache-security-group
+            atRestEncryptionEnabled: true
+            transitEncryptionEnabled: true
+          writeConnectionSecretsToRef:
+            name: aws-redis-connection-secret
+            namespace: default
+            keys:
+              - endpoint
+              - port
+              - password
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+    # GCP Cloud SQL PostgreSQL
+    - name: gcp-postgresql
+      base:
+        apiVersion: sql.gcp.crossplane.io/v1beta1
+        kind: DatabaseInstance
+        spec:
+          forProvider:
+            databaseVersion: POSTGRES_15
+            region: us-central1
+            settings:
+              - tier: db-standard-1
+                diskSize: 100
+                diskType: PD_SSD
+                backupConfiguration:
+                  - enabled: true
+                    startTime: "03:00"
+                    location: us-central1
+                maintenanceWindow:
+                  - day: 1
+                    hour: 4
+                ipConfiguration:
+                  - ipv4Enabled: false
+                    privateNetwork: !Ref gcp-private-network
+                    authorizedNetworks: []
+            masterInstanceName: ""
+            replicaConfiguration: []
+          writeConnectionSecretsToRef:
+            name: gcp-postgresql-connection-secret
+            namespace: default
+            keys:
+              - username
+              - password
+              - endpoint
+              - port
+              - database
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+    # GCP Memorystore Redis
+    - name: gcp-redis
+      base:
+        apiVersion: redis.gcp.crossplane.io/v1beta1
+        kind: Instance
+        spec:
+          forProvider:
+            tier: STANDARD_HA
+            memorySizeGb: 1
+            region: us-central1
+            redisVersion: REDIS_7_0
+            displayName: delivery-platform-redis
+            authorizedNetwork: !Ref gcp-private-network
+            redisConfigs:
+              maxmemory-policy: allkeys-lru
+          writeConnectionSecretsToRef:
+            name: gcp-redis-connection-secret
+            namespace: default
+            keys:
+              - endpoint
+              - port
+              - password
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+    # Azure Database for PostgreSQL (existing)
+    - name: azure-postgresql
+      base:
+        apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+        kind: FlexibleServer
+        spec:
+          forProvider:
+            location: "East US"
+            resourceGroupName: "delivery-platform-rg"
+            administratorLogin: postgres
+            administratorPasswordSecretRef:
+              name: postgresql-admin-password
+              key: password
+            version: "15"
+            skuName: Standard_B2s
+            storageMb: 131072
+            backupRetentionDays: 7
+            geoRedundantBackup: false
+            highAvailability:
+              mode: Disabled
+            maintenanceWindow:
+              dayOfWeek: 1
+              startHour: 4
+              startMinute: 0
+            storageProfile:
+              storageAutogrow: Enabled
+              storageIops: 500
+              storageMb: 131072
+            network:
+              publicNetworkAccess: Enabled
+          writeConnectionSecretsToRef:
+            name: azure-postgresql-connection-secret
+            namespace: default
+            keys:
+              - username
+              - password
+              - endpoint
+              - port
+              - database
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+    # Azure Cache for Redis (existing)
+    - name: azure-redis
+      base:
+        apiVersion: cache.azure.crossplane.io/v1beta1
+        kind: Redis
+        spec:
+          forProvider:
+            location: "East US"
+            resourceGroupName: "delivery-platform-rg"
+            skuName: Standard
+            skuFamily: C
+            skuCapacity: 1
+            enableNonSslPort: false
+            minimumTlsVersion: "1.2"
+            redisConfiguration:
+              maxmemoryPolicy: allkeys-lru
+              maxmemoryReserved: 2
+              maxmemoryDelta: 2
+          writeConnectionSecretsToRef:
+            name: azure-redis-connection-secret
+            namespace: default
+            keys:
+              - endpoint
+              - port
+              - password
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.provider
+          toFieldPath: metadata.labels[provider]
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.environment
+          toFieldPath: metadata.labels[environment]
+
+---
+# Enhanced Composite Resource Definition
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: databases.delivery-platform.io
+spec:
+  group: delivery-platform.io
+  names:
+    kind: Database
+    plural: databases
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum: ["aws", "gcp", "azure"]
+                environment:
+                  type: string
+                  enum: ["dev", "staging", "prod"]
+                region:
+                  type: string
+                # AWS specific
+                aws-vpc-id:
+                  type: string
+                aws-subnet-ids:
+                  type: array
+                  items:
+                    type: string
+                # GCP specific
+                gcp-project-id:
+                  type: string
+                gcp-network:
+                  type: string
+                # Azure specific
+                azure-resource-group:
+                  type: string
+                azure-location:
+                  type: string
+              required:
+                - provider
+                - environment
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string

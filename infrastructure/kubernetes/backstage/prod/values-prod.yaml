@@ -1,0 +1,86 @@
+# Production environment values for Backstage
+global:
+  environment: "prod"
+  businessUnit: "platform-core"
+  country: "global"
+  namespace: "backstage-prod"
+
+# Backstage application configuration for prod
+backstage:
+  app:
+    title: "MSDP Developer Portal"
+    baseUrl: "https://backstage.msdp.com"
+    organization:
+      name: "MSDP Platform"
+      logo: "/logo.png"
+
+  backend:
+    baseUrl: "https://backstage-api.msdp.com"
+    cors:
+      origin: "https://backstage.msdp.com"
+
+# Deployment configuration for prod
+deployment:
+  replicas: 3
+  image:
+    tag: "stable"
+
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+  env:
+    - name: "NODE_ENV"
+      value: "production"
+    - name: "LOG_LEVEL"
+      value: "info"
+
+# Service configuration for prod
+service:
+  type: "ClusterIP"
+  port: 80
+
+# Ingress configuration for prod
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: "backstage.msdp.com"
+      paths:
+        - path: "/"
+          pathType: "Prefix"
+  tls:
+    - secretName: "backstage-prod-tls"
+      hosts:
+        - "backstage.msdp.com"
+
+# Monitoring configuration for prod
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "10s"
+
+# Autoscaling configuration for prod
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# Pod Disruption Budget for prod
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2

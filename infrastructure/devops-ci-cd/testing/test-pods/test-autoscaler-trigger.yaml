@@ -1,0 +1,31 @@
+# Test Autoscaler Trigger - High resource requirements to trigger user node scaling
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-autoscaler-trigger
+  namespace: default
+  labels:
+    app: test-autoscaler-trigger
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: test-autoscaler-trigger
+  template:
+    metadata:
+      labels:
+        app: test-autoscaler-trigger
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.21
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "500Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+      # No node affinity - should trigger user node scaling

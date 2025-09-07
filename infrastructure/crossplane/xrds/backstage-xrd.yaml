@@ -1,0 +1,209 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xbackstageinfrastructures.msdp.io
+spec:
+  group: msdp.io
+  names:
+    kind: XBackstageInfrastructure
+    plural: xbackstageinfrastructures
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                # Environment Configuration
+                environment:
+                  type: string
+                  description: "Environment (dev, staging, prod)"
+                  enum: ["dev", "staging", "prod"]
+                  default: "dev"
+                businessUnit:
+                  type: string
+                  description: "Business Unit (food-delivery, grocery-delivery, cleaning-services, repair-services)"
+                  enum:
+                    [
+                      "food-delivery",
+                      "grocery-delivery",
+                      "cleaning-services",
+                      "repair-services",
+                      "platform-core",
+                    ]
+                  default: "platform-core"
+                country:
+                  type: string
+                  description: "Country code (uk, india)"
+                  enum: ["uk", "india", "global"]
+                  default: "global"
+                # Azure Configuration
+                location:
+                  type: string
+                  description: "Azure region"
+                  default: "UK South"
+                resourceGroupName:
+                  type: string
+                  description: "Azure Resource Group name"
+                tenantId:
+                  type: string
+                  description: "Azure Tenant ID"
+                # PostgreSQL Configuration
+                postgresAdminUser:
+                  type: string
+                  description: "PostgreSQL admin username"
+                  default: "backstageadmin"
+                postgresPasswordSecret:
+                  type: string
+                  description: "Secret name containing PostgreSQL password"
+                  default: "backstage-postgres-password"
+                postgresSku:
+                  type: string
+                  description: "PostgreSQL SKU"
+                  default: "B_Standard_B1ms"
+                postgresVersion:
+                  type: string
+                  description: "PostgreSQL version"
+                  default: "13"
+                postgresStorageMb:
+                  type: integer
+                  description: "PostgreSQL storage in MB"
+                  default: 32768
+                postgresBackupRetentionDays:
+                  type: integer
+                  description: "PostgreSQL backup retention days"
+                  default: 7
+                postgresGeoRedundantBackup:
+                  type: boolean
+                  description: "Enable geo-redundant backup"
+                  default: false
+                postgresCharset:
+                  type: string
+                  description: "PostgreSQL database charset"
+                  default: "UTF8"
+                postgresCollation:
+                  type: string
+                  description: "PostgreSQL database collation"
+                  default: "en_US.utf8"
+                postgresStartIp:
+                  type: string
+                  description: "PostgreSQL firewall start IP"
+                  default: "0.0.0.0"
+                postgresEndIp:
+                  type: string
+                  description: "PostgreSQL firewall end IP"
+                  default: "255.255.255.255"
+                # Storage Configuration
+                storageAccountTier:
+                  type: string
+                  description: "Storage account tier"
+                  default: "Standard"
+                storageAccountReplication:
+                  type: string
+                  description: "Storage account replication type"
+                  default: "LRS"
+                storageAccountKind:
+                  type: string
+                  description: "Storage account kind"
+                  default: "StorageV2"
+                storageMinTlsVersion:
+                  type: string
+                  description: "Storage minimum TLS version"
+                  default: "TLS1_2"
+                storageAllowPublic:
+                  type: boolean
+                  description: "Allow public access to storage"
+                  default: false
+                storageContainerAccessType:
+                  type: string
+                  description: "Storage container access type"
+                  default: "private"
+                # Key Vault Configuration
+                keyVaultSku:
+                  type: string
+                  description: "Key Vault SKU"
+                  default: "standard"
+                keyVaultDiskEncryption:
+                  type: boolean
+                  description: "Enable disk encryption for Key Vault"
+                  default: true
+                keyVaultTemplateDeployment:
+                  type: boolean
+                  description: "Enable template deployment for Key Vault"
+                  default: true
+                keyVaultRbacAuth:
+                  type: boolean
+                  description: "Enable RBAC authorization for Key Vault"
+                  default: true
+                keyVaultPurgeProtection:
+                  type: boolean
+                  description: "Enable purge protection for Key Vault"
+                  default: true
+                # Application Insights Configuration
+                appInsightsType:
+                  type: string
+                  description: "Application Insights type"
+                  default: "web"
+                appInsightsRetentionDays:
+                  type: integer
+                  description: "Application Insights retention days"
+                  default: 90
+                appInsightsDailyDataCap:
+                  type: number
+                  description: "Application Insights daily data cap in GB"
+                  default: 1
+                appInsightsDataCapNotificationsDisabled:
+                  type: boolean
+                  description: "Disable Application Insights data cap notifications"
+                  default: false
+              required:
+                - environment
+                - businessUnit
+                - country
+                - location
+                - resourceGroupName
+                - tenantId
+            status:
+              type: object
+              properties:
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                connectionDetails:
+                  type: object
+                  properties:
+                    postgresHost:
+                      type: string
+                    postgresPort:
+                      type: string
+                    postgresDatabase:
+                      type: string
+                    postgresUser:
+                      type: string
+                    storageAccountName:
+                      type: string
+                    storageAccountKey:
+                      type: string
+                    keyVaultUri:
+                      type: string
+                    appInsightsConnectionString:
+                      type: string
+                    appInsightsInstrumentationKey:
+                      type: string

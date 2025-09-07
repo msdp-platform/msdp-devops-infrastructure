@@ -1,0 +1,108 @@
+# UK country-specific values for Backstage
+global:
+  country: "uk"
+
+# Backstage configuration for UK
+backstage:
+  app:
+    title: "MSDP Developer Portal - UK"
+    organization:
+      name: "MSDP Platform - UK"
+
+  # UK specific templates
+  templates:
+    - name: "msdp-uk-service"
+      title: "MSDP UK Service"
+      description: "Create a new service for UK market"
+      path: "templates/msdp-uk-service"
+    - name: "msdp-gdpr-compliant-service"
+      title: "MSDP GDPR Compliant Service"
+      description: "Create a GDPR-compliant service for UK"
+      path: "templates/msdp-gdpr-compliant-service"
+    - name: "msdp-uk-payment-service"
+      title: "MSDP UK Payment Service"
+      description: "Create a UK payment processing service"
+      path: "templates/msdp-uk-payment-service"
+    - name: "msdp-uk-tax-service"
+      title: "MSDP UK Tax Service"
+      description: "Create a UK tax calculation service"
+      path: "templates/msdp-uk-tax-service"
+
+  # UK specific integrations
+  integrations:
+    stripe:
+      - host: "api.stripe.com"
+        token: "{{ .Values.integrations.stripe.token }}"
+    paypal:
+      - host: "api.paypal.com"
+        token: "{{ .Values.integrations.paypal.token }}"
+    hmrc:
+      - host: "api.service.hmrc.gov.uk"
+        token: "{{ .Values.integrations.hmrc.token }}"
+    fsa:
+      - host: "api.food.gov.uk"
+        token: "{{ .Values.integrations.fsa.token }}"
+
+# UK specific configuration
+uk:
+  enabled: true
+  compliance:
+    gdpr:
+      enabled: true
+      dataRetentionDays: 2555 # 7 years
+      consentRequired: true
+      rightToErasure: true
+      dataPortability: true
+    foodSafety:
+      enabled: true
+      fsaCompliance: true
+      allergenTracking: true
+      temperatureMonitoring: true
+    tax:
+      enabled: true
+      vatRate: 0.20 # 20% VAT
+      vatRegistrationRequired: true
+      hmrcIntegration: true
+    labor:
+      enabled: true
+      minimumWage: 10.42 # GBP per hour
+      workingTimeDirective: true
+      holidayEntitlement: 28 # days per year
+
+  paymentMethods:
+    - name: "stripe"
+      description: "Stripe payment processing"
+      enabled: true
+    - name: "paypal"
+      description: "PayPal payment processing"
+      enabled: true
+    - name: "apple-pay"
+      description: "Apple Pay"
+      enabled: true
+    - name: "google-pay"
+      description: "Google Pay"
+      enabled: true
+    - name: "bank-transfer"
+      description: "Bank transfer"
+      enabled: true
+
+  localization:
+    language: "en-GB"
+    currency: "GBP"
+    timezone: "Europe/London"
+    dateFormat: "DD/MM/YYYY"
+    numberFormat: "1,234.56"
+
+  regulations:
+    - name: "GDPR"
+      description: "General Data Protection Regulation"
+      compliance: "required"
+    - name: "Food Safety Act 1990"
+      description: "UK Food Safety Regulations"
+      compliance: "required"
+    - name: "Consumer Rights Act 2015"
+      description: "UK Consumer Protection"
+      compliance: "required"
+    - name: "Working Time Regulations 1998"
+      description: "UK Labor Law"
+      compliance: "required"

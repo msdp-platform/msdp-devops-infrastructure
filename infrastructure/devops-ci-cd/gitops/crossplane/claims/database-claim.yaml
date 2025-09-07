@@ -1,0 +1,15 @@
+# Database Claim for Development Environment
+apiVersion: delivery-platform.io/v1alpha1
+kind: Database
+metadata:
+  name: delivery-platform-dev-db
+  namespace: default
+spec:
+  provider: azure
+  environment: dev
+  location: "East US"
+  resource-group: "delivery-platform-rg"
+  subnet-id: "subnet-12345678"
+  private-dns-zone: "private-dns-zone-12345678"
+  redis-subnet-id: "redis-subnet-12345678"
+  redis-static-ip: "10.0.1.100"
