@@ -1,0 +1,69 @@
+# MSDP Development Environment Applications
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: msdp-platform-core-dev
+  namespace: argocd-dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/msdp-platform/msdp-platform-core
+    targetRevision: dev
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: msdp-platform-core-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: msdp-food-delivery-dev
+  namespace: argocd-dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/msdp-platform/msdp-food-delivery
+    targetRevision: dev
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: msdp-food-delivery-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: msdp-customer-app-dev
+  namespace: argocd-dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/msdp-platform/msdp-customer-app
+    targetRevision: dev
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: msdp-customer-app-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
