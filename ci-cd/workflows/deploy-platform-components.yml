@@ -87,10 +87,10 @@ jobs:
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
           echo "🔧 Loading configuration for environment: $ENVIRONMENT"
-          
+
           # Load configuration using our script
           source infrastructure/config/load-config-robust.sh "$ENVIRONMENT"
-          
+
           # Export outputs for other jobs
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
@@ -103,7 +103,7 @@ jobs:
           echo "deployment_timeout=$DEPLOYMENT_TIMEOUT" >> $GITHUB_OUTPUT
           echo "verification_timeout=$VERIFICATION_TIMEOUT" >> $GITHUB_OUTPUT
           echo "pod_ready_timeout=$POD_READY_TIMEOUT" >> $GITHUB_OUTPUT
-          
+
           echo "✅ Configuration loaded successfully"
           echo "📊 Environment: $ENVIRONMENT"
           echo "🏗️  Cluster: $CLUSTER_NAME"
@@ -129,10 +129,13 @@ jobs:
 
       - name: Setup Kustomize
         run: |
-          # Remove existing kustomize if it exists
+          # Install kustomize using direct download
+          cd /tmp
           rm -f kustomize
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          curl -L "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.0/kustomize_v5.0.0_linux_amd64.tar.gz" | tar xz
           sudo mv kustomize /usr/local/bin/
+          # Verify installation
+          kustomize version
 
       - name: Validate YAML files
         run: |
@@ -151,7 +154,8 @@ jobs:
 
   deploy-networking:
     runs-on: ubuntu-latest
-    needs: [detect-environment, load-configuration, validate-platform-components]
+    needs:
+      [detect-environment, load-configuration, validate-platform-components]
     if: needs.detect-environment.outputs.component == 'all' || needs.detect-environment.outputs.component == 'networking'
     environment: ${{ needs.detect-environment.outputs.environment }}
     steps:
@@ -175,10 +179,13 @@ jobs:
 
       - name: Setup Kustomize
         run: |
-          # Remove existing kustomize if it exists
+          # Install kustomize using direct download
+          cd /tmp
           rm -f kustomize
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          curl -L "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.0/kustomize_v5.0.0_linux_amd64.tar.gz" | tar xz
           sudo mv kustomize /usr/local/bin/
+          # Verify installation
+          kustomize version
 
       - name: Configure AWS credentials
         run: |
@@ -256,7 +263,7 @@ jobs:
 
           echo "📊 NGINX Ingress Controller status:"
           kubectl get pods -n ingress-nginx
-          
+
           # Verify NGINX version
           NGINX_VERSION=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
           EXPECTED_NGINX_VERSION="${{ needs.load-configuration.outputs.expected_nginx_version }}"
@@ -270,7 +277,7 @@ jobs:
           echo "📊 Cert-Manager status:"
           kubectl get pods -n cert-manager
           kubectl get clusterissuer
-          
+
           # Verify Cert-Manager version
           CERT_MANAGER_VERSION=$(kubectl get deployment -n cert-manager cert-manager -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
           EXPECTED_CERT_MANAGER_VERSION="${{ needs.load-configuration.outputs.expected_cert_manager_version }}"
@@ -283,7 +290,7 @@ jobs:
 
           echo "📊 External DNS status:"
           kubectl get pods -n external-dns
-          
+
           # Verify External DNS version
           EXTERNAL_DNS_VERSION=$(kubectl get deployment -n external-dns external-dns -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
           EXPECTED_EXTERNAL_DNS_VERSION="${{ needs.load-configuration.outputs.expected_external_dns_version }}"
@@ -296,7 +303,8 @@ jobs:
 
   deploy-monitoring:
     runs-on: ubuntu-latest
-    needs: [detect-environment, load-configuration, validate-platform-components]
+    needs:
+      [detect-environment, load-configuration, validate-platform-components]
     if: needs.detect-environment.outputs.component == 'all' || needs.detect-environment.outputs.component == 'monitoring'
     environment: ${{ needs.detect-environment.outputs.environment }}
     steps:
@@ -334,7 +342,13 @@ jobs:
 
   notify-deployment:
     runs-on: ubuntu-latest
-    needs: [detect-environment, load-configuration, deploy-networking, deploy-monitoring]
+    needs:
+      [
+        detect-environment,
+        load-configuration,
+        deploy-networking,
+        deploy-monitoring,
+      ]
     if: always()
     steps:
       - name: Notify Deployment Status
