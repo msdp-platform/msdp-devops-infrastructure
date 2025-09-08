@@ -336,34 +336,36 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🧹 Cleaning up existing NGINX Ingress Controller..."
-          
+
           # Delete using the same method as deployment (Kustomize + Helm)
           echo "🗑️ Deleting NGINX Ingress Controller with Kustomize + Helm..."
           kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl delete -f - --ignore-not-found=true || true
-          
+
           # Also try direct namespace deletion as fallback
           echo "🗑️ Deleting ingress-nginx namespace as fallback..."
           kubectl delete namespace ingress-nginx --ignore-not-found=true || true
-          
+
           # Wait for cleanup to complete
           echo "⏳ Waiting for cleanup to complete..."
           sleep 15
-          
+
           # Verify cleanup
           echo "🔍 Verifying cleanup..."
           if kubectl get namespace ingress-nginx >/dev/null 2>&1; then
             echo "⚠️ Namespace still exists, waiting longer..."
             sleep 10
           fi
-          
+
           echo "✅ Cleanup completed"
 
       - name: Deploy NGINX Ingress Controller
         run: |
           echo "🌐 Deploying NGINX Ingress Controller..."
           if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
+            echo "🔍 DRY RUN MODE - Showing what would be deployed..."
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
           else
+            echo "🚀 Deploying NGINX Ingress Controller..."
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply -f -
           fi
 

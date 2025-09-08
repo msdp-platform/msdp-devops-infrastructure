@@ -1,0 +1,31 @@
+# Crossplane Helm Values
+# Generated from global.yaml - DO NOT EDIT MANUALLY
+# Chart Version: 2.0.2
+# Crossplane Version: v2.0.2
+
+# Image configuration
+image:
+  repository: xpkg.upbound.io/crossplane/crossplane
+  tag: "v2.0.2"
+  pullPolicy: IfNotPresent
+
+# Resources
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Install CRDs
+installCRDs: true
+
+# RBAC
+rbac:
+  create: true
+
+# Service account
+serviceAccount:
+  create: true
+  name: crossplane

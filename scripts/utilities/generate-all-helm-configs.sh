@@ -78,7 +78,8 @@ metadata:
   name: $component_name
   annotations:
     config.kubernetes.io/local-config: "true"
-resources: []
+resources:
+  - namespace.yaml
 # Helm chart configuration
 helmCharts:
   - name: $chart_name

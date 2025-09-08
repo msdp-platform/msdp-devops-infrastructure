@@ -1,0 +1,61 @@
+# Prometheus Helm Values
+# Generated from global.yaml - DO NOT EDIT MANUALLY
+# Chart Version: 25.8.2
+# Prometheus Version: v3.5.0
+
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    image:
+      repository: quay.io/prometheus/prometheus
+      tag: "v3.5.0"
+    
+    # Resources
+    resources:
+      limits:
+        cpu: 1500m
+        memory: 3Gi
+      requests:
+        cpu: 300m
+        memory: 1Gi
+    
+    # Storage
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: "default"
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 50Gi
+    
+    # Retention
+    retention: "30d"
+    
+    # Service monitors
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+# Alertmanager configuration
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# Grafana configuration (if included)
+grafana:
+  enabled: false  # We have separate Grafana deployment
+
+# Node exporter
+nodeExporter:
+  enabled: true
+
+# Kube state metrics
+kubeStateMetrics:
+  enabled: true

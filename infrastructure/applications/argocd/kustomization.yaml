@@ -4,7 +4,8 @@ metadata:
   name: argocd
   annotations:
     config.kubernetes.io/local-config: "true"
-resources: []
+resources:
+  - namespace.yaml
 # Helm chart configuration
 helmCharts:
   - name: argo-cd

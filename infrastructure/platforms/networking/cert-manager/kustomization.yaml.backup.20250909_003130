@@ -1,17 +1,16 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 metadata:
-  name: grafana
+  name: cert_manager
   annotations:
     config.kubernetes.io/local-config: "true"
-resources:
-  - namespace.yaml
+resources: []
 # Helm chart configuration
 helmCharts:
-  - name: grafana
-    repo: https://grafana.github.io/helm-charts
-    version: 6.61.0
-    releaseName: grafana
-    namespace: monitoring
+  - name: cert-manager
+    repo: https://charts.jetstack.io
+    version: v1.18.0
+    releaseName: cert-manager
+    namespace: cert-manager
     valuesFile: helm-values.yaml
-namespace: monitoring
+namespace: cert-manager
