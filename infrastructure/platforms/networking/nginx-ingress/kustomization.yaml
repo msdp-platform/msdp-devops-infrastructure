@@ -8,15 +8,9 @@ metadata:
 
 resources:
   - namespace.yaml
-  - https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
-
-patches:
-  - target:
-      kind: Namespace
-      name: ingress-nginx
-    patch: |-
-      - op: remove
-        path: /metadata/name
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform
