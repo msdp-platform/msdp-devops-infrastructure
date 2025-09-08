@@ -307,15 +307,15 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "⏳ Waiting for NGINX Ingress Controller to be ready..."
-          
+
           # Wait for deployment to be available
           kubectl wait --namespace ingress-nginx \
             --for=condition=available deployment/ingress-nginx-controller \
             --timeout=600s
-          
+
           echo "📊 Deployment is available, checking pod status..."
           kubectl get pods -n ingress-nginx
-          
+
           # Wait for at least one pod to be running (more lenient than ready)
           echo "⏳ Waiting for at least one pod to be running..."
           kubectl wait --namespace ingress-nginx \
@@ -327,19 +327,19 @@ jobs:
             kubectl get events -n ingress-nginx --sort-by='.lastTimestamp'
             echo "⚠️ Continuing anyway as deployment is available..."
           }
-          
+
           echo "✅ NGINX Ingress Controller deployment is available"
-          
+
           # Check service and get external IP
           echo "🌐 Checking NGINX Ingress service..."
           kubectl get svc -n ingress-nginx
-          
+
           # Wait for external IP to be assigned (with timeout)
           echo "⏳ Waiting for external IP assignment..."
           timeout 300 bash -c 'until kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath="{.status.loadBalancer.ingress[0].ip}" | grep -q "."; do echo "Waiting for external IP..."; sleep 10; done' || {
             echo "⚠️ External IP not assigned within timeout, continuing..."
           }
-          
+
           # Show final status
           echo "📊 Final NGINX Ingress status:"
           kubectl get svc -n ingress-nginx ingress-nginx-controller
