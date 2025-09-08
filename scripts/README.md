@@ -67,6 +67,12 @@ Scripts are now focused on **support operations** rather than primary deployment
 
 # Show ArgoCD URL
 ./scripts/utilities/argocd-access.sh url
+
+# Show detailed access information and methods
+./scripts/utilities/argocd-access.sh info
+
+# Show admin password
+./scripts/utilities/argocd-access.sh password
 ```
 
 ### **Resource Cleanup**
@@ -124,13 +130,13 @@ Scripts are now focused on **support operations** rather than primary deployment
 
 ## 📊 **Script Statistics**
 
-### **Total Scripts**: 6
+### **Total Scripts**: 5
 - **Platform Management**: 3 scripts
-- **Utilities**: 3 scripts
+- **Utilities**: 2 scripts
 - **Testing**: 1 script
 
 ### **Script Types**
-- **Shell Scripts**: 5 scripts (.sh)
+- **Shell Scripts**: 4 scripts (.sh)
 - **Python Scripts**: 1 script (.py)
 - **Wrapper Scripts**: 1 script (platform)
 
