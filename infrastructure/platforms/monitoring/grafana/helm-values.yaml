@@ -97,7 +97,6 @@ grafana:
 serviceMonitor:
   enabled: true
   labels:
-    app.kubernetes.io/name: grafana
     app.kubernetes.io/part-of: msdp-platform
 
 # RBAC configuration

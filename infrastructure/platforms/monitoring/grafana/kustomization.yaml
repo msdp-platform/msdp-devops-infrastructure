@@ -8,6 +8,7 @@ metadata:
 
 resources:
   - namespace.yaml
+  - ingress.yaml
 
 # Helm chart configuration
 helmCharts:
