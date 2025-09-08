@@ -2,12 +2,12 @@
 backstage:
   # Basic configuration
   replica_count: 1
-  
+
   # Image configuration
   image:
     repository: backstage/backstage
     pullPolicy: IfNotPresent
-  
+
   # Resource configuration
   resources:
     requests:
@@ -16,13 +16,13 @@ backstage:
     limits:
       cpu: "500m"
       memory: "1Gi"
-  
+
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     target_port: 7007
-  
+
   # Ingress configuration
   ingress:
     enabled: true
@@ -38,7 +38,7 @@ backstage:
       - secretName: backstage-tls
         hosts:
           - backstage.dev.aztech-msdp.com
-  
+
   # Environment variables
   env:
     - name: NODE_ENV
@@ -53,7 +53,7 @@ backstage:
       value: "backstage"
     - name: POSTGRES_DB
       value: "backstage"
-  
+
   # Liveness probe
   livenessProbe:
     httpGet:
@@ -63,7 +63,7 @@ backstage:
     periodSeconds: 10
     timeoutSeconds: 5
     failureThreshold: 3
-  
+
   # Readiness probe
   readinessProbe:
     httpGet:
@@ -73,26 +73,26 @@ backstage:
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
-  
+
   # Node selector
   nodeSelector:
     kubernetes.io/os: linux
-  
+
   # Tolerations
   tolerations: []
-  
+
   # Affinity
   affinity: {}
-  
+
   # Pod annotations
   podAnnotations: {}
-  
+
   # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 1000
     fsGroup: 1000
-  
+
   # Service account
   serviceAccount:
     create: true

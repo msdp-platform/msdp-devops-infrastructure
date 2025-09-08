@@ -63,9 +63,56 @@ jobs:
             echo "dry_run=false" >> $GITHUB_OUTPUT
           fi
 
-  validate-platform-components:
+  load-configuration:
     runs-on: ubuntu-latest
     needs: detect-environment
+    outputs:
+      cluster_name: ${{ steps.config.outputs.cluster_name }}
+      resource_group: ${{ steps.config.outputs.resource_group }}
+      domain_base: ${{ steps.config.outputs.domain_base }}
+      expected_nginx_version: ${{ steps.config.outputs.expected_nginx_version }}
+      expected_cert_manager_version: ${{ steps.config.outputs.expected_cert_manager_version }}
+      expected_external_dns_version: ${{ steps.config.outputs.expected_external_dns_version }}
+      expected_prometheus_version: ${{ steps.config.outputs.expected_prometheus_version }}
+      expected_grafana_version: ${{ steps.config.outputs.expected_grafana_version }}
+      deployment_timeout: ${{ steps.config.outputs.deployment_timeout }}
+      verification_timeout: ${{ steps.config.outputs.verification_timeout }}
+      pod_ready_timeout: ${{ steps.config.outputs.pod_ready_timeout }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Load Configuration
+        id: config
+        run: |
+          ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
+          echo "🔧 Loading configuration for environment: $ENVIRONMENT"
+          
+          # Load configuration using our script
+          source infrastructure/config/load-config-robust.sh "$ENVIRONMENT"
+          
+          # Export outputs for other jobs
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "domain_base=$DOMAIN_BASE" >> $GITHUB_OUTPUT
+          echo "expected_nginx_version=$EXPECTED_NGINX_VERSION" >> $GITHUB_OUTPUT
+          echo "expected_cert_manager_version=$EXPECTED_CERT_MANAGER_VERSION" >> $GITHUB_OUTPUT
+          echo "expected_external_dns_version=$EXPECTED_EXTERNAL_DNS_VERSION" >> $GITHUB_OUTPUT
+          echo "expected_prometheus_version=$EXPECTED_PROMETHEUS_VERSION" >> $GITHUB_OUTPUT
+          echo "expected_grafana_version=$EXPECTED_GRAFANA_VERSION" >> $GITHUB_OUTPUT
+          echo "deployment_timeout=$DEPLOYMENT_TIMEOUT" >> $GITHUB_OUTPUT
+          echo "verification_timeout=$VERIFICATION_TIMEOUT" >> $GITHUB_OUTPUT
+          echo "pod_ready_timeout=$POD_READY_TIMEOUT" >> $GITHUB_OUTPUT
+          
+          echo "✅ Configuration loaded successfully"
+          echo "📊 Environment: $ENVIRONMENT"
+          echo "🏗️  Cluster: $CLUSTER_NAME"
+          echo "📦 Resource Group: $RESOURCE_GROUP"
+          echo "🌐 Domain: $DOMAIN_BASE"
+
+  validate-platform-components:
+    runs-on: ubuntu-latest
+    needs: [detect-environment, load-configuration]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -102,7 +149,7 @@ jobs:
 
   deploy-networking:
     runs-on: ubuntu-latest
-    needs: [detect-environment, validate-platform-components]
+    needs: [detect-environment, load-configuration, validate-platform-components]
     if: needs.detect-environment.outputs.component == 'all' || needs.detect-environment.outputs.component == 'networking'
     environment: ${{ needs.detect-environment.outputs.environment }}
     steps:
@@ -137,11 +184,11 @@ jobs:
 
       - name: Get AKS credentials
         run: |
-          ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
-          RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
-          CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
+          CLUSTER_NAME="${{ needs.load-configuration.outputs.cluster_name }}"
+          RESOURCE_GROUP="${{ needs.load-configuration.outputs.resource_group }}"
 
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
+          echo "📦 Resource Group: ${RESOURCE_GROUP}"
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
       - name: Deploy NGINX Ingress Controller
@@ -160,7 +207,7 @@ jobs:
           kubectl wait --namespace ingress-nginx \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
-            --timeout=300s
+            --timeout=${{ needs.load-configuration.outputs.pod_ready_timeout }}s
 
       - name: Deploy Cert-Manager
         run: |
@@ -178,7 +225,7 @@ jobs:
           kubectl wait --namespace cert-manager \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
-            --timeout=300s
+            --timeout=${{ needs.load-configuration.outputs.pod_ready_timeout }}s
 
       - name: Deploy External DNS
         run: |
@@ -196,7 +243,7 @@ jobs:
           kubectl wait --namespace external-dns \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/name=external-dns \
-            --timeout=300s
+            --timeout=${{ needs.load-configuration.outputs.pod_ready_timeout }}s
 
       - name: Verify Platform Components
         if: needs.detect-environment.outputs.dry_run != 'true'
@@ -205,17 +252,47 @@ jobs:
 
           echo "📊 NGINX Ingress Controller status:"
           kubectl get pods -n ingress-nginx
+          
+          # Verify NGINX version
+          NGINX_VERSION=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
+          EXPECTED_NGINX_VERSION="${{ needs.load-configuration.outputs.expected_nginx_version }}"
+          echo "🔍 NGINX Version: $NGINX_VERSION (Expected: $EXPECTED_NGINX_VERSION)"
+          if [[ "$NGINX_VERSION" == *"$EXPECTED_NGINX_VERSION"* ]]; then
+            echo "✅ NGINX version matches expected version"
+          else
+            echo "⚠️  NGINX version mismatch - expected: $EXPECTED_NGINX_VERSION, got: $NGINX_VERSION"
+          fi
 
           echo "📊 Cert-Manager status:"
           kubectl get pods -n cert-manager
           kubectl get clusterissuer
+          
+          # Verify Cert-Manager version
+          CERT_MANAGER_VERSION=$(kubectl get deployment -n cert-manager cert-manager -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
+          EXPECTED_CERT_MANAGER_VERSION="${{ needs.load-configuration.outputs.expected_cert_manager_version }}"
+          echo "🔍 Cert-Manager Version: $CERT_MANAGER_VERSION (Expected: $EXPECTED_CERT_MANAGER_VERSION)"
+          if [[ "$CERT_MANAGER_VERSION" == *"$EXPECTED_CERT_MANAGER_VERSION"* ]]; then
+            echo "✅ Cert-Manager version matches expected version"
+          else
+            echo "⚠️  Cert-Manager version mismatch - expected: $EXPECTED_CERT_MANAGER_VERSION, got: $CERT_MANAGER_VERSION"
+          fi
 
           echo "📊 External DNS status:"
           kubectl get pods -n external-dns
+          
+          # Verify External DNS version
+          EXTERNAL_DNS_VERSION=$(kubectl get deployment -n external-dns external-dns -o jsonpath='{.spec.template.spec.containers[0].image}' | cut -d':' -f2)
+          EXPECTED_EXTERNAL_DNS_VERSION="${{ needs.load-configuration.outputs.expected_external_dns_version }}"
+          echo "🔍 External DNS Version: $EXTERNAL_DNS_VERSION (Expected: $EXPECTED_EXTERNAL_DNS_VERSION)"
+          if [[ "$EXTERNAL_DNS_VERSION" == *"$EXPECTED_EXTERNAL_DNS_VERSION"* ]]; then
+            echo "✅ External DNS version matches expected version"
+          else
+            echo "⚠️  External DNS version mismatch - expected: $EXPECTED_EXTERNAL_DNS_VERSION, got: $EXTERNAL_DNS_VERSION"
+          fi
 
   deploy-monitoring:
     runs-on: ubuntu-latest
-    needs: [detect-environment, validate-platform-components]
+    needs: [detect-environment, load-configuration, validate-platform-components]
     if: needs.detect-environment.outputs.component == 'all' || needs.detect-environment.outputs.component == 'monitoring'
     environment: ${{ needs.detect-environment.outputs.environment }}
     steps:
@@ -234,11 +311,11 @@ jobs:
 
       - name: Get AKS credentials
         run: |
-          ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
-          RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
-          CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
+          CLUSTER_NAME="${{ needs.load-configuration.outputs.cluster_name }}"
+          RESOURCE_GROUP="${{ needs.load-configuration.outputs.resource_group }}"
 
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
+          echo "📦 Resource Group: ${RESOURCE_GROUP}"
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
       - name: Deploy Monitoring Components
@@ -253,19 +330,26 @@ jobs:
 
   notify-deployment:
     runs-on: ubuntu-latest
-    needs: [detect-environment, deploy-networking, deploy-monitoring]
+    needs: [detect-environment, load-configuration, deploy-networking, deploy-monitoring]
     if: always()
     steps:
       - name: Notify Deployment Status
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
           COMPONENT="${{ needs.detect-environment.outputs.component }}"
+          CLUSTER_NAME="${{ needs.load-configuration.outputs.cluster_name }}"
+          DOMAIN_BASE="${{ needs.load-configuration.outputs.domain_base }}"
 
           if [ "${{ needs.deploy-networking.result }}" = "success" ] && [ "${{ needs.deploy-monitoring.result }}" = "success" ]; then
             echo "✅ Platform components deployed successfully to ${ENVIRONMENT} environment"
-            echo "🌐 Components deployed: ${COMPONENT}"
+            echo "🏗️  Cluster: ${CLUSTER_NAME}"
+            echo "🌐 Domain: ${DOMAIN_BASE}"
+            echo "📦 Components deployed: ${COMPONENT}"
+            echo "🎯 Configuration-driven deployment completed successfully!"
           else
             echo "❌ Platform components deployment failed to ${ENVIRONMENT} environment"
+            echo "🏗️  Cluster: ${CLUSTER_NAME}"
+            echo "🌐 Domain: ${DOMAIN_BASE}"
             echo "🔍 Check the logs for details"
             exit 1
           fi

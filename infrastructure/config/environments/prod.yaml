@@ -18,7 +18,7 @@ overrides:
       limits:
         cpu: "2000m"
         memory: "4Gi"
-    
+
     prometheus:
       requests:
         cpu: "500m"
@@ -26,7 +26,7 @@ overrides:
       limits:
         cpu: "3000m"
         memory: "8Gi"
-    
+
     argocd:
       requests:
         cpu: "300m"
@@ -34,7 +34,7 @@ overrides:
       limits:
         cpu: "2000m"
         memory: "4Gi"
-    
+
     nginx_ingress:
       requests:
         cpu: "200m"
@@ -54,14 +54,14 @@ overrides:
     persistence:
       enabled: true
       size: "50Gi"
-    admin_password: "CHANGE_ME_IN_PRODUCTION"  # Must be changed in prod
-  
+    admin_password: "CHANGE_ME_IN_PRODUCTION" # Must be changed in prod
+
   prometheus:
-    retention: "30d"  # Long retention for production
+    retention: "30d" # Long retention for production
     storage_size: "100Gi"
-  
+
   nginx_ingress:
-    replica_count: 3  # More replicas for production
+    replica_count: 3 # More replicas for production
     resources:
       requests:
         cpu: "200m"

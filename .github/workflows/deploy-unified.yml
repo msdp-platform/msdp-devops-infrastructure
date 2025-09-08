@@ -71,7 +71,7 @@ jobs:
               *) ENVIRONMENT="dev" ;;
             esac
           fi
-          
+
           case "$ENVIRONMENT" in
             dev)
               CLUSTER_NAME="msdp-infra-aks"
@@ -86,7 +86,7 @@ jobs:
               RESOURCE_GROUP="delivery-platform-aks-rg-prod"
               ;;
           esac
-          
+
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
@@ -125,17 +125,17 @@ jobs:
         id: versions
         run: |
           echo "🔍 Checking component versions..."
-          
+
           # Define expected versions
           EXPECTED_ARGOCD_VERSION="v2.9.3"
           EXPECTED_GRAFANA_VERSION="10.1.5"
           EXPECTED_CROSSPLANE_VERSION="v1.14.2"
           EXPECTED_CERT_MANAGER_VERSION="v1.13.3"
           EXPECTED_NGINX_VERSION="1.8.2"
-          
+
           DEPLOY_PLATFORM="false"
           DEPLOY_APPLICATIONS="false"
-          
+
           # Check if components exist and get versions
           if kubectl get deployment -n argocd argocd-server >/dev/null 2>&1; then
             CURRENT_ARGOCD=$(kubectl get deployment -n argocd argocd-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
@@ -147,7 +147,7 @@ jobs:
             echo "ArgoCD not found, will deploy"
             DEPLOY_APPLICATIONS="true"
           fi
-          
+
           if kubectl get deployment -n monitoring grafana >/dev/null 2>&1; then
             CURRENT_GRAFANA=$(kubectl get deployment -n monitoring grafana -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Grafana: Current=$CURRENT_GRAFANA, Expected=$EXPECTED_GRAFANA_VERSION"
@@ -158,7 +158,7 @@ jobs:
             echo "Grafana not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
-          
+
           if kubectl get deployment -n crossplane-system crossplane >/dev/null 2>&1; then
             CURRENT_CROSSPLANE=$(kubectl get deployment -n crossplane-system crossplane -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Crossplane: Current=$CURRENT_CROSSPLANE, Expected=$EXPECTED_CROSSPLANE_VERSION"
@@ -169,31 +169,31 @@ jobs:
             echo "Crossplane not found, will deploy"
             DEPLOY_APPLICATIONS="true"
           fi
-          
+
           # Check platform components
           if ! kubectl get deployment -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
             echo "NGINX Ingress not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
-          
+
           if ! kubectl get deployment -n cert-manager cert-manager >/dev/null 2>&1; then
             echo "Cert-Manager not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
-          
+
           if ! kubectl get deployment -n external-dns external-dns >/dev/null 2>&1; then
             echo "External DNS not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
-          
+
           if ! kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
             echo "Prometheus not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
-          
+
           echo "deploy_platform=$DEPLOY_PLATFORM" >> $GITHUB_OUTPUT
           echo "deploy_applications=$DEPLOY_APPLICATIONS" >> $GITHUB_OUTPUT
-          
+
           echo "📊 Deployment Decision:"
           echo "  Platform Components: $DEPLOY_PLATFORM"
           echo "  Applications: $DEPLOY_APPLICATIONS"
@@ -281,7 +281,7 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🔐 Checking AWS credentials secret for External DNS..."
-          
+
           # Check if secret already exists and is working
           if kubectl get secret aws-credentials -n external-dns >/dev/null 2>&1; then
             echo "✅ AWS credentials secret already exists, skipping creation"
@@ -373,7 +373,7 @@ jobs:
           kubectl wait --namespace monitoring \
             --for=condition=available deployment/grafana \
             --timeout=300s
-          
+
           # Verify the main Grafana pod is running
           kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana
           echo "✅ Grafana deployment is ready"
@@ -420,7 +420,13 @@ jobs:
           fi
 
   verify-deployment:
-    needs: [detect-environment, check-component-versions, deploy-platform-components, deploy-applications]
+    needs:
+      [
+        detect-environment,
+        check-component-versions,
+        deploy-platform-components,
+        deploy-applications,
+      ]
     if: always() && needs.detect-environment.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.detect-environment.outputs.environment }}
@@ -448,7 +454,7 @@ jobs:
       - name: Verify Deployment
         run: |
           echo "🔍 Verifying deployment..."
-          
+
           # Check all components
           echo "📊 Component Status:"
           kubectl get pods -n ingress-nginx
@@ -458,28 +464,28 @@ jobs:
           kubectl get pods -n argocd
           kubectl get pods -n backstage
           kubectl get pods -n crossplane-system
-          
+
           # Check ArgoCD applications
           echo "🔄 ArgoCD Applications:"
           kubectl get applications -n argocd
-          
+
           # Test application access
           echo "🌐 Testing application access..."
           INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Ingress IP: $INGRESS_IP"
-          
+
           # Test ArgoCD access
           if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ ArgoCD is accessible"
           else
             echo "❌ ArgoCD access failed"
           fi
-          
+
           # Test Grafana access
           if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Grafana is accessible"
           else
             echo "❌ Grafana access failed"
           fi
-          
+
           echo "✅ Deployment verification completed"

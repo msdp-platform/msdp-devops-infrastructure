@@ -3,16 +3,16 @@ crossplane:
   # Global configuration
   global:
     imageRegistry: "xpkg.upbound.io/crossplane"
-  
+
   # Core configuration
   core:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: crossplane
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -21,22 +21,22 @@ crossplane:
       limits:
         cpu: "500m"
         memory: "1Gi"
-    
+
     # Service configuration
     service:
       type: ClusterIP
       port: 8080
       target_port: 8080
-  
+
   # RBAC Manager configuration
   rbacManager:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: crossplane
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -45,49 +45,49 @@ crossplane:
       limits:
         cpu: "200m"
         memory: "512Mi"
-  
+
   # Service account
   serviceAccount:
     create: true
     annotations: {}
-  
+
   # RBAC
   rbac:
     create: true
-  
+
   # Node selector
   nodeSelector:
     kubernetes.io/os: linux
-  
+
   # Tolerations
   tolerations: []
-  
+
   # Affinity
   affinity: {}
-  
+
   # Pod annotations
   podAnnotations: {}
-  
+
   # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 65532
     fsGroup: 65532
-  
+
   # Prometheus monitoring
   prometheus:
     enabled: true
     servicemonitor:
       enabled: true
       namespace: "monitoring"
-  
+
   # Providers configuration
   providers:
     aws:
       enabled: true
       version: "v0.44.1"
       image: "xpkg.upbound.io/crossplane-contrib/provider-aws"
-    
+
     azure:
       enabled: true
       version: "v0.19.0"

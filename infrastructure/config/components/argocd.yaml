@@ -4,16 +4,16 @@ argocd:
   global:
     domain: "argocd.dev.aztech-msdp.com"
     imageRegistry: "quay.io/argoproj"
-  
+
   # Server configuration
   server:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -22,13 +22,13 @@ argocd:
       limits:
         cpu: "1000m"
         memory: "2Gi"
-    
+
     # Service configuration
     service:
       type: ClusterIP
       port: 80
       target_port: 8080
-    
+
     # Ingress configuration
     ingress:
       enabled: true
@@ -45,7 +45,7 @@ argocd:
         - secretName: argocd-tls
           hosts:
             - argocd.dev.aztech-msdp.com
-    
+
     # Additional configuration
     config:
       url: "https://argocd.dev.aztech-msdp.com"
@@ -57,16 +57,16 @@ argocd:
         clientSecret: $oidc.clientSecret
         requestedScopes: ["openid", "profile", "email", "groups"]
         requestedIDTokenClaims: {"groups": {"essential": true}}
-  
+
   # Application Controller configuration
   controller:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -75,16 +75,16 @@ argocd:
       limits:
         cpu: "500m"
         memory: "1Gi"
-  
+
   # Repository Server configuration
   repoServer:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -93,16 +93,16 @@ argocd:
       limits:
         cpu: "500m"
         memory: "1Gi"
-  
+
   # ApplicationSet Controller configuration
   applicationSet:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -111,16 +111,16 @@ argocd:
       limits:
         cpu: "200m"
         memory: "512Mi"
-  
+
   # Notifications Controller configuration
   notifications:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -129,16 +129,16 @@ argocd:
       limits:
         cpu: "200m"
         memory: "512Mi"
-  
+
   # Redis configuration
   redis:
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: redis
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -147,17 +147,17 @@ argocd:
       limits:
         cpu: "200m"
         memory: "256Mi"
-  
+
   # Dex configuration (for OIDC)
   dex:
     enabled: true
     replica_count: 1
-    
+
     # Image configuration
     image:
       repository: argocd
       pullPolicy: IfNotPresent
-    
+
     # Resource configuration
     resources:
       requests:
@@ -166,22 +166,22 @@ argocd:
       limits:
         cpu: "200m"
         memory: "512Mi"
-  
+
   # Service account
   serviceAccount:
     create: true
     annotations: {}
-  
+
   # RBAC
   rbac:
     create: true
-  
+
   # Node selector
   nodeSelector:
     kubernetes.io/os: linux
-  
+
   # Tolerations
   tolerations: []
-  
+
   # Affinity
   affinity: {}

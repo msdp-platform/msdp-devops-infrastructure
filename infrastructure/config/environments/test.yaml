@@ -18,7 +18,7 @@ overrides:
       limits:
         cpu: "750m"
         memory: "1.5Gi"
-    
+
     prometheus:
       requests:
         cpu: "250m"
@@ -26,7 +26,7 @@ overrides:
       limits:
         cpu: "1250m"
         memory: "2.5Gi"
-    
+
     argocd:
       requests:
         cpu: "150m"
@@ -46,8 +46,8 @@ overrides:
     persistence:
       enabled: true
       size: "5Gi"
-    admin_password: "test123"  # Test password
-  
+    admin_password: "test123" # Test password
+
   prometheus:
-    retention: "15d"  # Medium retention for testing
+    retention: "15d" # Medium retention for testing
     storage_size: "20Gi"

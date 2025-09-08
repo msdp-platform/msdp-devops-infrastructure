@@ -18,7 +18,7 @@ overrides:
       limits:
         cpu: "1000m"
         memory: "2Gi"
-    
+
     prometheus:
       requests:
         cpu: "300m"
@@ -26,7 +26,7 @@ overrides:
       limits:
         cpu: "1500m"
         memory: "3Gi"
-    
+
     argocd:
       requests:
         cpu: "200m"
@@ -44,9 +44,9 @@ overrides:
   # Dev-specific configurations
   grafana:
     persistence:
-      enabled: false  # Disable persistence in dev for easier resets
-    admin_password: "admin"  # Simple password for dev
-  
+      enabled: false # Disable persistence in dev for easier resets
+    admin_password: "admin" # Simple password for dev
+
   prometheus:
-    retention: "7d"  # Shorter retention in dev
+    retention: "7d" # Shorter retention in dev
     storage_size: "10Gi"

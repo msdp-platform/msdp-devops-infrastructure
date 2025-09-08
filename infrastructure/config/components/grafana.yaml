@@ -2,19 +2,19 @@
 grafana:
   # Basic configuration
   replica_count: 1
-  
+
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     target_port: 3000
-  
+
   # Persistence configuration
   persistence:
     enabled: true
     size: "10Gi"
     storage_class: ""
-  
+
   # Resource configuration
   resources:
     requests:
@@ -23,42 +23,42 @@ grafana:
     limits:
       cpu: "500m"
       memory: "1Gi"
-  
+
   # Admin configuration
   admin:
     user: "admin"
-    password: "admin"  # Will be overridden by environment configs
-  
+    password: "admin" # Will be overridden by environment configs
+
   # Security configuration
   security:
     allow_embedding: true
     cookie_samesite: "lax"
-  
+
   # Dashboard configuration
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-      - name: 'default'
-        orgId: 1
-        folder: ''
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /var/lib/grafana/dashboards/default
-  
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
   # Datasources configuration
   datasources:
     datasources.yaml:
       apiVersion: 1
       datasources:
-      - name: Prometheus
-        type: prometheus
-        url: http://prometheus-server.monitoring.svc.cluster.local
-        access: proxy
-        isDefault: true
-  
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server.monitoring.svc.cluster.local
+          access: proxy
+          isDefault: true
+
   # Ingress configuration
   ingress:
     enabled: true

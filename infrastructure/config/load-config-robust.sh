@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Simple Configuration Loader Script
+# Robust Configuration Loader Script
 # This script loads global and environment-specific configurations
 
 set -e
@@ -9,7 +9,7 @@ set -e
 ENVIRONMENT="dev"
 CONFIG_DIR="infrastructure/config"
 
-# Function to extract value from YAML (simple approach)
+# Function to extract value from YAML (robust approach)
 extract_yaml_value() {
     local file="$1"
     local key="$2"
@@ -28,7 +28,7 @@ extract_yaml_value() {
     fi
 }
 
-# Function to extract nested YAML value
+# Function to extract nested YAML value (improved)
 extract_nested_yaml_value() {
     local file="$1"
     local section="$2"
@@ -36,8 +36,19 @@ extract_nested_yaml_value() {
     local default="$4"
     
     if [ -f "$file" ]; then
-        # Find the section and extract the key value
-        local value=$(awk "/^${section}:/,/^[a-zA-Z]/ { if (\$1 == \"${key}:\") print \$2 }" "$file" | head -1 | sed 's/^"//' | sed 's/"$//' | sed 's/^[[:space:]]*//')
+        # Use a more robust approach to find nested values
+        local value=$(awk "
+            /^${section}:/ { in_section=1; next }
+            /^[a-zA-Z]/ && in_section { in_section=0 }
+            in_section && /^[[:space:]]*${key}:/ { 
+                gsub(/^[[:space:]]*${key}:[[:space:]]*/, \"\")
+                gsub(/^\"|\"$/, \"\")
+                gsub(/^[[:space:]]*/, \"\")
+                print
+                exit
+            }
+        " "$file")
+        
         if [ -n "$value" ] && [ "$value" != "null" ]; then
             echo "$value"
         else
@@ -84,6 +95,8 @@ load_configuration() {
     export EXPECTED_CROSSPLANE_VERSION="v1.14.2"
     export EXPECTED_CERT_MANAGER_VERSION="v1.13.2"
     export EXPECTED_NGINX_VERSION="v1.9.4"
+    export EXPECTED_EXTERNAL_DNS_VERSION="v0.14.0"
+    export EXPECTED_PROMETHEUS_VERSION="v2.50.1"
     
     # Load timeouts
     export DEPLOYMENT_TIMEOUT="300"
@@ -105,6 +118,8 @@ load_configuration() {
     echo "   Crossplane: $EXPECTED_CROSSPLANE_VERSION"
     echo "   Cert-Manager: $EXPECTED_CERT_MANAGER_VERSION"
     echo "   NGINX: $EXPECTED_NGINX_VERSION"
+    echo "   External DNS: $EXPECTED_EXTERNAL_DNS_VERSION"
+    echo "   Prometheus: $EXPECTED_PROMETHEUS_VERSION"
 }
 
 # Export the main function

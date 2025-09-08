@@ -80,7 +80,7 @@ resources:
     limits:
       cpu: "500m"
       memory: "1Gi"
-  
+
   # Component-specific resource overrides
   nginx_ingress:
     requests:
@@ -89,7 +89,7 @@ resources:
     limits:
       cpu: "500m"
       memory: "512Mi"
-  
+
   grafana:
     requests:
       cpu: "100m"
@@ -97,7 +97,7 @@ resources:
     limits:
       cpu: "500m"
       memory: "1Gi"
-  
+
   prometheus:
     requests:
       cpu: "200m"
