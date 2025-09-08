@@ -31,9 +31,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Azure CLI
-        uses: azure/setup-az-cli@v1
-
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -57,7 +54,7 @@ jobs:
               RESOURCE_GROUP="delivery-platform-aks-rg-prod"
               ;;
           esac
-          
+
           az aks get-credentials \
             --resource-group $RESOURCE_GROUP \
             --name $CLUSTER_NAME \
@@ -72,66 +69,66 @@ jobs:
       - name: Test Current Infrastructure State
         run: |
           echo "🔍 Testing current infrastructure state..."
-          
+
           # Check all namespaces
           echo "📁 Namespaces:"
           kubectl get namespaces | grep -E "(argocd|backstage|crossplane|monitoring|ingress-nginx|cert-manager|external-dns)"
-          
+
           # Check platform components
           echo "📊 Platform Components Status:"
           kubectl get pods -n ingress-nginx
           kubectl get pods -n cert-manager
           kubectl get pods -n external-dns
           kubectl get pods -n monitoring
-          
+
           # Check applications
           echo "🚀 Applications Status:"
           kubectl get pods -n argocd
           kubectl get pods -n backstage
           kubectl get pods -n crossplane-system
-          
+
           # Check ArgoCD applications
           echo "🔄 ArgoCD Applications:"
           kubectl get applications -n argocd
-          
+
           # Check secrets
           echo "🔐 AWS Credentials Secret:"
           kubectl get secret aws-credentials -n external-dns -o yaml | grep -E "(aws-access-key-id|aws-secret-access-key)" | head -2
-          
+
           # Check ingress and certificates
           echo "🌐 Ingress and Certificates:"
           kubectl get ingress -A
           kubectl get certificates -A
-          
+
           echo "✅ Current state verification completed"
 
       - name: Test Application Access
         run: |
           echo "🌐 Testing application access..."
-          
+
           # Get ingress IP
           INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Ingress IP: $INGRESS_IP"
-          
+
           # Test ArgoCD access
           if curl -I -s --max-time 10 "https://argocd.${{ github.event.inputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ ArgoCD is accessible"
           else
             echo "❌ ArgoCD access failed"
           fi
-          
+
           # Test Grafana access
           if curl -I -s --max-time 10 "https://grafana.${{ github.event.inputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Grafana is accessible"
           else
             echo "❌ Grafana access failed"
           fi
-          
+
           # Test Backstage access
           if curl -I -s --max-time 10 "https://backstage.${{ github.event.inputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Backstage is accessible"
           else
             echo "❌ Backstage access failed"
           fi
-          
+
           echo "✅ Application access testing completed"
