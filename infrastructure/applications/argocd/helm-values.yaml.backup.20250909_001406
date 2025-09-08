@@ -1,0 +1,113 @@
+# ArgoCD Helm Values
+# Generated from global.yaml - DO NOT EDIT MANUALLY
+# Chart Version: 5.53.0
+# ArgoCD Version: v2.9.3
+
+# Global configuration
+global:
+  imageRegistry: ""
+
+# ArgoCD configuration
+argo-cd:
+  # Image configuration
+  image:
+    repository: quay.io/argoproj/argocd
+    tag: "v2.9.3"
+    pullPolicy: IfNotPresent
+
+  # Server configuration
+  server:
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 80
+      targetPort: 8080
+    
+    # Ingress configuration (disabled - using separate ingress.yaml)
+    ingress:
+      enabled: false
+
+    # Additional server configuration
+    extraArgs:
+      - --insecure
+      - --rootpath=/argocd
+
+  # Application Controller configuration
+  controller:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  # Repository Server configuration
+  repoServer:
+    replicas: 1
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  # Redis configuration
+  redis:
+    enabled: true
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Dex configuration (disabled for simplicity)
+  dex:
+    enabled: false
+
+  # Notifications configuration
+  notifications:
+    enabled: true
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # ApplicationSet configuration
+  applicationSet:
+    enabled: true
+    resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+# ConfigMap configuration
+configs:
+  cm:
+    url: "https://argocd.dev.aztech-msdp.com"
+    application.instanceLabelKey: "argocd.argoproj.io/instance"
+    server.rbac.log.enforce.enable: "false"
+    timeout.hard.reconciliation: "0s"
+    timeout.reconciliation: "180s"
+    admin.enabled: "true"
+    exec.enabled: "false"
+
+# RBAC configuration
+configs:
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      g, argocd-admins, role:admin

@@ -1,13 +1,13 @@
 # NGINX Ingress Helm Values
 # Generated from global.yaml - DO NOT EDIT MANUALLY
-# Chart Version: 4.8.3
-# NGINX Ingress Version: v1.13.2
+# Chart Version: null
+# NGINX Ingress Version: null
 
 # Controller configuration
 controller:
   image:
     repository: registry.k8s.io/ingress-nginx/controller
-    tag: "vv1.13.2"
+    tag: "vnull"
     pullPolicy: IfNotPresent
   
   # Service configuration

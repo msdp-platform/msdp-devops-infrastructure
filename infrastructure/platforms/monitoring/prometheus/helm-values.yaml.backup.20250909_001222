@@ -1,0 +1,136 @@
+# Prometheus Helm Values
+# This file contains the configuration for Prometheus
+
+# Global configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Prometheus server configuration
+server:
+  # Replica count
+  replicaCount: 1
+
+  # Image configuration
+  image:
+    repository: quay.io/prometheus/prometheus
+    tag: "v2.50.1"
+    pullPolicy: IfNotPresent
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 9090
+
+  # Persistent volume configuration
+  persistentVolume:
+    enabled: true
+    size: 10Gi
+    storageClass: "default"
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    fsGroup: 65534
+
+# Alertmanager configuration
+alertmanager:
+  enabled: true
+  image:
+    repository: quay.io/prometheus/alertmanager
+    tag: "v0.27.0"
+    pullPolicy: IfNotPresent
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 9093
+
+  # Persistent volume configuration
+  persistentVolume:
+    enabled: true
+    size: 2Gi
+    storageClass: "default"
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 512Mi
+
+# Node exporter configuration
+nodeExporter:
+  enabled: true
+  image:
+    repository: quay.io/prometheus/node-exporter
+    tag: "v1.8.2"
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# Kube state metrics configuration
+kubeStateMetrics:
+  enabled: true
+  image:
+    repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
+    tag: "v2.10.1"
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Pushgateway configuration
+pushgateway:
+  enabled: false
+
+# Service monitors configuration
+serviceMonitors:
+  enabled: true
+  labels:
+    app.kubernetes.io/name: prometheus
+    app.kubernetes.io/part-of: msdp-platform
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+
+# Pod security policy
+podSecurityPolicy:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false

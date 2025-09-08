@@ -573,7 +573,7 @@ jobs:
           # Clean up ArgoCD using Helm (since it's deployed with Helm)
           echo "🗑️ Cleaning up ArgoCD (Helm uninstall)..."
           helm uninstall argocd -n argocd --ignore-not-found || true
-          
+
           # Clean up any remaining resources
           kubectl delete namespace argocd --ignore-not-found=true || true
 
@@ -598,46 +598,72 @@ jobs:
 
       - name: Generate Dynamic Configurations
         run: |
-          echo "🔧 Generating dynamic configurations from global.yaml..."
+          echo "🔧 Generating dynamic configurations for all Helm components from global.yaml..."
           
           # Make the script executable
-          chmod +x scripts/utilities/generate-argocd-config.sh
+          chmod +x scripts/utilities/generate-all-helm-configs.sh
           
-          # Generate ArgoCD configuration
-          echo "📝 Generating ArgoCD configuration..."
-          ./scripts/utilities/generate-argocd-config.sh
+          # Generate all Helm component configurations
+          echo "📝 Generating all Helm component configurations..."
+          ./scripts/utilities/generate-all-helm-configs.sh
           
           # Show what was generated
-          echo "📋 Generated ArgoCD configuration:"
-          echo "  - Helm values: $(wc -l < infrastructure/applications/argocd/helm-values.yaml) lines"
-          echo "  - Kustomization: $(wc -l < infrastructure/applications/argocd/kustomization.yaml) lines"
+          echo "📋 Generated configurations:"
+          echo "  📦 Platform Components:"
+          echo "    - NGINX Ingress: $(wc -l < infrastructure/platforms/networking/nginx-ingress/helm-values.yaml) lines"
+          echo "    - Cert-Manager: $(wc -l < infrastructure/platforms/networking/cert-manager/helm-values.yaml) lines"
+          echo "    - Grafana: $(wc -l < infrastructure/platforms/monitoring/grafana/helm-values.yaml) lines"
+          echo "    - Prometheus: $(wc -l < infrastructure/platforms/monitoring/prometheus/helm-values.yaml) lines"
+          echo "  📦 Applications:"
+          echo "    - ArgoCD: $(wc -l < infrastructure/applications/argocd/helm-values.yaml) lines"
+          echo "    - Crossplane: $(wc -l < infrastructure/applications/crossplane/helm-values.yaml) lines"
           
-          # Verify the generated configuration
-          echo "🔍 Verifying generated configuration..."
-          if [ -f "infrastructure/applications/argocd/helm-values.yaml" ] && [ -f "infrastructure/applications/argocd/kustomization.yaml" ]; then
-            echo "✅ Configuration files generated successfully"
-          else
+          # Verify the generated configurations
+          echo "🔍 Verifying generated configurations..."
+          local failed=0
+          for component in "nginx-ingress" "cert-manager" "grafana" "prometheus" "argocd" "crossplane"; do
+            if [ -f "infrastructure/platforms/networking/${component}/helm-values.yaml" ] || [ -f "infrastructure/platforms/monitoring/${component}/helm-values.yaml" ] || [ -f "infrastructure/applications/${component}/helm-values.yaml" ]; then
+              echo "  ✅ $component configuration generated"
+            else
+              echo "  ❌ $component configuration missing"
+              failed=1
+            fi
+          done
+          
+          if [ $failed -eq 1 ]; then
             echo "❌ Configuration generation failed"
             exit 1
+          else
+            echo "✅ All configuration files generated successfully"
           fi
 
       - name: Commit Generated Configurations
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "💾 Committing generated configuration files..."
-          
+
           # Configure git
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          
+
           # Check if there are changes to commit
           if git diff --quiet; then
             echo "ℹ️ No changes to commit"
           else
             # Add and commit the generated files
+            git add infrastructure/platforms/networking/nginx-ingress/helm-values.yaml
+            git add infrastructure/platforms/networking/nginx-ingress/kustomization.yaml
+            git add infrastructure/platforms/networking/cert-manager/helm-values.yaml
+            git add infrastructure/platforms/networking/cert-manager/kustomization.yaml
+            git add infrastructure/platforms/monitoring/grafana/helm-values.yaml
+            git add infrastructure/platforms/monitoring/grafana/kustomization.yaml
+            git add infrastructure/platforms/monitoring/prometheus/helm-values.yaml
+            git add infrastructure/platforms/monitoring/prometheus/kustomization.yaml
             git add infrastructure/applications/argocd/helm-values.yaml
             git add infrastructure/applications/argocd/kustomization.yaml
-            git commit -m "🤖 Auto-update: Generate ArgoCD configuration from global.yaml" -m "- Generated helm-values.yaml from global.yaml" -m "- Generated kustomization.yaml from global.yaml" -m "- Ensures consistency across all configuration files" -m "- Auto-generated by pipeline - do not edit manually" -m "Generated from: ${{ github.sha }}"
+            git add infrastructure/applications/crossplane/helm-values.yaml
+            git add infrastructure/applications/crossplane/kustomization.yaml
+            git commit -m "🤖 Auto-update: Generate all Helm component configurations from global.yaml" -m "- Generated configurations for: NGINX Ingress, Cert-Manager, Grafana, Prometheus, ArgoCD, Crossplane" -m "- Generated helm-values.yaml and kustomization.yaml from global.yaml" -m "- Ensures consistency across all configuration files" -m "- Auto-generated by pipeline - do not edit manually" -m "Generated from: ${{ github.sha }}"
             
             # Push the changes
             git push origin ${{ github.ref_name }}
@@ -647,11 +673,11 @@ jobs:
       - name: Deploy Applications
         run: |
           echo "🚀 Deploying Applications..."
-          
+
           # Extract chart version from generated kustomization.yaml
           ARGOCD_CHART_VERSION=$(yq eval '.helmCharts[0].version' infrastructure/applications/argocd/kustomization.yaml)
           echo "📋 Using ArgoCD chart version: $ARGOCD_CHART_VERSION"
-          
+
           if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             echo "🔍 DRY RUN MODE - Showing what would be deployed..."
             

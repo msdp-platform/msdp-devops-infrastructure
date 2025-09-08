@@ -1,12 +1,12 @@
 # Cert-Manager Helm Values
 # Generated from global.yaml - DO NOT EDIT MANUALLY
-# Chart Version: v1.18.0
-# Cert-Manager Version: v1.18.0
+# Chart Version: null
+# Cert-Manager Version: null
 
 # Image configuration
 image:
-  repository: quay.io/jetstack/cert-manager-controller
-  tag: "v1.18.0"
+  repository: null
+  tag: "null"
   pullPolicy: IfNotPresent
 
 # Resources

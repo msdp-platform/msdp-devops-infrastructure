@@ -1,10 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 metadata:
-  name: nginx_ingress
+  name: nginx-ingress
   annotations:
     config.kubernetes.io/local-config: "true"
-resources: []
+resources:
+  - namespace.yaml
 # Helm chart configuration
 helmCharts:
   - name: ingress-nginx
@@ -13,4 +14,7 @@ helmCharts:
     releaseName: ingress-nginx
     namespace: ingress-nginx
     valuesFile: helm-values.yaml
+commonLabels:
+  app.kubernetes.io/part-of: msdp-platform
+  app.kubernetes.io/managed-by: kustomize
 namespace: ingress-nginx
