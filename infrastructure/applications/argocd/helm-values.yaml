@@ -42,17 +42,17 @@ argo-cd:
 
     # Additional configuration
     config:
-      # Disable admin user creation (we'll use OIDC)
-      admin.enabled: "false"
-
-      # OIDC configuration (placeholder)
-      oidc.config: |
-        name: Azure AD
-        issuer: https://login.microsoftonline.com/your-tenant-id/v2.0
-        clientId: your-client-id
-        clientSecret: $oidc.clientSecret
-        requestedScopes: ["openid", "profile", "email", "groups"]
-        requestedIDTokenClaims: {"groups": {"essential": true}}
+      # Enable admin user creation for initial setup
+      admin.enabled: "true"
+      
+      # Application instance label key
+      application.instanceLabelKey: "argocd.argoproj.io/instance"
+      
+      # Server configuration
+      server.rbac.log.enforce.enable: "false"
+      timeout.reconciliation: "180s"
+      timeout.hard.reconciliation: "0s"
+      exec.enabled: "false"
 
   # Controller configuration
   controller:
