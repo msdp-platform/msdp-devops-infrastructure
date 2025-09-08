@@ -129,6 +129,8 @@ jobs:
 
       - name: Setup Kustomize
         run: |
+          # Remove existing kustomize if it exists
+          rm -f kustomize
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
 
@@ -173,6 +175,8 @@ jobs:
 
       - name: Setup Kustomize
         run: |
+          # Remove existing kustomize if it exists
+          rm -f kustomize
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
 
