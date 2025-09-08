@@ -56,7 +56,7 @@ jobs:
               *) ENVIRONMENT="dev" ;;
             esac
           fi
-          
+
           case "$ENVIRONMENT" in
             dev)
               CLUSTER_NAME="msdp-infra-aks"
@@ -71,7 +71,7 @@ jobs:
               RESOURCE_GROUP="delivery-platform-aks-rg-prod"
               ;;
           esac
-          
+
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Azure CLI
-        uses: azure/setup-az-cli@v3
+        uses: azure/setup-az-cli@v1
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -115,96 +115,96 @@ jobs:
       - name: Deploy ArgoCD Applications
         run: |
           echo "🚀 Deploying ArgoCD Applications for GitOps management"
-          
+
           # Deploy ArgoCD applications that will manage everything
           kubectl apply -k infrastructure/applications/argocd/applications/
-          
+
           # Wait for ArgoCD to be ready
           echo "⏳ Waiting for ArgoCD to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-          
+
           echo "✅ ArgoCD Applications deployed"
 
       - name: Force ArgoCD Sync (if requested)
         if: github.event.inputs.force_sync == 'true'
         run: |
           echo "🔄 Force syncing ArgoCD applications..."
-          
+
           # Sync platform components
           kubectl patch application msdp-platform-components -n argocd --type merge -p '{"operation":{"sync":{"syncOptions":["CreateNamespace=true"]}}}'
-          
+
           # Sync applications
           kubectl patch application msdp-applications -n argocd --type merge -p '{"operation":{"sync":{"syncOptions":["CreateNamespace=true"]}}}'
-          
+
           echo "✅ Force sync completed"
 
       - name: Monitor ArgoCD Sync
         run: |
           echo "👀 Monitoring ArgoCD sync status..."
-          
+
           # Wait for applications to sync
           kubectl wait --for=condition=Synced application/msdp-platform-components -n argocd --timeout=600s || true
           kubectl wait --for=condition=Synced application/msdp-applications -n argocd --timeout=600s || true
-          
+
           # Show application status
           kubectl get applications -n argocd
-          
+
           echo "✅ ArgoCD sync monitoring completed"
 
       - name: Verify GitOps Deployment
         run: |
           echo "🔍 Verifying GitOps deployment..."
-          
+
           # Check all namespaces and pods
           kubectl get namespaces | grep -E "(argocd|backstage|crossplane|monitoring|ingress-nginx|cert-manager|external-dns)"
-          
+
           # Check platform components
           echo "📊 Platform Components:"
           kubectl get pods -n ingress-nginx
           kubectl get pods -n cert-manager
           kubectl get pods -n external-dns
           kubectl get pods -n monitoring
-          
+
           # Check applications
           echo "🚀 Applications:"
           kubectl get pods -n argocd
           kubectl get pods -n backstage
           kubectl get pods -n crossplane-system
-          
+
           # Check ingress and certificates
           echo "🌐 Ingress and Certificates:"
           kubectl get ingress -A
           kubectl get certificates -A
-          
+
           echo "✅ GitOps deployment verification completed"
 
       - name: Test Application Access
         run: |
           echo "🌐 Testing application access via GitOps deployment..."
-          
+
           # Get ingress IP
           INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Ingress IP: $INGRESS_IP"
-          
+
           # Test ArgoCD access
           if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ ArgoCD is accessible via GitOps"
           else
             echo "❌ ArgoCD access failed"
           fi
-          
+
           # Test Grafana access
           if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Grafana is accessible via GitOps"
           else
             echo "❌ Grafana access failed"
           fi
-          
+
           # Test Backstage access
           if curl -I -s --max-time 10 "https://backstage.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Backstage is accessible via GitOps"
           else
             echo "❌ Backstage access failed"
           fi
-          
+
           echo "✅ Application access testing completed"
