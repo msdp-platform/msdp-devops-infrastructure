@@ -331,8 +331,8 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🧹 Cleaning up existing NGINX Ingress Controller..."
-          # Delete existing NGINX Ingress Controller if it exists
-          kubectl delete -k infrastructure/platforms/networking/nginx-ingress/ --ignore-not-found=true || true
+          # Delete existing NGINX Ingress Controller using Helm (since it's deployed with Helm)
+          helm uninstall ingress-nginx -n ingress-nginx --ignore-not-found || true
           # Wait a bit for cleanup
           sleep 10
           echo "✅ Cleanup completed"
@@ -560,17 +560,17 @@ jobs:
         run: |
           echo "🧹 Cleaning up existing applications to avoid immutable field conflicts..."
 
-          # Clean up ArgoCD completely (like platform components)
-          echo "🗑️ Cleaning up ArgoCD components..."
-          kubectl delete -k infrastructure/applications/argocd/ --ignore-not-found=true || true
+          # Clean up ArgoCD using Helm (since it's deployed with Helm)
+          echo "🗑️ Cleaning up ArgoCD (Helm uninstall)..."
+          helm uninstall argocd -n argocd --ignore-not-found || true
 
-          # Clean up Backstage completely
-          echo "🗑️ Cleaning up Backstage..."
+          # Clean up Backstage using Kustomize (since it's deployed with Kustomize)
+          echo "🗑️ Cleaning up Backstage (Kustomize delete)..."
           kubectl delete -k infrastructure/applications/backstage/ --ignore-not-found=true || true
 
-          # Clean up Crossplane completely
-          echo "🗑️ Cleaning up Crossplane..."
-          kubectl delete -k infrastructure/applications/crossplane/ --ignore-not-found=true || true
+          # Clean up Crossplane using Helm (since it's deployed with Helm)
+          echo "🗑️ Cleaning up Crossplane (Helm uninstall)..."
+          helm uninstall crossplane -n crossplane-system --ignore-not-found || true
 
           echo "⏳ Waiting for cleanup to complete..."
           sleep 15
@@ -589,25 +589,25 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🔍 Verifying application deployments..."
-          
+
           # Wait for ArgoCD to be ready
           echo "⏳ Waiting for ArgoCD to be ready..."
           kubectl wait --namespace argocd \
             --for=condition=available deployment/argocd-server \
             --timeout=300s || { echo "❌ ArgoCD server failed to start"; kubectl get pods -n argocd; exit 1; }
-          
+
           # Wait for Backstage to be ready
           echo "⏳ Waiting for Backstage to be ready..."
           kubectl wait --namespace backstage \
             --for=condition=available deployment/backstage \
             --timeout=300s || { echo "❌ Backstage failed to start"; kubectl get pods -n backstage; exit 1; }
-          
+
           # Wait for Crossplane to be ready
           echo "⏳ Waiting for Crossplane to be ready..."
           kubectl wait --namespace crossplane-system \
             --for=condition=available deployment/crossplane \
             --timeout=300s || { echo "❌ Crossplane failed to start"; kubectl get pods -n crossplane-system; exit 1; }
-          
+
           echo "✅ All applications deployed successfully"
 
   verify-deployment:
