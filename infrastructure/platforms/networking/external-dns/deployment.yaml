@@ -47,6 +47,10 @@ spec:
               value: "us-east-1"
             - name: AWS_REGION
               value: "us-east-1"
+            - name: AWS_ROLE_ARN
+              value: "arn:aws:iam::319422413814:role/GitHubActions-MSDP-Platform"
+            - name: AWS_WEB_IDENTITY_TOKEN_FILE
+              value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
           resources:
             requests:
               memory: "64Mi"

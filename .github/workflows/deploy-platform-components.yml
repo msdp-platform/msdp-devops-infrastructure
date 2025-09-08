@@ -269,15 +269,41 @@ jobs:
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
-      - name: Deploy Monitoring Components
+      - name: Deploy Prometheus
         run: |
-          echo "📊 Deploying monitoring components..."
+          echo "📊 Deploying Prometheus..."
           if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
-            echo "🔍 Dry run mode - monitoring components would be deployed"
+            kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply --dry-run=client -f -
           else
-            echo "📊 Monitoring components deployment (to be implemented)"
-            # TODO: Add monitoring components deployment when available
+            kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply -f -
           fi
+
+      - name: Wait for Prometheus
+        if: needs.detect-environment.outputs.dry_run != 'true'
+        run: |
+          echo "⏳ Waiting for Prometheus to be ready..."
+          kubectl wait --namespace monitoring \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/name=prometheus \
+            --timeout=300s
+
+      - name: Deploy Grafana
+        run: |
+          echo "📈 Deploying Grafana..."
+          if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
+            kustomize build --enable-helm infrastructure/platforms/monitoring/grafana/ | kubectl apply --dry-run=client -f -
+          else
+            kustomize build --enable-helm infrastructure/platforms/monitoring/grafana/ | kubectl apply -f -
+          fi
+
+      - name: Wait for Grafana
+        if: needs.detect-environment.outputs.dry_run != 'true'
+        run: |
+          echo "⏳ Waiting for Grafana to be ready..."
+          kubectl wait --namespace grafana \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/name=grafana \
+            --timeout=300s
 
   notify-deployment:
     runs-on: ubuntu-latest
