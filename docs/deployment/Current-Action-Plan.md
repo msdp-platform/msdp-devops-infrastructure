@@ -104,7 +104,7 @@ kubectl apply -k infrastructure/applications/crossplane/
 **Solutions:**
 ```bash
 # Check workflow file exists
-ls -la ci-cd/workflows/deploy-platform-components.yml
+ls -la .github/workflows/deploy-platform-components.yml
 
 # Check GitHub Actions settings
 # Go to repository → Settings → Actions → General
