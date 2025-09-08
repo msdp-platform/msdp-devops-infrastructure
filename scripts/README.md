@@ -13,9 +13,13 @@ scripts/
 │   ├── platform                  # Shell wrapper
 │   └── README.md                 # Platform management docs
 ├── utilities/                     # Utility scripts
-│   ├── access-argocd.sh          # ArgoCD access helper
 │   ├── argocd-access.sh          # ArgoCD management
 │   └── cleanup-laptop.sh         # Resource cleanup
+├── setup/                         # Platform setup scripts
+│   ├── initialize-repositories.sh # Initialize all repositories
+│   ├── setup-all-repositories.sh  # Setup team access
+│   ├── setup-multi-environment-branches.sh # Setup branches
+│   └── README.md                 # Setup documentation
 ├── testing/                       # Testing scripts
 │   └── test-aks-scaling.sh       # AKS scaling tests
 └── README.md                      # This documentation
@@ -81,6 +85,20 @@ Scripts are now focused on **support operations** rather than primary deployment
 ./scripts/utilities/cleanup-laptop.sh
 ```
 
+## 🚀 **Platform Setup**
+
+### **Repository Management**
+```bash
+# Initialize all MSDP repositories
+./scripts/setup/initialize-repositories.sh
+
+# Setup team access and branch protection
+./scripts/setup/setup-all-repositories.sh
+
+# Setup multi-environment branches
+./scripts/setup/setup-multi-environment-branches.sh
+```
+
 ## 🧪 **Testing**
 
 ### **AKS Scaling Tests**
@@ -130,13 +148,14 @@ Scripts are now focused on **support operations** rather than primary deployment
 
 ## 📊 **Script Statistics**
 
-### **Total Scripts**: 5
+### **Total Scripts**: 8
 - **Platform Management**: 3 scripts
 - **Utilities**: 2 scripts
+- **Setup**: 3 scripts
 - **Testing**: 1 script
 
 ### **Script Types**
-- **Shell Scripts**: 4 scripts (.sh)
+- **Shell Scripts**: 7 scripts (.sh)
 - **Python Scripts**: 1 script (.py)
 - **Wrapper Scripts**: 1 script (platform)
 
