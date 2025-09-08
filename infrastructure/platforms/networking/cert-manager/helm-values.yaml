@@ -1,13 +1,13 @@
 # Cert-Manager Helm Values
-# This file contains the configuration for Cert-Manager
+# This file contains the configuration for Cert-Manager v1.18.0
+
+# Install CRDs
+installCRDs: true
 
 # Global configuration
 global:
   leaderElection:
     namespace: cert-manager
-
-# Install CRDs
-installCRDs: true
 
 # Image configuration
 image:
@@ -24,20 +24,6 @@ webhook:
     tag: "v1.18.0"
     pullPolicy: IfNotPresent
 
-  # Security context
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-
-  # Resource limits
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
 # CA Injector configuration
 cainjector:
   image:
@@ -46,90 +32,13 @@ cainjector:
     tag: "v1.18.0"
     pullPolicy: IfNotPresent
 
-  # Security context
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-
-  # Resource limits
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-# Controller configuration
-controller:
-  # Security context
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-
-  # Resource limits
-  resources:
-    requests:
-      cpu: 10m
-      memory: 32Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-
-  # Metrics configuration
-  metrics:
-    enabled: true
-    service:
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9402"
-        prometheus.io/path: "/metrics"
-
-  # Health checks
-  livenessProbe:
-    httpGet:
-      path: /livez
-      port: 9402
-      scheme: HTTP
-    initialDelaySeconds: 30
-    periodSeconds: 10
-    timeoutSeconds: 1
-    successThreshold: 1
-    failureThreshold: 3
-
-  readinessProbe:
-    httpGet:
-      path: /healthz
-      port: 9402
-      scheme: HTTP
-    initialDelaySeconds: 5
-    periodSeconds: 5
-    timeoutSeconds: 1
-    successThreshold: 1
-    failureThreshold: 3
-
-# RBAC configuration
-rbac:
-  create: true
-
 # Service account configuration
 serviceAccount:
   create: true
   name: ""
-
-# Pod security policy
-podSecurityPolicy:
-  enabled: false
-
-# Network policy
-networkPolicy:
-  enabled: false
 
 # Prometheus monitoring
 prometheus:
   enabled: true
   servicemonitor:
     enabled: false # Disabled to avoid dependency on Prometheus Operator CRDs
-    namespace: cert-manager
-    interval: 60s
-    scrapeTimeout: 30s
