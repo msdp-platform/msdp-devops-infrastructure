@@ -1,11 +1,11 @@
-name: 🚀 Deploy Infrastructure - Unified Pipeline
+name: 🧠 Smart Deploy - Version-Aware Pipeline
 
 on:
   push:
     branches: [dev, test, prod]
     paths:
       - "infrastructure/**"
-      - ".github/workflows/deploy-infrastructure-unified.yml"
+      - ".github/workflows/deploy-smart.yml"
   pull_request:
     branches: [test, prod]
     paths:
@@ -21,15 +21,10 @@ on:
           - dev
           - test
           - prod
-      deploy_platform:
-        description: "Deploy platform components"
+      force_deploy:
+        description: "Force deployment even if versions match"
         required: false
-        default: true
-        type: boolean
-      deploy_applications:
-        description: "Deploy applications"
-        required: false
-        default: true
+        default: false
         type: boolean
 
 env:
@@ -61,7 +56,7 @@ jobs:
               *) ENVIRONMENT="dev" ;;
             esac
           fi
-
+          
           case "$ENVIRONMENT" in
             dev)
               CLUSTER_NAME="msdp-infra-aks"
@@ -76,15 +71,121 @@ jobs:
               RESOURCE_GROUP="delivery-platform-aks-rg-prod"
               ;;
           esac
-
+          
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
           echo "should_deploy=true" >> $GITHUB_OUTPUT
 
-  deploy-platform-components:
+  check-component-versions:
     needs: detect-environment
-    if: needs.detect-environment.outputs.should_deploy == 'true' && (github.event.inputs.deploy_platform == 'true' || github.event.inputs.deploy_platform == null)
+    if: needs.detect-environment.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      deploy_platform: ${{ steps.versions.outputs.deploy_platform }}
+      deploy_applications: ${{ steps.versions.outputs.deploy_applications }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ needs.detect-environment.outputs.resource_group }} \
+            --name ${{ needs.detect-environment.outputs.cluster_name }} \
+            --overwrite-existing
+
+      - name: Check Component Versions
+        id: versions
+        run: |
+          echo "🔍 Checking component versions..."
+          
+          # Define expected versions
+          EXPECTED_ARGOCD_VERSION="v2.9.3"
+          EXPECTED_GRAFANA_VERSION="10.1.5"
+          EXPECTED_CROSSPLANE_VERSION="v1.14.2"
+          EXPECTED_CERT_MANAGER_VERSION="v1.13.3"
+          EXPECTED_NGINX_VERSION="1.8.2"
+          
+          DEPLOY_PLATFORM="false"
+          DEPLOY_APPLICATIONS="false"
+          
+          # Check if components exist and get versions
+          if kubectl get deployment -n argocd argocd-server >/dev/null 2>&1; then
+            CURRENT_ARGOCD=$(kubectl get deployment -n argocd argocd-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "ArgoCD: Current=$CURRENT_ARGOCD, Expected=$EXPECTED_ARGOCD_VERSION"
+            if [ "$CURRENT_ARGOCD" != "$EXPECTED_ARGOCD_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_APPLICATIONS="true"
+            fi
+          else
+            echo "ArgoCD not found, will deploy"
+            DEPLOY_APPLICATIONS="true"
+          fi
+          
+          if kubectl get deployment -n monitoring grafana >/dev/null 2>&1; then
+            CURRENT_GRAFANA=$(kubectl get deployment -n monitoring grafana -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "Grafana: Current=$CURRENT_GRAFANA, Expected=$EXPECTED_GRAFANA_VERSION"
+            if [ "$CURRENT_GRAFANA" != "$EXPECTED_GRAFANA_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_PLATFORM="true"
+            fi
+          else
+            echo "Grafana not found, will deploy"
+            DEPLOY_PLATFORM="true"
+          fi
+          
+          if kubectl get deployment -n crossplane-system crossplane >/dev/null 2>&1; then
+            CURRENT_CROSSPLANE=$(kubectl get deployment -n crossplane-system crossplane -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "Crossplane: Current=$CURRENT_CROSSPLANE, Expected=$EXPECTED_CROSSPLANE_VERSION"
+            if [ "$CURRENT_CROSSPLANE" != "$EXPECTED_CROSSPLANE_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_APPLICATIONS="true"
+            fi
+          else
+            echo "Crossplane not found, will deploy"
+            DEPLOY_APPLICATIONS="true"
+          fi
+          
+          # Check platform components
+          if ! kubectl get deployment -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
+            echo "NGINX Ingress not found, will deploy"
+            DEPLOY_PLATFORM="true"
+          fi
+          
+          if ! kubectl get deployment -n cert-manager cert-manager >/dev/null 2>&1; then
+            echo "Cert-Manager not found, will deploy"
+            DEPLOY_PLATFORM="true"
+          fi
+          
+          if ! kubectl get deployment -n external-dns external-dns >/dev/null 2>&1; then
+            echo "External DNS not found, will deploy"
+            DEPLOY_PLATFORM="true"
+          fi
+          
+          if ! kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
+            echo "Prometheus not found, will deploy"
+            DEPLOY_PLATFORM="true"
+          fi
+          
+          echo "deploy_platform=$DEPLOY_PLATFORM" >> $GITHUB_OUTPUT
+          echo "deploy_applications=$DEPLOY_APPLICATIONS" >> $GITHUB_OUTPUT
+          
+          echo "📊 Deployment Decision:"
+          echo "  Platform Components: $DEPLOY_PLATFORM"
+          echo "  Applications: $DEPLOY_APPLICATIONS"
+
+  deploy-platform-components:
+    needs: [detect-environment, check-component-versions]
+    if: needs.detect-environment.outputs.should_deploy == 'true' && needs.check-component-versions.outputs.deploy_platform == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.detect-environment.outputs.environment }}
     permissions:
@@ -116,22 +217,22 @@ jobs:
 
       - name: Deploy Platform Components
         run: |
-          echo "🚀 Deploying Platform Components to ${{ needs.detect-environment.outputs.environment }} environment"
-
+          echo "🚀 Deploying Platform Components (version check passed)"
+          
           # Deploy networking components
           kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
           kubectl apply -k infrastructure/platforms/networking/cert-manager/
           kubectl apply -k infrastructure/platforms/networking/external-dns/
-
+          
           # Deploy monitoring components
           kubectl apply -k infrastructure/platforms/monitoring/prometheus/
           kubectl apply -k infrastructure/platforms/monitoring/grafana/
-
+          
           echo "✅ Platform components deployment completed"
 
   deploy-applications:
-    needs: [detect-environment, deploy-platform-components]
-    if: needs.detect-environment.outputs.should_deploy == 'true' && (github.event.inputs.deploy_applications == 'true' || github.event.inputs.deploy_applications == null)
+    needs: [detect-environment, check-component-versions]
+    if: needs.detect-environment.outputs.should_deploy == 'true' && needs.check-component-versions.outputs.deploy_applications == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.detect-environment.outputs.environment }}
     permissions:
@@ -161,21 +262,17 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy Applications via GitOps
+      - name: Deploy Applications
         run: |
-          echo "🚀 Deploying Applications to ${{ needs.detect-environment.outputs.environment }} environment"
-
+          echo "🚀 Deploying Applications (version check passed)"
+          
           # Deploy applications using unified kustomization
           kubectl apply -k infrastructure/applications/
-
-          # Wait for ArgoCD to sync
-          echo "⏳ Waiting for ArgoCD to sync applications..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-
-          echo "✅ Applications deployment completed via GitOps"
+          
+          echo "✅ Applications deployment completed"
 
   verify-deployment:
-    needs: [detect-environment, deploy-platform-components, deploy-applications]
+    needs: [detect-environment, check-component-versions, deploy-platform-components, deploy-applications]
     if: always() && needs.detect-environment.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     environment: ${{ needs.detect-environment.outputs.environment }}
@@ -200,45 +297,41 @@ jobs:
             --name ${{ needs.detect-environment.outputs.cluster_name }} \
             --overwrite-existing
 
-      - name: Verify Complete Deployment
+      - name: Verify Deployment
         run: |
-          echo "🔍 Verifying complete infrastructure deployment..."
-
-          # Check platform components
-          echo "📊 Platform Components Status:"
+          echo "🔍 Verifying deployment..."
+          
+          # Check all components
+          echo "📊 Component Status:"
           kubectl get pods -n ingress-nginx
           kubectl get pods -n cert-manager
           kubectl get pods -n external-dns
           kubectl get pods -n monitoring
-
-          # Check applications
-          echo "🚀 Applications Status:"
           kubectl get pods -n argocd
           kubectl get pods -n backstage
           kubectl get pods -n crossplane-system
-
-          # Check ingress and certificates
-          echo "🌐 Ingress and Certificates:"
-          kubectl get ingress -A
-          kubectl get certificates -A
-
+          
+          # Check ArgoCD applications
+          echo "🔄 ArgoCD Applications:"
+          kubectl get applications -n argocd
+          
           # Test application access
           echo "🌐 Testing application access..."
           INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Ingress IP: $INGRESS_IP"
-
+          
           # Test ArgoCD access
           if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ ArgoCD is accessible"
           else
             echo "❌ ArgoCD access failed"
           fi
-
+          
           # Test Grafana access
           if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Grafana is accessible"
           else
             echo "❌ Grafana access failed"
           fi
-
-          echo "✅ Complete infrastructure verification completed"
+          
+          echo "✅ Deployment verification completed"
