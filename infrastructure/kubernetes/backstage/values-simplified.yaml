@@ -1,5 +1,5 @@
-# Default values for Backstage
-# This is a simplified, clean configuration that aligns with the smart deployment system
+# Simplified Backstage Configuration
+# This replaces the complex multi-file structure with a single, clean configuration
 
 # Global configuration
 global:

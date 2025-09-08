@@ -1,0 +1,49 @@
+# Development Environment Overrides
+global:
+  environment: "dev"
+  namespace: "backstage-dev"
+
+backstage:
+  app:
+    title: "MSDP Developer Portal - Dev"
+    baseUrl: "https://backstage-dev.aztech-msdp.com"
+
+deployment:
+  replicas: 1
+  image:
+    tag: "dev"
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
+  env:
+    - name: "NODE_ENV"
+      value: "development"
+    - name: "LOG_LEVEL"
+      value: "debug"
+
+ingress:
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-staging"
+  hosts:
+    - host: "backstage-dev.aztech-msdp.com"
+      paths:
+        - path: "/"
+          pathType: "Prefix"
+  tls:
+    - secretName: "backstage-dev-tls"
+      hosts:
+        - "backstage-dev.aztech-msdp.com"
+
+monitoring:
+  serviceMonitor:
+    interval: "60s"
+
+autoscaling:
+  enabled: false
+
+podDisruptionBudget:
+  enabled: false
