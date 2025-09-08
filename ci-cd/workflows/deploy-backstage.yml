@@ -5,14 +5,14 @@ on:
     branches: [main, develop]
     paths:
       - "infrastructure/crossplane/**"
-      - "infrastructure/kubernetes/backstage/**"
+      - "infrastructure/applications/backstage/**"
       - "infrastructure/argocd/applications/backstage-application.yaml"
       - ".github/workflows/deploy-backstage.yml"
   pull_request:
     branches: [main]
     paths:
       - "infrastructure/crossplane/**"
-      - "infrastructure/kubernetes/backstage/**"
+      - "infrastructure/applications/backstage/**"
       - "infrastructure/argocd/applications/backstage-application.yaml"
   workflow_dispatch:
     inputs:
@@ -111,7 +111,7 @@ jobs:
       - name: Lint YAML files
         run: |
           yamllint infrastructure/crossplane/
-          yamllint infrastructure/kubernetes/backstage/
+          yamllint infrastructure/applications/backstage/
           yamllint infrastructure/argocd/
 
       - name: Validate Crossplane XRD
@@ -129,7 +129,7 @@ jobs:
       - name: Validate Helm Chart
         run: |
           # Check if Chart.yaml is valid
-          python -c "import yaml; yaml.safe_load(open('infrastructure/kubernetes/backstage/Chart.yaml'))"
+          python -c "import yaml; yaml.safe_load(open('infrastructure/applications/backstage/Chart.yaml'))"
           echo "✅ Helm Chart is valid"
 
       - name: Validate ArgoCD Application
@@ -405,7 +405,7 @@ jobs:
             source:
               repoURL: "${{ github.server_url }}/${{ github.repository }}"
               targetRevision: "${{ github.ref_name }}"
-              path: "infrastructure/kubernetes/backstage/$ENV/$BU/$COUNTRY"
+              path: "infrastructure/applications/backstage/$ENV/$BU/$COUNTRY"
               helm:
                 valueFiles:
                   - "values-$ENV.yaml"

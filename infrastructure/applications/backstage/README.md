@@ -25,7 +25,7 @@ This directory contains the simplified Backstage deployment configuration for th
 ## 📁 Simplified Directory Structure
 
 ```
-infrastructure/kubernetes/backstage/
+infrastructure/applications/backstage/
 ├── Chart.yaml                          # Helm chart metadata
 ├── values.yaml                         # Base values
 ├── values-dev.yaml                     # Development overrides
@@ -80,19 +80,19 @@ git push origin prod
 
 ```bash
 # Deploy to development
-helm upgrade --install backstage ./infrastructure/kubernetes/backstage \
+helm upgrade --install backstage ./infrastructure/applications/backstage \
   --namespace backstage-dev \
-  --values ./infrastructure/kubernetes/backstage/values-dev.yaml
+  --values ./infrastructure/applications/backstage/values-dev.yaml
 
 # Deploy to test
-helm upgrade --install backstage ./infrastructure/kubernetes/backstage \
+helm upgrade --install backstage ./infrastructure/applications/backstage \
   --namespace backstage-test \
-  --values ./infrastructure/kubernetes/backstage/values-test.yaml
+  --values ./infrastructure/applications/backstage/values-test.yaml
 
 # Deploy to production
-helm upgrade --install backstage ./infrastructure/kubernetes/backstage \
+helm upgrade --install backstage ./infrastructure/applications/backstage \
   --namespace backstage-prod \
-  --values ./infrastructure/kubernetes/backstage/values-prod.yaml
+  --values ./infrastructure/applications/backstage/values-prod.yaml
 ```
 
 ## 🔧 Configuration
