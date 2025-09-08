@@ -8,9 +8,15 @@ metadata:
 
 resources:
   - namespace.yaml
-  - serviceaccount.yaml
-  - deployment.yaml
-  - service.yaml
+
+# Helm chart configuration
+helmCharts:
+  - name: ingress-nginx
+    repo: https://kubernetes.github.io/ingress-nginx
+    version: 4.8.3
+    releaseName: ingress-nginx
+    namespace: ingress-nginx
+    valuesFile: helm-values.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform

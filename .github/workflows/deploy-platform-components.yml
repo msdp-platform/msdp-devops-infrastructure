@@ -80,10 +80,15 @@ jobs:
         with:
           version: "v3.13.0"
 
-      - name: Setup Kustomize
+      - name: Setup Kustomize with Helm support
         run: |
+          # Install kustomize with helm support
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
+          
+          # Verify kustomize version and helm support
+          kustomize version
+          echo "Kustomize with Helm support installed"
 
       - name: Validate YAML files
         run: |
@@ -93,7 +98,7 @@ jobs:
       - name: Validate Kustomize configurations
         run: |
           echo "🔍 Validating Kustomize configurations..."
-          find infrastructure/platforms -name "kustomization.yaml" -exec kustomize build {} \; > /dev/null
+          find infrastructure/platforms -name "kustomization.yaml" -exec kustomize build --enable-helm {} \; > /dev/null
 
       - name: Validate Helm values
         run: |
@@ -129,10 +134,15 @@ jobs:
         with:
           version: "v3.13.0"
 
-      - name: Setup Kustomize
+      - name: Setup Kustomize with Helm support
         run: |
+          # Install kustomize with helm support
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
+          
+          # Verify kustomize version and helm support
+          kustomize version
+          echo "Kustomize with Helm support installed"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -153,9 +163,9 @@ jobs:
         run: |
           echo "🌐 Deploying NGINX Ingress Controller..."
           if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
-            kustomize build infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
+            kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
+            kubectl apply -k infrastructure/platforms/networking/nginx-ingress/ --enable-helm
           fi
 
       - name: Wait for NGINX Ingress Controller
@@ -171,9 +181,9 @@ jobs:
         run: |
           echo "🔒 Deploying Cert-Manager..."
           if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
-            kustomize build infrastructure/platforms/networking/cert-manager/ | kubectl apply --dry-run=client -f -
+            kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/cert-manager/
+            kubectl apply -k infrastructure/platforms/networking/cert-manager/ --enable-helm
           fi
 
       - name: Wait for Cert-Manager

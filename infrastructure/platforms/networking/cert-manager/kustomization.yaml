@@ -8,11 +8,16 @@ metadata:
 
 resources:
   - namespace.yaml
-  - crds.yaml
-  - serviceaccount.yaml
-  - deployment.yaml
-  - service.yaml
   - letsencrypt-issuer.yaml
+
+# Helm chart configuration
+helmCharts:
+  - name: cert-manager
+    repo: https://charts.jetstack.io
+    version: v1.13.2
+    releaseName: cert-manager
+    namespace: cert-manager
+    valuesFile: helm-values.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform
