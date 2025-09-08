@@ -1,9 +1,12 @@
 # ArgoCD Helm Values
-# This file contains the configuration for ArgoCD
+# Based on Artifact Hub: https://artifacthub.io/packages/helm/argo/argo-cd
+# Chart Version: 6.0.0
+# ArgoCD Version: v3.1.4
 
 # Global configuration
 global:
   imageRegistry: ""
+
 # ArgoCD configuration
 argo-cd:
   # Image configuration
@@ -11,6 +14,7 @@ argo-cd:
     repository: quay.io/argoproj/argocd
     tag: "v3.1.4"
     pullPolicy: IfNotPresent
+
   # Server configuration
   server:
     # Service configuration
@@ -18,96 +22,196 @@ argo-cd:
       type: ClusterIP
       port: 80
       targetPort: 8080
+    
     # Ingress configuration
     ingress:
-      enabled: false # We'll create our own ingress
+      enabled: true
+      ingressClassName: "nginx"
+      annotations:
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      hosts:
+        - argocd.dev.msdp-platform.com
+      tls:
+        - secretName: argocd-server-tls
+          hosts:
+            - argocd.dev.msdp-platform.com
+
+    # Additional server configuration
+    extraArgs:
+      - --insecure
+      - --rootpath=/argocd
+
+  # Application Controller configuration
+  controller:
     # Resource limits
     resources:
-      requests:
-        cpu: 100m
-        memory: 256Mi
       limits:
-        cpu: 500m
+        cpu: 1000m
         memory: 1Gi
-    # Security context
-    securityContext:
-      runAsNonRoot: true
-      runAsUser: 999
-      fsGroup: 999
-    # Additional configuration
-    config:
-      # Enable admin user creation for initial setup
-      admin.enabled: "true"
-      # Application instance label key
-      application.instanceLabelKey: "argocd.argoproj.io/instance"
-      # Server configuration
-      server.rbac.log.enforce.enable: "false"
-      timeout.reconciliation: "180s"
-      timeout.hard.reconciliation: "0s"
-      exec.enabled: "false"
-  # Controller configuration
-  controller:
-    resources:
       requests:
-        cpu: 100m
+        cpu: 250m
         memory: 256Mi
-      limits:
-        cpu: 500m
-        memory: 1Gi
-  # Redis configuration
-  redis:
+
+  # Repository Server configuration
+  repoServer:
+    # Resource limits
     resources:
-      requests:
-        cpu: 50m
-        memory: 128Mi
       limits:
-        cpu: 200m
-        memory: 512Mi
-  # Dex configuration (for OIDC)
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+  # ApplicationSet Controller configuration
+  applicationSet:
+    # Resource limits
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+  # Dex Server configuration (for SSO)
   dex:
     enabled: true
+    # Resource limits
     resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
       requests:
         cpu: 50m
-        memory: 128Mi
-      limits:
-        cpu: 200m
-        memory: 512Mi
-  # ApplicationSet controller
-  applicationSet:
-    enabled: true
-    resources:
-      requests:
-        cpu: 50m
-        memory: 128Mi
-      limits:
-        cpu: 200m
-        memory: 512Mi
-  # Notifications controller
+        memory: 64Mi
+
+  # Notifications Controller configuration
   notifications:
     enabled: true
+    # Resource limits
     resources:
+      limits:
+        cpu: 100m
+        memory: 128Mi
       requests:
         cpu: 50m
-        memory: 128Mi
+        memory: 64Mi
+
+  # Redis configuration
+  redis:
+    # Resource limits
+    resources:
       limits:
-        cpu: 200m
-        memory: 512Mi
-# Service monitors configuration
-serviceMonitor:
-  enabled: true
-  labels:
-    app.kubernetes.io/part-of: msdp-platform
-# RBAC configuration
-rbac:
-  create: true
-# Service account configuration
-serviceAccount:
-  create: true
-  name: ""
-# Pod security policy
-podSecurityPolicy:
-  enabled: false
-# Network policy
-networkPolicy:
-  enabled: false
+        cpu: 100m
+        memory: 128Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+
+  # Config configuration
+  config:
+    # Enable admin user
+    admin.enabled: "true"
+    
+    # Application instance label key
+    application.instanceLabelKey: "argocd.argoproj.io/instance"
+    
+    # Server configuration
+    server.rbac.log.enforce.enable: "false"
+    
+    # Timeout configuration
+    timeout.reconciliation: "180s"
+    timeout.hard.reconciliation: "0s"
+    
+    # Exec configuration
+    exec.enabled: "false"
+
+  # RBAC configuration
+  rbac:
+    # Create RBAC resources
+    create: true
+    
+    # Policy configuration
+    policy.default: role:readonly
+    policy.csv: |
+      p, role:admin, applications, *, */*, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      p, role:admin, certificates, *, *, allow
+      p, role:admin, projects, *, *, allow
+      p, role:admin, accounts, *, *, allow
+      p, role:admin, gpgkeys, *, *, allow
+      p, role:admin, logs, *, *, allow
+      p, role:admin, exec, *, *, allow
+      p, role:admin, settings, *, *, allow
+      p, role:admin, applicationsets, *, *, allow
+      p, role:admin, appprojects, *, *, allow
+      p, role:admin, certificates, *, *, allow
+      p, role:admin, clusters, *, *, allow
+      p, role:admin, repositories, *, *, allow
+      p, role:admin, projects, *, *, allow
+      p, role:admin, accounts, *, *, allow
+      p, role:admin, gpgkeys, *, *, allow
+      p, role:admin, logs, *, *, allow
+      p, role:admin, exec, *, *, allow
+      p, role:admin, settings, *, *, allow
+      p, role:admin, applicationsets, *, *, allow
+      p, role:admin, appprojects, *, *, allow
+      g, argocd-admins, role:admin
+
+  # Service Account configuration
+  serviceAccount:
+    create: true
+    name: "argocd-application-controller"
+
+  # Security Context configuration
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+
+  # Pod Security Context configuration
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+    fsGroup: 999
+
+  # Node Selector configuration
+  nodeSelector: {}
+
+  # Tolerations configuration
+  tolerations: []
+
+  # Affinity configuration
+  affinity: {}
+
+  # Pod Disruption Budget configuration
+  controller:
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 1
+
+  # Metrics configuration
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: false  # Disable if Prometheus Operator not available
+
+  # Network Policy configuration
+  networkPolicy:
+    enabled: false
+
+  # Persistence configuration
+  controller:
+    persistence:
+      enabled: true
+      storageClassName: "default"
+      accessMode: ReadWriteOnce
+      size: 1Gi
+
+  # HA configuration
+  ha:
+    enabled: false

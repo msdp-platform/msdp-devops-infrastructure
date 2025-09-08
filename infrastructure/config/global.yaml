@@ -33,7 +33,7 @@ applications:
   argocd:
     version: "v3.1.4"
     image: "quay.io/argoproj/argocd"
-    chart_version: "5.51.6"
+    chart_version: "6.0.0"
     namespace: "argocd"
   backstage:
     version: "1.25.0"
