@@ -94,7 +94,7 @@ argo-cd:
 # ConfigMap configuration
 configs:
   cm:
-    url: "https://argocd.dev.aztech-msdp.com"
+    url: "https://argocd.null.null"
     application.instanceLabelKey: "argocd.argoproj.io/instance"
     server.rbac.log.enforce.enable: "false"
     timeout.hard.reconciliation: "0s"

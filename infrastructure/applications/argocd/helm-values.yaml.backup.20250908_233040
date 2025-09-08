@@ -1,7 +1,7 @@
 # ArgoCD Helm Values
 # Generated from global.yaml - DO NOT EDIT MANUALLY
-# Chart Version: 5.53.0
-# ArgoCD Version: v2.9.3
+# Chart Version: null
+# ArgoCD Version: null
 
 # Global configuration
 global:
@@ -11,8 +11,8 @@ global:
 argo-cd:
   # Image configuration
   image:
-    repository: quay.io/argoproj/argocd
-    tag: "v2.9.3"
+    repository: null
+    tag: "null"
     pullPolicy: IfNotPresent
 
   # Server configuration
@@ -94,7 +94,7 @@ argo-cd:
 # ConfigMap configuration
 configs:
   cm:
-    url: "https://argocd.dev.aztech-msdp.com"
+    url: "https://argocd.null.null"
     application.instanceLabelKey: "argocd.argoproj.io/instance"
     server.rbac.log.enforce.enable: "false"
     timeout.hard.reconciliation: "0s"
