@@ -126,25 +126,47 @@ jobs:
         run: |
           echo "🔍 Checking component versions..."
 
-          # Define expected versions (from configuration files)
-          EXPECTED_ARGOCD_VERSION="v3.1.4"
-          EXPECTED_GRAFANA_VERSION="12.1.1"
-          EXPECTED_CROSSPLANE_VERSION="v2.0.2"
-          EXPECTED_BACKSTAGE_VERSION="1.25.0"
-          EXPECTED_CERT_MANAGER_VERSION="v1.18.0"
-          EXPECTED_NGINX_VERSION="v1.13.2"
-          EXPECTED_EXTERNAL_DNS_VERSION="v0.19.0"
-          EXPECTED_PROMETHEUS_VERSION="v3.5.0"
+          # Load configuration from global.yaml
+          source scripts/load-config-robust.sh
+          load_global_config
+
+          # Get expected versions from configuration
+          EXPECTED_ARGOCD_VERSION=$(get_config_value "applications.argocd.version")
+          EXPECTED_GRAFANA_VERSION=$(get_config_value "platform_components.grafana.version")
+          EXPECTED_CROSSPLANE_VERSION=$(get_config_value "applications.crossplane.version")
+          EXPECTED_BACKSTAGE_VERSION=$(get_config_value "applications.backstage.version")
+          EXPECTED_CERT_MANAGER_VERSION=$(get_config_value "platform_components.cert_manager.version")
+          EXPECTED_NGINX_VERSION=$(get_config_value "platform_components.nginx_ingress.version")
+          EXPECTED_EXTERNAL_DNS_VERSION=$(get_config_value "platform_components.external_dns.version")
+          EXPECTED_PROMETHEUS_VERSION=$(get_config_value "platform_components.prometheus.version")
+
+          echo "📋 Expected versions from configuration:"
+          echo "  ArgoCD: $EXPECTED_ARGOCD_VERSION"
+          echo "  Grafana: $EXPECTED_GRAFANA_VERSION"
+          echo "  Crossplane: $EXPECTED_CROSSPLANE_VERSION"
+          echo "  Backstage: $EXPECTED_BACKSTAGE_VERSION"
+          echo "  Cert-Manager: $EXPECTED_CERT_MANAGER_VERSION"
+          echo "  NGINX Ingress: $EXPECTED_NGINX_VERSION"
+          echo "  External DNS: $EXPECTED_EXTERNAL_DNS_VERSION"
+          echo "  Prometheus: $EXPECTED_PROMETHEUS_VERSION"
 
           DEPLOY_PLATFORM="false"
           DEPLOY_APPLICATIONS="false"
+
+          # Function to normalize version strings for comparison
+          normalize_version() {
+            echo "$1" | sed 's/^v//' | sed 's/[^0-9.]//g'
+          }
 
           # Check if components exist and get versions
           if kubectl get deployment -n argocd argocd-server >/dev/null 2>&1; then
             CURRENT_ARGOCD=$(kubectl get deployment -n argocd argocd-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "ArgoCD: Current=$CURRENT_ARGOCD, Expected=$EXPECTED_ARGOCD_VERSION"
             if [ "$CURRENT_ARGOCD" != "$EXPECTED_ARGOCD_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_APPLICATIONS="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "ArgoCD not found, will deploy"
@@ -155,7 +177,10 @@ jobs:
             CURRENT_GRAFANA=$(kubectl get deployment -n monitoring grafana -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Grafana: Current=$CURRENT_GRAFANA, Expected=$EXPECTED_GRAFANA_VERSION"
             if [ "$CURRENT_GRAFANA" != "$EXPECTED_GRAFANA_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "Grafana not found, will deploy"
@@ -166,7 +191,10 @@ jobs:
             CURRENT_CROSSPLANE=$(kubectl get deployment -n crossplane-system crossplane -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Crossplane: Current=$CURRENT_CROSSPLANE, Expected=$EXPECTED_CROSSPLANE_VERSION"
             if [ "$CURRENT_CROSSPLANE" != "$EXPECTED_CROSSPLANE_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_APPLICATIONS="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "Crossplane not found, will deploy"
@@ -177,7 +205,10 @@ jobs:
             CURRENT_BACKSTAGE=$(kubectl get deployment -n backstage backstage -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Backstage: Current=$CURRENT_BACKSTAGE, Expected=$EXPECTED_BACKSTAGE_VERSION"
             if [ "$CURRENT_BACKSTAGE" != "$EXPECTED_BACKSTAGE_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_APPLICATIONS="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "Backstage not found, will deploy"
@@ -189,7 +220,10 @@ jobs:
             CURRENT_NGINX=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "NGINX Ingress: Current=$CURRENT_NGINX, Expected=$EXPECTED_NGINX_VERSION"
             if [ "$CURRENT_NGINX" != "$EXPECTED_NGINX_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "NGINX Ingress not found, will deploy"
@@ -200,7 +234,10 @@ jobs:
             CURRENT_CERT_MANAGER=$(kubectl get deployment -n cert-manager cert-manager -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
             echo "Cert-Manager: Current=$CURRENT_CERT_MANAGER, Expected=$EXPECTED_CERT_MANAGER_VERSION"
             if [ "$CURRENT_CERT_MANAGER" != "$EXPECTED_CERT_MANAGER_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "Cert-Manager not found, will deploy"
@@ -209,9 +246,12 @@ jobs:
 
           if kubectl get deployment -n external-dns external-dns >/dev/null 2>&1; then
             CURRENT_EXTERNAL_DNS=$(kubectl get deployment -n external-dns external-dns -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
-            echo "External DNS: Current=$CURRENT_EXTERNAL_DNS, Expected=v0.14.0"
-            if [ "$CURRENT_EXTERNAL_DNS" != "v0.14.0" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "External DNS: Current=$CURRENT_EXTERNAL_DNS, Expected=$EXPECTED_EXTERNAL_DNS_VERSION"
+            if [ "$CURRENT_EXTERNAL_DNS" != "$EXPECTED_EXTERNAL_DNS_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "External DNS not found, will deploy"
@@ -220,9 +260,12 @@ jobs:
 
           if kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
             CURRENT_PROMETHEUS=$(kubectl get deployment -n monitoring prometheus-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
-            echo "Prometheus: Current=$CURRENT_PROMETHEUS, Expected=v2.50.1"
-            if [ "$CURRENT_PROMETHEUS" != "v2.50.1" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            echo "Prometheus: Current=$CURRENT_PROMETHEUS, Expected=$EXPECTED_PROMETHEUS_VERSION"
+            if [ "$CURRENT_PROMETHEUS" != "$EXPECTED_PROMETHEUS_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
+            else
+              echo "  ✅ Version matches - skipping deployment"
             fi
           else
             echo "Prometheus not found, will deploy"
