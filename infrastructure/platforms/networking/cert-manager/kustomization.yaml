@@ -11,6 +11,14 @@ resources:
   - https://github.com/cert-manager/cert-manager/releases/download/v1.13.2/cert-manager.yaml
   - letsencrypt-issuer.yaml
 
+patches:
+  - target:
+      kind: Namespace
+      name: cert-manager
+    patch: |-
+      - op: remove
+        path: /metadata/name
+
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform
   app.kubernetes.io/managed-by: kustomize
