@@ -1,0 +1,188 @@
+name: 🚀 Deploy Applications - GitOps Pipeline
+
+on:
+  push:
+    branches: [dev, test, prod]
+    paths:
+      - "infrastructure/applications/**"
+      - ".github/workflows/deploy-applications.yml"
+  pull_request:
+    branches: [test, prod]
+    paths:
+      - "infrastructure/applications/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      component:
+        description: "Application component to deploy"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - argocd
+          - backstage
+          - crossplane
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  AWS_REGION: us-east-1
+
+jobs:
+  detect-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.detect.outputs.environment }}
+      cluster_name: ${{ steps.detect.outputs.cluster_name }}
+      resource_group: ${{ steps.detect.outputs.resource_group }}
+      should_deploy: ${{ steps.detect.outputs.should_deploy }}
+    steps:
+      - name: Detect Environment
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          else
+            case "${{ github.ref_name }}" in
+              dev) ENVIRONMENT="dev" ;;
+              test) ENVIRONMENT="test" ;;
+              prod) ENVIRONMENT="prod" ;;
+              *) ENVIRONMENT="dev" ;;
+            esac
+          fi
+          
+          case "$ENVIRONMENT" in
+            dev)
+              CLUSTER_NAME="msdp-infra-aks"
+              RESOURCE_GROUP="delivery-platform-aks-rg"
+              ;;
+            test)
+              CLUSTER_NAME="msdp-infra-aks-test"
+              RESOURCE_GROUP="delivery-platform-aks-rg-test"
+              ;;
+            prod)
+              CLUSTER_NAME="msdp-infra-aks-prod"
+              RESOURCE_GROUP="delivery-platform-aks-rg-prod"
+              ;;
+          esac
+          
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+  deploy-applications:
+    needs: detect-environment
+    if: needs.detect-environment.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure CLI
+        uses: azure/setup-az-cli@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ needs.detect-environment.outputs.resource_group }} \
+            --name ${{ needs.detect-environment.outputs.cluster_name }} \
+            --overwrite-existing
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Deploy Applications via GitOps
+        run: |
+          echo "🚀 Deploying Applications to ${{ needs.detect-environment.outputs.environment }} environment"
+          
+          # Deploy applications using unified kustomization
+          kubectl apply -k infrastructure/applications/
+          
+          # Wait for ArgoCD to sync
+          echo "⏳ Waiting for ArgoCD to sync applications..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+          
+          # Check ArgoCD application status
+          kubectl get applications -n argocd
+          
+          echo "✅ Applications deployment completed via GitOps"
+
+      - name: Verify Applications
+        run: |
+          echo "🔍 Verifying applications deployment..."
+          
+          # Check all application pods
+          kubectl get pods -n argocd
+          kubectl get pods -n backstage
+          kubectl get pods -n crossplane-system
+          kubectl get pods -n monitoring
+          
+          # Check ingress status
+          kubectl get ingress -A
+          
+          # Check certificates
+          kubectl get certificates -A
+          
+          echo "✅ Applications verification completed"
+
+      - name: Test Application Access
+        run: |
+          echo "🌐 Testing application access..."
+          
+          # Get ingress IP
+          INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "Ingress IP: $INGRESS_IP"
+          
+          # Test ArgoCD access
+          if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
+            echo "✅ ArgoCD is accessible"
+          else
+            echo "❌ ArgoCD access failed"
+          fi
+          
+          # Test Backstage access
+          if curl -I -s --max-time 10 "https://backstage.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
+            echo "✅ Backstage is accessible"
+          else
+            echo "❌ Backstage access failed"
+          fi
+          
+          # Test Grafana access
+          if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
+            echo "✅ Grafana is accessible"
+          else
+            echo "❌ Grafana access failed"
+          fi
+          
+          echo "✅ Application access testing completed"

@@ -1,0 +1,253 @@
+name: 🚀 Deploy Infrastructure - Unified Pipeline
+
+on:
+  push:
+    branches: [dev, test, prod]
+    paths:
+      - "infrastructure/**"
+      - ".github/workflows/deploy-infrastructure-unified.yml"
+  pull_request:
+    branches: [test, prod]
+    paths:
+      - "infrastructure/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      deploy_platform:
+        description: "Deploy platform components"
+        required: false
+        default: true
+        type: boolean
+      deploy_applications:
+        description: "Deploy applications"
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  AWS_REGION: us-east-1
+
+jobs:
+  detect-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.detect.outputs.environment }}
+      cluster_name: ${{ steps.detect.outputs.cluster_name }}
+      resource_group: ${{ steps.detect.outputs.resource_group }}
+      should_deploy: ${{ steps.detect.outputs.should_deploy }}
+    steps:
+      - name: Detect Environment
+        id: detect
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+          else
+            case "${{ github.ref_name }}" in
+              dev) ENVIRONMENT="dev" ;;
+              test) ENVIRONMENT="test" ;;
+              prod) ENVIRONMENT="prod" ;;
+              *) ENVIRONMENT="dev" ;;
+            esac
+          fi
+          
+          case "$ENVIRONMENT" in
+            dev)
+              CLUSTER_NAME="msdp-infra-aks"
+              RESOURCE_GROUP="delivery-platform-aks-rg"
+              ;;
+            test)
+              CLUSTER_NAME="msdp-infra-aks-test"
+              RESOURCE_GROUP="delivery-platform-aks-rg-test"
+              ;;
+            prod)
+              CLUSTER_NAME="msdp-infra-aks-prod"
+              RESOURCE_GROUP="delivery-platform-aks-rg-prod"
+              ;;
+          esac
+          
+          echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
+          echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
+          echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+
+  deploy-platform-components:
+    needs: detect-environment
+    if: needs.detect-environment.outputs.should_deploy == 'true' && (github.event.inputs.deploy_platform == 'true' || github.event.inputs.deploy_platform == null)
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure CLI
+        uses: azure/setup-az-cli@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ needs.detect-environment.outputs.resource_group }} \
+            --name ${{ needs.detect-environment.outputs.cluster_name }} \
+            --overwrite-existing
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Platform Components
+        run: |
+          echo "🚀 Deploying Platform Components to ${{ needs.detect-environment.outputs.environment }} environment"
+          
+          # Deploy networking components
+          kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
+          kubectl apply -k infrastructure/platforms/networking/cert-manager/
+          kubectl apply -k infrastructure/platforms/networking/external-dns/
+          
+          # Deploy monitoring components
+          kubectl apply -k infrastructure/platforms/monitoring/prometheus/
+          kubectl apply -k infrastructure/platforms/monitoring/grafana/
+          
+          echo "✅ Platform components deployment completed"
+
+  deploy-applications:
+    needs: [detect-environment, deploy-platform-components]
+    if: needs.detect-environment.outputs.should_deploy == 'true' && (github.event.inputs.deploy_applications == 'true' || github.event.inputs.deploy_applications == null)
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure CLI
+        uses: azure/setup-az-cli@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ needs.detect-environment.outputs.resource_group }} \
+            --name ${{ needs.detect-environment.outputs.cluster_name }} \
+            --overwrite-existing
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Applications via GitOps
+        run: |
+          echo "🚀 Deploying Applications to ${{ needs.detect-environment.outputs.environment }} environment"
+          
+          # Deploy applications using unified kustomization
+          kubectl apply -k infrastructure/applications/
+          
+          # Wait for ArgoCD to sync
+          echo "⏳ Waiting for ArgoCD to sync applications..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+          
+          echo "✅ Applications deployment completed via GitOps"
+
+  verify-deployment:
+    needs: [detect-environment, deploy-platform-components, deploy-applications]
+    if: always() && needs.detect-environment.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: ${{ needs.detect-environment.outputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Azure CLI
+        uses: azure/setup-az-cli@v3
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ needs.detect-environment.outputs.resource_group }} \
+            --name ${{ needs.detect-environment.outputs.cluster_name }} \
+            --overwrite-existing
+
+      - name: Verify Complete Deployment
+        run: |
+          echo "🔍 Verifying complete infrastructure deployment..."
+          
+          # Check platform components
+          echo "📊 Platform Components Status:"
+          kubectl get pods -n ingress-nginx
+          kubectl get pods -n cert-manager
+          kubectl get pods -n external-dns
+          kubectl get pods -n monitoring
+          
+          # Check applications
+          echo "🚀 Applications Status:"
+          kubectl get pods -n argocd
+          kubectl get pods -n backstage
+          kubectl get pods -n crossplane-system
+          
+          # Check ingress and certificates
+          echo "🌐 Ingress and Certificates:"
+          kubectl get ingress -A
+          kubectl get certificates -A
+          
+          # Test application access
+          echo "🌐 Testing application access..."
+          INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "Ingress IP: $INGRESS_IP"
+          
+          # Test ArgoCD access
+          if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
+            echo "✅ ArgoCD is accessible"
+          else
+            echo "❌ ArgoCD access failed"
+          fi
+          
+          # Test Grafana access
+          if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
+            echo "✅ Grafana is accessible"
+          else
+            echo "❌ Grafana access failed"
+          fi
+          
+          echo "✅ Complete infrastructure verification completed"

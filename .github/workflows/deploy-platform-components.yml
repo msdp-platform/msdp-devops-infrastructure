@@ -5,9 +5,9 @@ on:
     branches: [dev, test, prod]
     paths:
       - "infrastructure/platforms/**"
-      - "ci-cd/workflows/deploy-platform-components.yml"
+      - ".github/workflows/deploy-platform-components.yml"
   pull_request:
-    branches: [dev, test, prod]
+    branches: [test, prod]
     paths:
       - "infrastructure/platforms/**"
   workflow_dispatch:
