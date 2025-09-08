@@ -8,9 +8,10 @@ metadata:
 
 resources:
   - namespace.yaml
+  - crds.yaml
+  - serviceaccount.yaml
   - deployment.yaml
   - service.yaml
-  - serviceaccount.yaml
   - letsencrypt-issuer.yaml
 
 commonLabels:
