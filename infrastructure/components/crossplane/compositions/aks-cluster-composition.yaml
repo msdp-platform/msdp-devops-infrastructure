@@ -1,0 +1,106 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: aks-cluster-composition
+  labels:
+    provider: azure
+    category: compute
+spec:
+  writeConnectionSecretsToRef:
+    name: aks-cluster-connection
+    namespace: crossplane-system
+  compositeTypeRef:
+    apiVersion: msdp.io/v1alpha1
+    kind: XAKSCluster
+  mode: Pipeline
+  pipeline:
+    - step: create-resource-group
+      functionRef:
+        name: function-go-templating
+      input:
+        inline:
+          template: |
+            apiVersion: resources.azure.crossplane.io/v1alpha1
+            kind: ResourceGroup
+            metadata:
+              name: {{ .observed.composite.resource.metadata.name }}-rg
+              annotations:
+                crossplane.io/external-name: {{ .observed.composite.resource.spec.resourceGroupName }}
+            spec:
+              forProvider:
+                location: {{ .observed.composite.resource.spec.location }}
+                tags: {{ .observed.composite.resource.spec.tags | toYaml | nindent 10 }}
+              providerConfigRef:
+                name: azure-config
+    - step: create-aks-cluster
+      functionRef:
+        name: function-go-templating
+      input:
+        inline:
+          template: |
+            apiVersion: containerservice.azure.crossplane.io/v1alpha1
+            kind: KubernetesCluster
+            metadata:
+              name: {{ .observed.composite.resource.metadata.name }}-cluster
+              annotations:
+                crossplane.io/external-name: {{ .observed.composite.resource.spec.clusterName }}
+            spec:
+              forProvider:
+                location: {{ .observed.composite.resource.spec.location }}
+                resourceGroupName: {{ .observed.composite.resource.spec.resourceGroupName }}
+                kubernetesVersion: {{ .observed.composite.resource.spec.kubernetesVersion }}
+                dnsPrefix: {{ .observed.composite.resource.spec.dnsPrefix }}
+                defaultNodePool:
+                  name: {{ .observed.composite.resource.spec.systemNodePool.name }}
+                  vmSize: {{ .observed.composite.resource.spec.systemNodePool.vmSize }}
+                  nodeCount: {{ .observed.composite.resource.spec.systemNodePool.nodeCount }}
+                  minCount: {{ .observed.composite.resource.spec.systemNodePool.minCount }}
+                  maxCount: {{ .observed.composite.resource.spec.systemNodePool.maxCount }}
+                  enableAutoScaling: {{ .observed.composite.resource.spec.systemNodePool.enableAutoScaling }}
+                  mode: {{ .observed.composite.resource.spec.systemNodePool.mode }}
+                  osType: {{ .observed.composite.resource.spec.systemNodePool.osType }}
+                  osSku: {{ .observed.composite.resource.spec.systemNodePool.osSku }}
+                networkProfile:
+                  networkPlugin: {{ .observed.composite.resource.spec.networkPlugin }}
+                  networkPolicy: {{ .observed.composite.resource.spec.networkPolicy }}
+                  serviceCidr: {{ .observed.composite.resource.spec.serviceCidr }}
+                  dnsServiceIp: {{ .observed.composite.resource.spec.dnsServiceIp }}
+                addonProfile:
+                  monitoring:
+                    enabled: {{ .observed.composite.resource.spec.enableMonitoring }}
+                enableRbac: {{ .observed.composite.resource.spec.enableRbac }}
+                enableManagedIdentity: {{ .observed.composite.resource.spec.enableManagedIdentity }}
+                tags: {{ .observed.composite.resource.spec.tags | toYaml | nindent 10 }}
+              providerConfigRef:
+                name: azure-config
+    - step: create-user-node-pool
+      functionRef:
+        name: function-go-templating
+      input:
+        inline:
+          template: |
+            apiVersion: containerservice.azure.crossplane.io/v1alpha1
+            kind: KubernetesClusterNodePool
+            metadata:
+              name: {{ .observed.composite.resource.metadata.name }}-user-pool
+              annotations:
+                crossplane.io/external-name: {{ .observed.composite.resource.spec.userNodePool.name }}
+            spec:
+              forProvider:
+                clusterName: {{ .observed.composite.resource.spec.clusterName }}
+                resourceGroupName: {{ .observed.composite.resource.spec.resourceGroupName }}
+                location: {{ .observed.composite.resource.spec.location }}
+                vmSize: {{ .observed.composite.resource.spec.userNodePool.vmSize }}
+                nodeCount: {{ .observed.composite.resource.spec.userNodePool.nodeCount }}
+                minCount: {{ .observed.composite.resource.spec.userNodePool.minCount }}
+                maxCount: {{ .observed.composite.resource.spec.userNodePool.maxCount }}
+                enableAutoScaling: {{ .observed.composite.resource.spec.userNodePool.enableAutoScaling }}
+                mode: {{ .observed.composite.resource.spec.userNodePool.mode }}
+                osType: {{ .observed.composite.resource.spec.userNodePool.osType }}
+                osSku: {{ .observed.composite.resource.spec.userNodePool.osSku }}
+                priority: {{ .observed.composite.resource.spec.userNodePool.priority }}
+                evictionPolicy: {{ .observed.composite.resource.spec.userNodePool.evictionPolicy }}
+                spotMaxPrice: {{ .observed.composite.resource.spec.userNodePool.spotMaxPrice }}
+                tags: {{ .observed.composite.resource.spec.tags | toYaml | nindent 10 }}
+              providerConfigRef:
+                name: azure-config

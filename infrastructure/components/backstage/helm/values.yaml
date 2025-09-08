@@ -1,0 +1,119 @@
+# Default values for backstage
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: backstage/backstage
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 2000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: backstage.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: backstage-tls
+      hosts:
+        - backstage.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Backstage specific configuration
+backstage:
+  app:
+    title: "MSDP Developer Portal"
+    baseUrl: "https://backstage.example.com"
+
+  # Database configuration
+  database:
+    client: pg
+    connection:
+      host: "backstage-postgres"
+      port: 5432
+      user: "backstage"
+      password: "backstage"
+      database: "backstage"
+
+  # Authentication configuration
+  auth:
+    providers:
+      github:
+        development:
+          clientId: "your-github-client-id"
+          clientSecret: "your-github-client-secret"
+
+  # Integrations
+  integrations:
+    github:
+      - host: github.com
+        token: "your-github-token"
+
+# PostgreSQL configuration
+postgres:
+  enabled: true
+  auth:
+    postgresPassword: "postgres"
+    username: "backstage"
+    password: "backstage"
+    database: "backstage"
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi

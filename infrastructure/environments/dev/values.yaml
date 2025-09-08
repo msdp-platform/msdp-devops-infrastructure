@@ -1,0 +1,114 @@
+# Development Environment Configuration
+environment: dev
+cluster:
+  name: msdp-infra-aks-dev
+  resourceGroup: delivery-platform-aks-rg-dev
+  location: eastus
+  kubernetesVersion: "1.32.6"
+  nodeCount: 1
+  nodeVmSize: "Standard_B2s"
+  minCount: 1
+  maxCount: 2
+
+# Crossplane Configuration
+crossplane:
+  namespace: crossplane-system
+  version: "2.0.2"
+  providers:
+    azure:
+      version: "v2.0.1"
+    aws:
+      version: "v0.44.0"
+    gcp:
+      version: "v2.0.1"
+
+# ArgoCD Configuration
+argocd:
+  namespace: argocd
+  version: "stable"
+  server:
+    serviceType: LoadBalancer
+    replicas: 1
+  controller:
+    replicas: 1
+  repoServer:
+    replicas: 1
+  applicationSet:
+    replicas: 1
+  notifications:
+    replicas: 1
+  dex:
+    replicas: 1
+  redis:
+    replicas: 1
+
+# Backstage Configuration
+backstage:
+  namespace: backstage
+  version: "0.1.0"
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  postgres:
+    enabled: true
+    host: "backstage-postgres-dev"
+    port: 5432
+    database: "backstage"
+    user: "backstage"
+  app:
+    title: "MSDP Developer Portal - Dev"
+    baseUrl: "https://backstage-dev.aztech-msdp.com"
+
+# Networking Configuration
+networking:
+  ingress:
+    className: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  domains:
+    argocd: "argocd-dev.aztech-msdp.com"
+    backstage: "backstage-dev.aztech-msdp.com"
+    app: "app-dev.aztech-msdp.com"
+
+# Security Configuration
+security:
+  certManager:
+    enabled: true
+    clusterIssuer: "letsencrypt-prod"
+  rbac:
+    enabled: true
+  networkPolicies:
+    enabled: true
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+  grafana:
+    enabled: true
+  alertManager:
+    enabled: true
+
+# Cost Optimization
+costOptimization:
+  enabled: true
+  spotInstances:
+    enabled: true
+  autoScaling:
+    enabled: true
+  scaleToZero:
+    enabled: true
+
+# Tags
+tags:
+  Environment: "dev"
+  Project: "MSDP"
+  CostOptimized: "true"
+  ManagedBy: "GitOps"
