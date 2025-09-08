@@ -1,0 +1,131 @@
+# ArgoCD Helm Values
+# This file contains the configuration for ArgoCD
+
+# Global configuration
+global:
+  imageRegistry: ""
+
+# ArgoCD configuration
+argo-cd:
+  # Image configuration
+  image:
+    repository: quay.io/argoproj/argocd
+    tag: "v2.8.4"
+    pullPolicy: IfNotPresent
+
+  # Server configuration
+  server:
+    # Service configuration
+    service:
+      type: ClusterIP
+      port: 80
+      targetPort: 8080
+
+    # Ingress configuration
+    ingress:
+      enabled: false  # We'll create our own ingress
+
+    # Resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+    # Security context
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 999
+      fsGroup: 999
+
+    # Additional configuration
+    config:
+      # Disable admin user creation (we'll use OIDC)
+      admin.enabled: "false"
+      
+      # OIDC configuration (placeholder)
+      oidc.config: |
+        name: Azure AD
+        issuer: https://login.microsoftonline.com/your-tenant-id/v2.0
+        clientId: your-client-id
+        clientSecret: $oidc.clientSecret
+        requestedScopes: ["openid", "profile", "email", "groups"]
+        requestedIDTokenClaims: {"groups": {"essential": true}}
+
+  # Controller configuration
+  controller:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 1Gi
+
+  # Redis configuration
+  redis:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # Dex configuration (for OIDC)
+  dex:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # ApplicationSet controller
+  applicationSet:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+  # Notifications controller
+  notifications:
+    enabled: true
+    resources:
+      requests:
+        cpu: 50m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 512Mi
+
+# Service monitors configuration
+serviceMonitor:
+  enabled: true
+  labels:
+    app.kubernetes.io/part-of: msdp-platform
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+
+# Pod security policy
+podSecurityPolicy:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false

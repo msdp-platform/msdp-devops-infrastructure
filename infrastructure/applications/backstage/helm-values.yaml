@@ -1,0 +1,94 @@
+# Backstage Helm Values
+# This file contains the configuration for Backstage
+
+# Global configuration
+global:
+  imageRegistry: ""
+
+# Backstage configuration
+backstage:
+  # Image configuration
+  image:
+    repository: backstage/backstage
+    tag: "1.25.0"
+    pullPolicy: IfNotPresent
+
+  # Replica count
+  replicaCount: 1
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 7007
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Environment variables
+  env:
+    - name: NODE_ENV
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+    - name: APP_CONFIG_app_baseUrl
+      value: "https://backstage.dev.aztech-msdp.com"
+    - name: APP_CONFIG_app_title
+      value: "MSDP Developer Portal"
+    - name: APP_CONFIG_backend_baseUrl
+      value: "https://backstage.dev.aztech-msdp.com"
+    - name: APP_CONFIG_backend_cors_origin
+      value: "https://backstage.dev.aztech-msdp.com"
+
+  # Configuration
+  config:
+    app:
+      title: "MSDP Developer Portal"
+      baseUrl: "https://backstage.dev.aztech-msdp.com"
+    backend:
+      baseUrl: "https://backstage.dev.aztech-msdp.com"
+      cors:
+        origin: "https://backstage.dev.aztech-msdp.com"
+    integrations:
+      github:
+        - host: github.com
+          token: ${GITHUB_TOKEN}
+    catalog:
+      locations:
+        - type: url
+          target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+
+# Service monitors configuration
+serviceMonitor:
+  enabled: true
+  labels:
+    app.kubernetes.io/part-of: msdp-platform
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+
+# Pod security policy
+podSecurityPolicy:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false

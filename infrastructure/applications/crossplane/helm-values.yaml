@@ -1,0 +1,46 @@
+# Crossplane Helm Values
+# This file contains the configuration for Crossplane
+
+# Global configuration
+global:
+  imageRegistry: ""
+
+# Crossplane configuration
+crossplane:
+  # Image configuration
+  image:
+    repository: crossplane/crossplane
+    tag: "v1.14.2"
+    pullPolicy: IfNotPresent
+
+  # Resource limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    fsGroup: 65532
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+
+# Pod security policy
+podSecurityPolicy:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false

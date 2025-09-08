@@ -1,0 +1,22 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: argocd
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+  - namespace.yaml
+  - ingress.yaml
+
+# Helm chart configuration
+helmCharts:
+  - name: argo-cd
+    repo: https://argoproj.github.io/argo-helm
+    version: 5.51.6
+    releaseName: argocd
+    namespace: argocd
+    valuesFile: helm-values.yaml
+
+namespace: argocd
