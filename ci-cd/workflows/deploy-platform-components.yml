@@ -73,12 +73,12 @@ jobs:
       - name: Setup Kubernetes tools
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
-          version: 'v3.13.0'
+          version: "v3.13.0"
 
       - name: Setup Kustomize
         run: |
@@ -117,12 +117,12 @@ jobs:
       - name: Setup Kubernetes tools
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Setup Helm
         uses: azure/setup-helm@v3
         with:
-          version: 'v3.13.0'
+          version: "v3.13.0"
 
       - name: Setup Kustomize
         run: |
@@ -140,7 +140,7 @@ jobs:
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
           RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
           CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
-          
+
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
@@ -202,14 +202,14 @@ jobs:
         if: needs.detect-environment.outputs.dry_run != 'true'
         run: |
           echo "✅ Verifying platform components..."
-          
+
           echo "📊 NGINX Ingress Controller status:"
           kubectl get pods -n ingress-nginx
-          
+
           echo "📊 Cert-Manager status:"
           kubectl get pods -n cert-manager
           kubectl get clusterissuer
-          
+
           echo "📊 External DNS status:"
           kubectl get pods -n external-dns
 
@@ -230,14 +230,14 @@ jobs:
       - name: Setup Kubernetes tools
         uses: azure/setup-kubectl@v3
         with:
-          version: 'v1.28.0'
+          version: "v1.28.0"
 
       - name: Get AKS credentials
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
           RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
           CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
-          
+
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
@@ -260,7 +260,7 @@ jobs:
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
           COMPONENT="${{ needs.detect-environment.outputs.component }}"
-          
+
           if [ "${{ needs.deploy-networking.result }}" = "success" ] && [ "${{ needs.deploy-monitoring.result }}" = "success" ]; then
             echo "✅ Platform components deployed successfully to ${ENVIRONMENT} environment"
             echo "🌐 Components deployed: ${COMPONENT}"
