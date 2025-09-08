@@ -9,9 +9,9 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-  - name: http
-    port: 7979
-    targetPort: 7979
-    protocol: TCP
+    - name: http
+      port: 7979
+      targetPort: 7979
+      protocol: TCP
   selector:
     app.kubernetes.io/name: external-dns

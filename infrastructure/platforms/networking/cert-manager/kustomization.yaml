@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: cert-manager
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+resources:
+- namespace.yaml
+- letsencrypt-issuer.yaml
+
+# Helm chart configuration
+helmCharts:
+- name: cert-manager
+  repo: https://charts.jetstack.io
+  version: v1.13.2
+  releaseName: cert-manager
+  namespace: cert-manager
+  valuesFile: helm-values.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: msdp-platform
+  app.kubernetes.io/managed-by: kustomize
+
+namespace: cert-manager
