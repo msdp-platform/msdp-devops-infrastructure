@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# ArgoCD Access Script
-# This script provides multiple ways to access ArgoCD
+# ArgoCD Access Script - Smart Deployment System
+# This script provides access to ArgoCD in the smart deployment system
 
 set -e
 
@@ -12,54 +12,89 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Get current public IP
-PUBLIC_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "Not available")
+# Function to detect environment
+detect_environment() {
+    # Try to detect environment from current context
+    if kubectl get namespace argocd-dev &>/dev/null; then
+        echo "dev"
+    elif kubectl get namespace argocd-test &>/dev/null; then
+        echo "test"
+    elif kubectl get namespace argocd-prod &>/dev/null; then
+        echo "prod"
+    else
+        echo "argocd"
+    fi
+}
 
-echo -e "${BLUE}🚀 ArgoCD Access Methods${NC}"
-echo "========================="
+ENVIRONMENT=$(detect_environment)
+ARGOCD_NAMESPACE="argocd-${ENVIRONMENT}"
+
+echo -e "${BLUE}🚀 ArgoCD Access - Smart Deployment System${NC}"
+echo "=============================================="
+echo "Environment: $ENVIRONMENT"
+echo "Namespace: $ARGOCD_NAMESPACE"
 echo ""
+
+# Check if ArgoCD is running
+if ! kubectl get pods -n "$ARGOCD_NAMESPACE" &>/dev/null; then
+    echo -e "${RED}❌ ArgoCD not found in namespace: $ARGOCD_NAMESPACE${NC}"
+    echo "Available namespaces:"
+    kubectl get namespaces | grep argocd || echo "No ArgoCD namespaces found"
+    exit 1
+fi
+
+# Get ArgoCD service info
+ARGOCD_SERVICE=$(kubectl get svc -n "$ARGOCD_NAMESPACE" | grep argocd-server | awk '{print $1}' || echo "")
+if [ -z "$ARGOCD_SERVICE" ]; then
+    echo -e "${RED}❌ ArgoCD server service not found${NC}"
+    exit 1
+fi
+
+# Get public IP or use port-forward
+PUBLIC_IP=$(kubectl get svc -n "$ARGOCD_NAMESPACE" "$ARGOCD_SERVICE" -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
 
 echo -e "${GREEN}Method 1: Through Ingress (Recommended)${NC}"
 echo "====================================="
-echo "1. Add to /etc/hosts:"
-echo "   echo \"$PUBLIC_IP argocd.delivery-platform.local\" | sudo tee -a /etc/hosts"
-echo ""
-echo "2. Access ArgoCD:"
-echo "   URL: http://argocd.delivery-platform.local"
-echo "   Username: admin"
-echo "   Password: admin123"
-echo ""
+if [ -n "$PUBLIC_IP" ]; then
+    echo "1. Add to /etc/hosts:"
+    echo "   echo \"$PUBLIC_IP argocd.$ENVIRONMENT.aztech-msdp.com\" | sudo tee -a /etc/hosts"
+    echo ""
+    echo "2. Access ArgoCD:"
+    echo "   URL: https://argocd.$ENVIRONMENT.aztech-msdp.com"
+    echo "   Username: admin"
+    echo "   Password: (check secrets in namespace $ARGOCD_NAMESPACE)"
+    echo ""
+else
+    echo "No public IP available. Use port-forward method below."
+    echo ""
+fi
 
-echo -e "${YELLOW}Method 2: Direct Public IP${NC}"
-echo "=========================="
-echo "URL: http://$PUBLIC_IP"
-echo "Username: admin"
-echo "Password: admin123"
-echo ""
-
-echo -e "${BLUE}Method 3: Port Forward (Temporary)${NC}"
+echo -e "${BLUE}Method 2: Port Forward (Temporary)${NC}"
 echo "=================================="
 echo "1. Start port forward:"
-echo "   kubectl port-forward svc/argocd-server -n argocd 8080:443 &"
+echo "   kubectl port-forward svc/$ARGOCD_SERVICE -n $ARGOCD_NAMESPACE 8080:443 &"
 echo ""
 echo "2. Access ArgoCD:"
 echo "   URL: https://localhost:8080"
 echo "   Username: admin"
-echo "   Password: admin123"
+echo "   Password: (check secrets in namespace $ARGOCD_NAMESPACE)"
 echo ""
 
 echo -e "${GREEN}🎯 Quick Setup Commands:${NC}"
 echo "========================"
-echo "# Add to hosts file"
-echo "echo \"$PUBLIC_IP argocd.delivery-platform.local\" | sudo tee -a /etc/hosts"
-echo ""
-echo "# Start port forward (if needed)"
-echo "kubectl port-forward svc/argocd-server -n argocd 8080:443 &"
+if [ -n "$PUBLIC_IP" ]; then
+    echo "# Add to hosts file"
+    echo "echo \"$PUBLIC_IP argocd.$ENVIRONMENT.aztech-msdp.com\" | sudo tee -a /etc/hosts"
+    echo ""
+fi
+echo "# Start port forward"
+echo "kubectl port-forward svc/$ARGOCD_SERVICE -n $ARGOCD_NAMESPACE 8080:443 &"
 echo ""
 
 echo -e "${YELLOW}💡 Troubleshooting:${NC}"
 echo "=================="
-echo "If ingress doesn't work:"
-echo "1. Check ingress status: kubectl get ingress -n argocd"
-echo "2. Check ingress logs: kubectl logs -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx"
-echo "3. Use port forward as backup: kubectl port-forward svc/argocd-server -n argocd 8080:443"
+echo "If access doesn't work:"
+echo "1. Check ArgoCD status: kubectl get pods -n $ARGOCD_NAMESPACE"
+echo "2. Check service: kubectl get svc -n $ARGOCD_NAMESPACE"
+echo "3. Check ingress: kubectl get ingress -n $ARGOCD_NAMESPACE"
+echo "4. Use port forward as backup: kubectl port-forward svc/$ARGOCD_SERVICE -n $ARGOCD_NAMESPACE 8080:443"
