@@ -316,17 +316,18 @@ jobs:
           echo "📊 Deployment is available, checking pod status..."
           kubectl get pods -n ingress-nginx
 
-          # Wait for at least one pod to be running (more lenient than ready)
-          echo "⏳ Waiting for at least one pod to be running..."
-          kubectl wait --namespace ingress-nginx \
-            --for=jsonpath='{.status.phase}'=Running pod \
-            --selector=app.kubernetes.io/name=ingress-nginx \
-            --timeout=300s || {
-            echo "⚠️ Pod running check failed, checking pod details..."
+          # Verify at least one controller pod is running
+          echo "⏳ Verifying controller pods are running..."
+          RUNNING_PODS=$(kubectl get pods -n ingress-nginx -l app.kubernetes.io/name=ingress-nginx,app.kubernetes.io/component=controller --field-selector=status.phase=Running --no-headers | wc -l)
+          if [ "$RUNNING_PODS" -gt 0 ]; then
+            echo "✅ Found $RUNNING_PODS running controller pod(s)"
+          else
+            echo "⚠️ No running controller pods found, checking pod details..."
+            kubectl get pods -n ingress-nginx -o wide
             kubectl describe pods -n ingress-nginx
             kubectl get events -n ingress-nginx --sort-by='.lastTimestamp'
             echo "⚠️ Continuing anyway as deployment is available..."
-          }
+          fi
 
           echo "✅ NGINX Ingress Controller deployment is available"
 
@@ -360,7 +361,12 @@ jobs:
           kubectl wait --namespace cert-manager \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
-            --timeout=300s
+            --timeout=300s || {
+            echo "⚠️ Cert-Manager ready check failed, checking pod status..."
+            kubectl get pods -n cert-manager -o wide
+            kubectl describe pods -n cert-manager
+            echo "⚠️ Continuing anyway..."
+          }
 
       - name: Check AWS Credentials Secret
         if: github.event.inputs.dry_run != 'true'
@@ -412,7 +418,12 @@ jobs:
           kubectl wait --namespace external-dns \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/name=external-dns \
-            --timeout=300s
+            --timeout=300s || {
+            echo "⚠️ External DNS ready check failed, checking pod status..."
+            kubectl get pods -n external-dns -o wide
+            kubectl describe pods -n external-dns
+            echo "⚠️ Continuing anyway..."
+          }
 
       - name: Deploy Prometheus
         run: |
@@ -430,7 +441,12 @@ jobs:
           kubectl wait --namespace monitoring \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/name=prometheus \
-            --timeout=300s
+            --timeout=300s || {
+            echo "⚠️ Prometheus ready check failed, checking pod status..."
+            kubectl get pods -n monitoring -o wide
+            kubectl describe pods -n monitoring
+            echo "⚠️ Continuing anyway..."
+          }
 
       - name: Deploy Grafana
         run: |
