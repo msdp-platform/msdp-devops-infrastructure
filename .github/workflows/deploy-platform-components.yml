@@ -143,8 +143,8 @@ jobs:
       - name: Get AKS credentials
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
-          RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
-          CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
+          RESOURCE_GROUP="delivery-platform-aks-rg"
+          CLUSTER_NAME="msdp-infra-aks"
 
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
@@ -245,8 +245,8 @@ jobs:
       - name: Get AKS credentials
         run: |
           ENVIRONMENT="${{ needs.detect-environment.outputs.environment }}"
-          RESOURCE_GROUP="msdp-${ENVIRONMENT}-rg"
-          CLUSTER_NAME="msdp-${ENVIRONMENT}-aks"
+          RESOURCE_GROUP="delivery-platform-aks-rg"
+          CLUSTER_NAME="msdp-infra-aks"
 
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
