@@ -327,6 +327,11 @@ jobs:
           # Verify installation
           kustomize version
 
+      - name: Update Component Versions Dynamically
+        run: |
+          echo "🔄 Updating component versions from global configuration..."
+          ./scripts/update-component-versions.sh
+
       - name: Clean up existing NGINX Ingress Controller
         if: github.event.inputs.dry_run != 'true'
         run: |
@@ -554,6 +559,11 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update Application Versions Dynamically
+        run: |
+          echo "🔄 Updating application versions from global configuration..."
+          ./scripts/update-component-versions.sh
 
       - name: Clean up existing applications
         if: github.event.inputs.dry_run != 'true'

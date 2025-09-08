@@ -4,7 +4,6 @@
 # Global configuration
 global:
   imageRegistry: ""
-
 # ArgoCD configuration
 argo-cd:
   # Image configuration
@@ -12,7 +11,6 @@ argo-cd:
     repository: quay.io/argoproj/argocd
     tag: "v3.1.4"
     pullPolicy: IfNotPresent
-
   # Server configuration
   server:
     # Service configuration
@@ -20,11 +18,9 @@ argo-cd:
       type: ClusterIP
       port: 80
       targetPort: 8080
-
     # Ingress configuration
     ingress:
       enabled: false # We'll create our own ingress
-
     # Resource limits
     resources:
       requests:
@@ -33,27 +29,22 @@ argo-cd:
       limits:
         cpu: 500m
         memory: 1Gi
-
     # Security context
     securityContext:
       runAsNonRoot: true
       runAsUser: 999
       fsGroup: 999
-
     # Additional configuration
     config:
       # Enable admin user creation for initial setup
       admin.enabled: "true"
-
       # Application instance label key
       application.instanceLabelKey: "argocd.argoproj.io/instance"
-
       # Server configuration
       server.rbac.log.enforce.enable: "false"
       timeout.reconciliation: "180s"
       timeout.hard.reconciliation: "0s"
       exec.enabled: "false"
-
   # Controller configuration
   controller:
     resources:
@@ -63,7 +54,6 @@ argo-cd:
       limits:
         cpu: 500m
         memory: 1Gi
-
   # Redis configuration
   redis:
     resources:
@@ -73,7 +63,6 @@ argo-cd:
       limits:
         cpu: 200m
         memory: 512Mi
-
   # Dex configuration (for OIDC)
   dex:
     enabled: true
@@ -84,7 +73,6 @@ argo-cd:
       limits:
         cpu: 200m
         memory: 512Mi
-
   # ApplicationSet controller
   applicationSet:
     enabled: true
@@ -95,7 +83,6 @@ argo-cd:
       limits:
         cpu: 200m
         memory: 512Mi
-
   # Notifications controller
   notifications:
     enabled: true
@@ -106,26 +93,21 @@ argo-cd:
       limits:
         cpu: 200m
         memory: 512Mi
-
 # Service monitors configuration
 serviceMonitor:
   enabled: true
   labels:
     app.kubernetes.io/part-of: msdp-platform
-
 # RBAC configuration
 rbac:
   create: true
-
 # Service account configuration
 serviceAccount:
   create: true
   name: ""
-
 # Pod security policy
 podSecurityPolicy:
   enabled: false
-
 # Network policy
 networkPolicy:
   enabled: false

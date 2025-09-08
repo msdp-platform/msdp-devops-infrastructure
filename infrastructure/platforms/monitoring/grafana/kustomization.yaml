@@ -1,14 +1,11 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 metadata:
   name: grafana
   annotations:
     config.kubernetes.io/local-config: "true"
-
 resources:
   - ingress.yaml
-
 # Helm chart configuration
 helmCharts:
   - name: grafana
@@ -17,5 +14,4 @@ helmCharts:
     releaseName: grafana
     namespace: monitoring
     valuesFile: helm-values.yaml
-
 namespace: monitoring

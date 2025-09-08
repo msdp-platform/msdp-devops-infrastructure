@@ -4,7 +4,6 @@
 # Global configuration
 global:
   imageRegistry: ""
-
 # Grafana configuration
 grafana:
   # Image configuration
@@ -12,22 +11,18 @@ grafana:
     repository: grafana/grafana
     tag: "10.4.0"
     pullPolicy: IfNotPresent
-
   # Replica count
   replicaCount: 1
-
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     targetPort: 3000
-
   # Persistent volume configuration
   persistentVolume:
     enabled: true
     size: 10Gi
     storageClass: "default"
-
   # Resource limits
   resources:
     requests:
@@ -36,19 +31,16 @@ grafana:
     limits:
       cpu: 500m
       memory: 1Gi
-
   # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
     fsGroup: 472
-
   # Admin credentials
   admin:
     user: admin
     password: admin123
     existingSecret: ""
-
   # Grafana configuration
   grafana.ini:
     server:
@@ -62,7 +54,6 @@ grafana:
       allow_sign_up: false
     dashboards:
       default_home_dashboard_path: /var/lib/grafana/dashboards/home.json
-
   # Dashboard providers
   dashboardProviders:
     dashboardproviders.yaml:
@@ -76,7 +67,6 @@ grafana:
           editable: true
           options:
             path: /var/lib/grafana/dashboards/default
-
   # Dashboards
   dashboards:
     default:
@@ -92,26 +82,23 @@ grafana:
         gnetId: 9614
         revision: 1
         datasource: Prometheus
-
 # Service monitors configuration
 serviceMonitor:
   enabled: true
   labels:
     app.kubernetes.io/part-of: msdp-platform
-
 # RBAC configuration
 rbac:
   create: true
-
 # Service account configuration
 serviceAccount:
   create: true
   name: ""
-
 # Pod security policy
 podSecurityPolicy:
   enabled: false
-
 # Network policy
 networkPolicy:
   enabled: false
+image:
+  tag: 12.1.1

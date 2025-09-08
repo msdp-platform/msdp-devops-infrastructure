@@ -3,19 +3,16 @@
 
 # Install CRDs
 installCRDs: true
-
 # Global configuration
 global:
   leaderElection:
     namespace: cert-manager
-
 # Image configuration
 image:
   registry: quay.io
   repository: jetstack/cert-manager-controller
   tag: "v1.18.0"
   pullPolicy: IfNotPresent
-
 # Webhook configuration
 webhook:
   image:
@@ -23,7 +20,6 @@ webhook:
     repository: jetstack/cert-manager-webhook
     tag: "v1.18.0"
     pullPolicy: IfNotPresent
-
 # CA Injector configuration
 cainjector:
   image:
@@ -31,16 +27,13 @@ cainjector:
     repository: jetstack/cert-manager-cainjector
     tag: "v1.18.0"
     pullPolicy: IfNotPresent
-
 # Service account configuration
 serviceAccount:
   create: true
   name: ""
-
 # Startup API check configuration
 startupapicheck:
   enabled: false # Disabled due to PodTemplateSpec validation issues in v1.18.0
-
 # Prometheus monitoring
 prometheus:
   enabled: true
