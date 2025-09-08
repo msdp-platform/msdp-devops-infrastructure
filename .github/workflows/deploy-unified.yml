@@ -512,6 +512,34 @@ jobs:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Clean up existing applications
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🧹 Cleaning up existing applications to avoid immutable field conflicts..."
+          
+          # Delete ArgoCD deployments and statefulsets
+          echo "🗑️ Cleaning up ArgoCD components..."
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-applicationset-controller --ignore-not-found=true || true
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-dex-server --ignore-not-found=true || true
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-notifications-controller --ignore-not-found=true || true
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-redis --ignore-not-found=true || true
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-repo-server --ignore-not-found=true || true
+          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-server --ignore-not-found=true || true
+          kubectl delete statefulset -n argocd --selector=app.kubernetes.io/name=argocd-application-controller --ignore-not-found=true || true
+          
+          # Delete Backstage deployment
+          echo "🗑️ Cleaning up Backstage..."
+          kubectl delete deployment -n backstage --selector=app.kubernetes.io/name=backstage --ignore-not-found=true || true
+          
+          # Delete Crossplane deployments
+          echo "🗑️ Cleaning up Crossplane..."
+          kubectl delete deployment -n crossplane-system --selector=app.kubernetes.io/name=crossplane --ignore-not-found=true || true
+          kubectl delete deployment -n crossplane-system --selector=app.kubernetes.io/name=crossplane-rbac-manager --ignore-not-found=true || true
+          
+          echo "⏳ Waiting for cleanup to complete..."
+          sleep 10
+          echo "✅ Cleanup completed"
+
       - name: Deploy Applications
         run: |
           echo "🚀 Deploying Applications..."
