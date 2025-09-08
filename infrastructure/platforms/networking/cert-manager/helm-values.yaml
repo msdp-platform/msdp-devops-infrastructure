@@ -26,11 +26,6 @@ webhook:
 
   # Security context
   securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
 
@@ -53,11 +48,6 @@ cainjector:
 
   # Security context
   securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
 
@@ -74,11 +64,6 @@ cainjector:
 controller:
   # Security context
   securityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-    readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
 
