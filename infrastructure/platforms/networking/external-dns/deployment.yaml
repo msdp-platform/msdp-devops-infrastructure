@@ -49,6 +49,22 @@ spec:
               value: "us-east-1"
             - name: AWS_REGION
               value: "us-east-1"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: aws-access-key-id
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: aws-secret-access-key
+            - name: AWS_SESSION_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: aws-credentials
+                  key: aws-session-token
+                  optional: true
           resources:
             requests:
               memory: "64Mi"
@@ -80,3 +96,4 @@ spec:
         fsGroup: 65534
         runAsNonRoot: true
         runAsUser: 65534
+
