@@ -37,6 +37,10 @@ serviceAccount:
   create: true
   name: ""
 
+# Startup API check configuration
+startupapicheck:
+  enabled: false # Disabled due to PodTemplateSpec validation issues in v1.18.0
+
 # Prometheus monitoring
 prometheus:
   enabled: true
