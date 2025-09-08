@@ -1,27 +1,21 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: msdp-infrastructure
+  name: msdp-applications
   namespace: argocd
   labels:
-    app.kubernetes.io/name: msdp-infrastructure
-    app.kubernetes.io/component: infrastructure
+    app.kubernetes.io/name: msdp-applications
+    app.kubernetes.io/component: applications
     app.kubernetes.io/part-of: msdp-platform
 spec:
-  project: msdp-platform
+  project: default
   source:
     repoURL: https://github.com/msdp-platform/msdp-devops-infrastructure
     targetRevision: HEAD
     path: infrastructure/applications
-    helm:
-      valueFiles:
-        - ../../environments/{{ .Values.environment }}/values.yaml
-      parameters:
-        - name: environment
-          value: "{{ .Values.environment }}"
   destination:
     server: https://kubernetes.default.svc
-    namespace: default
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true

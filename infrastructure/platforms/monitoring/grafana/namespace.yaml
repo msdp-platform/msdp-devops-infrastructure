@@ -1,7 +1,2 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: grafana
-  labels:
-    app.kubernetes.io/name: grafana
-    app.kubernetes.io/part-of: msdp-platform
+# Grafana will use the monitoring namespace
+# No separate namespace needed - follows DRY principle

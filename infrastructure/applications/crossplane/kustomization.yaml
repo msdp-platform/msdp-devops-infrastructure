@@ -6,8 +6,7 @@ metadata:
   annotations:
     config.kubernetes.io/local-config: "true"
 
-resources:
-  - namespace.yaml
+resources: []
 
 # Helm chart configuration
 helmCharts:

@@ -7,7 +7,6 @@ metadata:
     config.kubernetes.io/local-config: "true"
 
 resources:
-  - namespace.yaml
   - ingress.yaml
 
 # Helm chart configuration
@@ -16,7 +15,7 @@ helmCharts:
     repo: https://grafana.github.io/helm-charts
     version: 6.61.0
     releaseName: grafana
-    namespace: grafana
+    namespace: monitoring
     valuesFile: helm-values.yaml
 
-namespace: grafana
+namespace: monitoring
