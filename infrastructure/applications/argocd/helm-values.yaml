@@ -10,7 +10,7 @@ argo-cd:
   # Image configuration
   image:
     repository: quay.io/argoproj/argocd
-    tag: "v3.1.4"
+    tag: "v2.9.3"
     pullPolicy: IfNotPresent
 
   # Server configuration
