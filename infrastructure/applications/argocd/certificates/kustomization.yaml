@@ -7,9 +7,9 @@ metadata:
     config.kubernetes.io/local-config: "true"
 
 resources:
-- argocd-certificate.yaml
-- aztech-msdp-certificate.yaml
-- route53-aztech-msdp-certificate.yaml
+  - argocd-certificate.yaml
+  - aztech-msdp-certificate.yaml
+  - route53-aztech-msdp-certificate.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform

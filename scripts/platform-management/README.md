@@ -41,6 +41,31 @@ python3 scripts/platform-management/platform-manager.py optimize-spot
 - **Automatic Scaling**: Intelligent node scaling based on demand
 - **Cost Monitoring**: Real-time cost tracking and optimization
 
+### **deploy-platform-components.sh**
+**Purpose**: Deploy platform components (NGINX Ingress, Cert-Manager, External DNS)
+
+**Features**:
+- Deploy networking platform components
+- Deploy monitoring platform components
+- Environment-specific deployment (dev, test, prod)
+- Dry-run mode for validation
+- Comprehensive verification
+
+**Usage**:
+```bash
+# Deploy all platform components to dev
+./scripts/platform-management/deploy-platform-components.sh
+
+# Deploy networking components to test
+./scripts/platform-management/deploy-platform-components.sh -e test -c networking
+
+# Dry run for prod
+./scripts/platform-management/deploy-platform-components.sh -e prod -d
+
+# Deploy monitoring to dev with verbose output
+./scripts/platform-management/deploy-platform-components.sh -e dev -c monitoring -v
+```
+
 ### **platform**
 **Purpose**: Shell wrapper for platform manager
 
