@@ -10,26 +10,25 @@ global:
 server:
   # Replica count
   replicaCount: 1
-  
+
   # Image configuration
   image:
-    registry: quay.io
-    repository: prometheus/prometheus
-    tag: "v2.48.0"
+    repository: quay.io/prometheus/prometheus
+    tag: "v2.50.1"
     pullPolicy: IfNotPresent
-  
+
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     targetPort: 9090
-  
+
   # Persistent volume configuration
   persistentVolume:
     enabled: true
     size: 10Gi
     storageClass: "default"
-  
+
   # Resource limits
   resources:
     requests:
@@ -38,7 +37,7 @@ server:
     limits:
       cpu: 500m
       memory: 1Gi
-  
+
   # Security context
   securityContext:
     runAsNonRoot: true
@@ -49,23 +48,22 @@ server:
 alertmanager:
   enabled: true
   image:
-    registry: quay.io
-    repository: prometheus/alertmanager
-    tag: "v0.26.0"
+    repository: quay.io/prometheus/alertmanager
+    tag: "v0.27.0"
     pullPolicy: IfNotPresent
-  
+
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     targetPort: 9093
-  
+
   # Persistent volume configuration
   persistentVolume:
     enabled: true
     size: 2Gi
     storageClass: "default"
-  
+
   # Resource limits
   resources:
     requests:
@@ -79,11 +77,10 @@ alertmanager:
 nodeExporter:
   enabled: true
   image:
-    registry: quay.io
-    repository: prometheus/node-exporter
-    tag: "v1.7.0"
+    repository: quay.io/prometheus/node-exporter
+    tag: "v1.8.2"
     pullPolicy: IfNotPresent
-  
+
   # Resource limits
   resources:
     requests:
@@ -97,11 +94,10 @@ nodeExporter:
 kubeStateMetrics:
   enabled: true
   image:
-    registry: registry.k8s.io
-    repository: kube-state-metrics/kube-state-metrics
+    repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
     tag: "v2.10.1"
     pullPolicy: IfNotPresent
-  
+
   # Resource limits
   resources:
     requests:

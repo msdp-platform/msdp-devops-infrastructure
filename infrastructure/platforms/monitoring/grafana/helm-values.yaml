@@ -9,26 +9,25 @@ global:
 grafana:
   # Image configuration
   image:
-    registry: grafana
     repository: grafana/grafana
-    tag: "10.2.0"
+    tag: "10.4.0"
     pullPolicy: IfNotPresent
-  
+
   # Replica count
   replicaCount: 1
-  
+
   # Service configuration
   service:
     type: ClusterIP
     port: 80
     targetPort: 3000
-  
+
   # Persistent volume configuration
   persistentVolume:
     enabled: true
     size: 10Gi
     storageClass: "default"
-  
+
   # Resource limits
   resources:
     requests:
@@ -37,19 +36,19 @@ grafana:
     limits:
       cpu: 500m
       memory: 1Gi
-  
+
   # Security context
   securityContext:
     runAsNonRoot: true
     runAsUser: 472
     fsGroup: 472
-  
+
   # Admin credentials
   admin:
     user: admin
     password: admin123
     existingSecret: ""
-  
+
   # Grafana configuration
   grafana.ini:
     server:
@@ -63,21 +62,21 @@ grafana:
       allow_sign_up: false
     dashboards:
       default_home_dashboard_path: /var/lib/grafana/dashboards/home.json
-  
+
   # Dashboard providers
   dashboardProviders:
     dashboardproviders.yaml:
       apiVersion: 1
       providers:
-      - name: 'default'
-        orgId: 1
-        folder: ''
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /var/lib/grafana/dashboards/default
-  
+        - name: "default"
+          orgId: 1
+          folder: ""
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
   # Dashboards
   dashboards:
     default:

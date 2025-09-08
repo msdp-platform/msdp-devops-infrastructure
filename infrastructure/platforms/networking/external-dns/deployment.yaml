@@ -42,15 +42,11 @@ spec:
             - --interval=1m
             - --policy=upsert-only
             - --annotation-filter=external-dns.alpha.kubernetes.io/hostname
-          env:
-            - name: AWS_DEFAULT_REGION
-              value: "us-east-1"
-            - name: AWS_REGION
-              value: "us-east-1"
-            - name: AWS_ROLE_ARN
-              value: "arn:aws:iam::319422413814:role/GitHubActions-MSDP-Platform"
-            - name: AWS_WEB_IDENTITY_TOKEN_FILE
-              value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+        env:
+          - name: AWS_DEFAULT_REGION
+            value: "us-east-1"
+          - name: AWS_REGION
+            value: "us-east-1"
           resources:
             requests:
               memory: "64Mi"
