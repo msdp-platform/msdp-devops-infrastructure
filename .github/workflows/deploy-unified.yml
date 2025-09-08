@@ -238,8 +238,13 @@ jobs:
 
       - name: Setup Kustomize with Helm support
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          # Install kustomize using direct download
+          cd /tmp
+          rm -f kustomize
+          curl -L "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.0/kustomize_v5.0.0_linux_amd64.tar.gz" | tar xz
           sudo mv kustomize /usr/local/bin/
+          # Verify installation
+          kustomize version
 
       - name: Deploy NGINX Ingress Controller
         run: |
