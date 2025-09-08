@@ -2,15 +2,14 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 metadata:
-  name: argocd-ingress
+  name: argocd-certificates
   annotations:
     config.kubernetes.io/local-config: "true"
 
 resources:
-  - argocd-http-ingress.yaml
-  - argocd-https-ingress.yaml
-  - aztech-msdp-ingress.yaml
-  - route53-aztech-msdp-ingress.yaml
+- argocd-certificate.yaml
+- aztech-msdp-certificate.yaml
+- route53-aztech-msdp-certificate.yaml
 
 commonLabels:
   app.kubernetes.io/part-of: msdp-platform

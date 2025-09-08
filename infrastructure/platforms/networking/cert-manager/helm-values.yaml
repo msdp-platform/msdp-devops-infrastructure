@@ -23,17 +23,17 @@ webhook:
     repository: jetstack/cert-manager-webhook
     tag: "v1.13.2"
     pullPolicy: IfNotPresent
-    
+
   # Security context
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
     readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
-    
+
   # Resource limits
   resources:
     requests:
@@ -50,17 +50,17 @@ cainjector:
     repository: jetstack/cert-manager-cainjector
     tag: "v1.13.2"
     pullPolicy: IfNotPresent
-    
+
   # Security context
   securityContext:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
     readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
-    
+
   # Resource limits
   resources:
     requests:
@@ -77,11 +77,11 @@ controller:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
     readOnlyRootFilesystem: true
     runAsNonRoot: true
     runAsUser: 1000
-    
+
   # Resource limits
   resources:
     requests:
@@ -90,7 +90,7 @@ controller:
     limits:
       cpu: 100m
       memory: 128Mi
-      
+
   # Metrics configuration
   metrics:
     enabled: true
@@ -99,7 +99,7 @@ controller:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9402"
         prometheus.io/path: "/metrics"
-        
+
   # Health checks
   livenessProbe:
     httpGet:
@@ -111,7 +111,7 @@ controller:
     timeoutSeconds: 1
     successThreshold: 1
     failureThreshold: 3
-    
+
   readinessProbe:
     httpGet:
       path: /healthz

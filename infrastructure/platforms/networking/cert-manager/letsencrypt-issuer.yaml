@@ -17,13 +17,13 @@ spec:
       name: letsencrypt-prod
     # Enable HTTP01 challenge
     solvers:
-    - http01:
-        ingress:
-          class: nginx
-          podTemplate:
-            spec:
-              nodeSelector:
-                kubernetes.io/os: linux
+      - http01:
+          ingress:
+            class: nginx
+            podTemplate:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
 ---
 # Let's Encrypt ClusterIssuer for staging certificates (for testing)
 apiVersion: cert-manager.io/v1
@@ -44,10 +44,10 @@ spec:
       name: letsencrypt-staging
     # Enable HTTP01 challenge
     solvers:
-    - http01:
-        ingress:
-          class: nginx
-          podTemplate:
-            spec:
-              nodeSelector:
-                kubernetes.io/os: linux
+      - http01:
+          ingress:
+            class: nginx
+            podTemplate:
+              spec:
+                nodeSelector:
+                  kubernetes.io/os: linux
