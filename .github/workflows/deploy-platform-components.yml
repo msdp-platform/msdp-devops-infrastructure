@@ -83,13 +83,9 @@ jobs:
 
       - name: Setup Kustomize with Helm support
         run: |
-          # Install kustomize with helm support
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
-
-          # Verify kustomize version and helm support
+          # Use pre-installed kustomize
           kustomize version
-          echo "Kustomize with Helm support installed"
+          echo "Kustomize with Helm support ready"
 
       - name: Validate YAML files
         run: |
@@ -137,13 +133,9 @@ jobs:
 
       - name: Setup Kustomize with Helm support
         run: |
-          # Install kustomize with helm support
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
-          sudo mv kustomize /usr/local/bin/
-
-          # Verify kustomize version and helm support
+          # Use pre-installed kustomize
           kustomize version
-          echo "Kustomize with Helm support installed"
+          echo "Kustomize with Helm support ready"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -215,7 +207,7 @@ jobs:
           AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
           AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
           AWS_SESSION_TOKEN=$(aws configure get aws_session_token)
-          
+
           # Create the secret with AWS credentials
           kubectl create secret generic aws-credentials \
             --namespace=external-dns \
