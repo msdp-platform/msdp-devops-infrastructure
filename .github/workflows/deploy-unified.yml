@@ -252,7 +252,7 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
+            kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply -f -
           fi
 
       - name: Wait for NGINX Ingress Controller
@@ -270,7 +270,7 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/cert-manager/
+            kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply -f -
           fi
 
       - name: Wait for Cert-Manager
@@ -319,7 +319,7 @@ jobs:
             kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply --dry-run=client -f -
           else
             # Deploy External DNS and ignore ServiceMonitor errors (expected when Prometheus not installed)
-            kubectl apply -k infrastructure/platforms/networking/external-dns/ || {
+            kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply -f - || {
               echo "⚠️ External DNS deployment completed with expected ServiceMonitor error (Prometheus not installed)"
               echo "✅ Core External DNS components deployed successfully"
             }
@@ -340,7 +340,7 @@ jobs:
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/monitoring/prometheus/
+            kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply -f -
           fi
 
       - name: Wait for Prometheus
