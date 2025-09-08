@@ -122,8 +122,7 @@ controller:
 defaultBackend:
   enabled: true
   image:
-    registry: registry.k8s.io
-    image: ingress-nginx/defaultbackend-amd64
+    repository: registry.k8s.io/ingress-nginx/defaultbackend-amd64
     tag: "1.5"
     digest: ""
   resources:

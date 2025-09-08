@@ -41,6 +41,7 @@ env:
   AZURE_TENANT_ID: a4474822-c84f-4bd1-bc35-baed17234c9f
   AZURE_SUBSCRIPTION_ID: ecd977ed-b8df-4eb6-9cba-98397e1b2491
   AWS_REGION: us-east-1
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 
 jobs:
   detect-environment:
@@ -159,6 +160,12 @@ jobs:
           echo "🔐 Getting AKS credentials for ${CLUSTER_NAME}..."
           az aks get-credentials --resource-group $RESOURCE_GROUP --name $CLUSTER_NAME --overwrite-existing
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Deploy NGINX Ingress Controller
         run: |
           echo "🌐 Deploying NGINX Ingress Controller..."
@@ -198,6 +205,23 @@ jobs:
             --for=condition=ready pod \
             --selector=app.kubernetes.io/component=controller \
             --timeout=300s
+
+      - name: Create AWS Credentials Secret
+        if: needs.detect-environment.outputs.dry_run != 'true'
+        run: |
+          echo "🔐 Creating AWS credentials secret for External DNS..."
+          # Get current AWS credentials
+          AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
+          AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
+          AWS_SESSION_TOKEN=$(aws configure get aws_session_token)
+          
+          # Create the secret with AWS credentials
+          kubectl create secret generic aws-credentials \
+            --namespace=external-dns \
+            --from-literal=aws-access-key-id="$AWS_ACCESS_KEY_ID" \
+            --from-literal=aws-secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+            --from-literal=aws-session-token="$AWS_SESSION_TOKEN" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy External DNS
         run: |

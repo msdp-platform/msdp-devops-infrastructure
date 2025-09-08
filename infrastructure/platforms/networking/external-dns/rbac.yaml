@@ -6,8 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: external-dns
     app.kubernetes.io/component: dns-controller
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::319422413814:role/GitHubActions-MSDP-Platform
+  annotations: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
