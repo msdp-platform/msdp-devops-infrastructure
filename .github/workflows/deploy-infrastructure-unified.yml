@@ -33,9 +33,9 @@ on:
         type: boolean
 
 env:
-  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_CLIENT_ID: 129dd1fb-3d94-4e10-b451-2b0dea64daee
+  AZURE_TENANT_ID: a4474822-c84f-4bd1-bc35-baed17234c9f
+  AZURE_SUBSCRIPTION_ID: ecd977ed-b8df-4eb6-9cba-98397e1b2491
   AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
   AWS_REGION: us-east-1
 
@@ -61,7 +61,7 @@ jobs:
               *) ENVIRONMENT="dev" ;;
             esac
           fi
-          
+
           case "$ENVIRONMENT" in
             dev)
               CLUSTER_NAME="msdp-infra-aks"
@@ -76,7 +76,7 @@ jobs:
               RESOURCE_GROUP="delivery-platform-aks-rg-prod"
               ;;
           esac
-          
+
           echo "environment=$ENVIRONMENT" >> $GITHUB_OUTPUT
           echo "cluster_name=$CLUSTER_NAME" >> $GITHUB_OUTPUT
           echo "resource_group=$RESOURCE_GROUP" >> $GITHUB_OUTPUT
@@ -117,16 +117,16 @@ jobs:
       - name: Deploy Platform Components
         run: |
           echo "🚀 Deploying Platform Components to ${{ needs.detect-environment.outputs.environment }} environment"
-          
+
           # Deploy networking components
           kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
           kubectl apply -k infrastructure/platforms/networking/cert-manager/
           kubectl apply -k infrastructure/platforms/networking/external-dns/
-          
+
           # Deploy monitoring components
           kubectl apply -k infrastructure/platforms/monitoring/prometheus/
           kubectl apply -k infrastructure/platforms/monitoring/grafana/
-          
+
           echo "✅ Platform components deployment completed"
 
   deploy-applications:
@@ -164,14 +164,14 @@ jobs:
       - name: Deploy Applications via GitOps
         run: |
           echo "🚀 Deploying Applications to ${{ needs.detect-environment.outputs.environment }} environment"
-          
+
           # Deploy applications using unified kustomization
           kubectl apply -k infrastructure/applications/
-          
+
           # Wait for ArgoCD to sync
           echo "⏳ Waiting for ArgoCD to sync applications..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-          
+
           echo "✅ Applications deployment completed via GitOps"
 
   verify-deployment:
@@ -203,42 +203,42 @@ jobs:
       - name: Verify Complete Deployment
         run: |
           echo "🔍 Verifying complete infrastructure deployment..."
-          
+
           # Check platform components
           echo "📊 Platform Components Status:"
           kubectl get pods -n ingress-nginx
           kubectl get pods -n cert-manager
           kubectl get pods -n external-dns
           kubectl get pods -n monitoring
-          
+
           # Check applications
           echo "🚀 Applications Status:"
           kubectl get pods -n argocd
           kubectl get pods -n backstage
           kubectl get pods -n crossplane-system
-          
+
           # Check ingress and certificates
           echo "🌐 Ingress and Certificates:"
           kubectl get ingress -A
           kubectl get certificates -A
-          
+
           # Test application access
           echo "🌐 Testing application access..."
           INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
           echo "Ingress IP: $INGRESS_IP"
-          
+
           # Test ArgoCD access
           if curl -I -s --max-time 10 "https://argocd.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ ArgoCD is accessible"
           else
             echo "❌ ArgoCD access failed"
           fi
-          
+
           # Test Grafana access
           if curl -I -s --max-time 10 "https://grafana.${{ needs.detect-environment.outputs.environment }}.aztech-msdp.com" | grep -q "200\|302"; then
             echo "✅ Grafana is accessible"
           else
             echo "❌ Grafana access failed"
           fi
-          
+
           echo "✅ Complete infrastructure verification completed"
