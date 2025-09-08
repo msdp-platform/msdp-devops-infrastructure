@@ -297,7 +297,7 @@ jobs:
       - name: Deploy NGINX Ingress Controller
         run: |
           echo "🌐 Deploying NGINX Ingress Controller..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
           else
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply -f -
@@ -348,7 +348,7 @@ jobs:
       - name: Deploy Cert-Manager
         run: |
           echo "🔐 Deploying Cert-Manager..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply --dry-run=client -f -
           else
             kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply -f -
@@ -401,7 +401,7 @@ jobs:
       - name: Deploy External DNS
         run: |
           echo "🌍 Deploying External DNS..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply --dry-run=client -f -
           else
             # Deploy External DNS and ignore ServiceMonitor errors (expected when Prometheus not installed)
@@ -428,7 +428,7 @@ jobs:
       - name: Deploy Prometheus
         run: |
           echo "📊 Deploying Prometheus..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply --dry-run=client -f -
           else
             kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl apply -f -
@@ -451,7 +451,7 @@ jobs:
       - name: Deploy Grafana
         run: |
           echo "📈 Deploying Grafana..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/monitoring/grafana/ | kubectl apply --dry-run=client -f -
           else
             # Check if Grafana is already running
@@ -543,7 +543,7 @@ jobs:
       - name: Deploy Applications
         run: |
           echo "🚀 Deploying Applications..."
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/applications/ | kubectl apply --dry-run=client -f -
           else
             kustomize build --enable-helm infrastructure/applications/ | kubectl apply -f -

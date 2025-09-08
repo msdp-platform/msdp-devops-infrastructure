@@ -44,10 +44,10 @@ argo-cd:
     config:
       # Enable admin user creation for initial setup
       admin.enabled: "true"
-      
+
       # Application instance label key
       application.instanceLabelKey: "argocd.argoproj.io/instance"
-      
+
       # Server configuration
       server.rbac.log.enforce.enable: "false"
       timeout.reconciliation: "180s"
