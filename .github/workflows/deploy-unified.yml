@@ -127,14 +127,14 @@ jobs:
           echo "🔍 Checking component versions..."
 
           # Define expected versions (from configuration files)
-          EXPECTED_ARGOCD_VERSION="v2.9.3"
-          EXPECTED_GRAFANA_VERSION="10.4.0"
-          EXPECTED_CROSSPLANE_VERSION="v1.14.2"
+          EXPECTED_ARGOCD_VERSION="v3.1.4"
+          EXPECTED_GRAFANA_VERSION="12.1.1"
+          EXPECTED_CROSSPLANE_VERSION="v2.0.2"
           EXPECTED_BACKSTAGE_VERSION="1.25.0"
-          EXPECTED_CERT_MANAGER_VERSION="v1.13.2"
-          EXPECTED_NGINX_VERSION="v1.9.4"
-          EXPECTED_EXTERNAL_DNS_VERSION="v0.14.0"
-          EXPECTED_PROMETHEUS_VERSION="v2.50.1"
+          EXPECTED_CERT_MANAGER_VERSION="v1.18.0"
+          EXPECTED_NGINX_VERSION="v1.13.2"
+          EXPECTED_EXTERNAL_DNS_VERSION="v0.19.0"
+          EXPECTED_PROMETHEUS_VERSION="v3.5.0"
 
           DEPLOY_PLATFORM="false"
           DEPLOY_APPLICATIONS="false"

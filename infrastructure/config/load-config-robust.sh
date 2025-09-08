@@ -90,13 +90,13 @@ load_configuration() {
     export RESOURCE_GROUP=$(extract_nested_yaml_value "$ENV_CONFIG" "cluster" "resource_group" "delivery-platform-aks-rg")
     
     # Load component versions from global.yaml
-    export EXPECTED_ARGOCD_VERSION="v2.9.3"
-    export EXPECTED_GRAFANA_VERSION="10.4.0"
-    export EXPECTED_CROSSPLANE_VERSION="v1.14.2"
-    export EXPECTED_CERT_MANAGER_VERSION="v1.13.2"
-    export EXPECTED_NGINX_VERSION="v1.9.4"
-    export EXPECTED_EXTERNAL_DNS_VERSION="v0.14.0"
-    export EXPECTED_PROMETHEUS_VERSION="v2.50.1"
+    export EXPECTED_ARGOCD_VERSION="v3.1.4"
+    export EXPECTED_GRAFANA_VERSION="12.1.1"
+    export EXPECTED_CROSSPLANE_VERSION="v2.0.2"
+    export EXPECTED_CERT_MANAGER_VERSION="v1.18.0"
+    export EXPECTED_NGINX_VERSION="v1.13.2"
+    export EXPECTED_EXTERNAL_DNS_VERSION="v0.19.0"
+    export EXPECTED_PROMETHEUS_VERSION="v3.5.0"
     
     # Load timeouts
     export DEPLOYMENT_TIMEOUT="300"

@@ -10,6 +10,9 @@ metadata:
 resources:
   - namespaces.yaml
   - argocd/applications/
+  - argocd/
+  - backstage/
+  - crossplane/
 
 # Common labels for all resources
 commonLabels:
