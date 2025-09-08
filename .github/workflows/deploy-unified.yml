@@ -311,13 +311,13 @@ jobs:
           kubectl wait --namespace ingress-nginx \
             --for=condition=available deployment/ingress-nginx-controller \
             --timeout=600s
-          
+
           # Wait for pods to be ready
           kubectl wait --namespace ingress-nginx \
             --for=condition=ready pod \
             --selector=app.kubernetes.io/name=ingress-nginx \
             --timeout=600s
-          
+
           echo "✅ NGINX Ingress Controller is ready"
 
       - name: Deploy Cert-Manager
@@ -440,7 +440,7 @@ jobs:
           echo "✅ Grafana deployment is ready"
 
   deploy-applications:
-    needs: [detect-environment, check-component-versions]
+    needs: [detect-environment, check-component-versions, deploy-platform-components]
     if: needs.detect-environment.outputs.should_deploy == 'true' && (needs.check-component-versions.outputs.deploy_applications == 'true' || github.event.inputs.force_deploy == 'true')
     runs-on: ubuntu-latest
     environment: ${{ needs.detect-environment.outputs.environment }}

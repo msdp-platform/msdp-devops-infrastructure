@@ -24,13 +24,25 @@ spec:
         fsGroup: 0
       containers:
         - name: backstage
-          image: nginx:1.25
+          image: backstage/backstage:1.25.0
           ports:
-            - containerPort: 80
+            - containerPort: 7007
               name: http
           env:
             - name: NODE_ENV
               value: "production"
+            - name: POSTGRES_HOST
+              value: "ep-royal-star-a8y1e1rh-pooler.eastus2.azure.neon.tech"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_USER
+              value: "neondb_owner"
+            - name: POSTGRES_PASSWORD
+              value: "npg_Cw3r6GeXASIb"
+            - name: POSTGRES_DB
+              value: "backstage"
+            - name: DATABASE_URL
+              value: "postgresql://neondb_owner:npg_Cw3r6GeXASIb@ep-royal-star-a8y1e1rh-pooler.eastus2.azure.neon.tech/backstage?sslmode=require&channel_binding=require"
           resources:
             requests:
               cpu: 100m
@@ -41,12 +53,12 @@ spec:
           livenessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 7007
             initialDelaySeconds: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 7007
             initialDelaySeconds: 5
             periodSeconds: 5
