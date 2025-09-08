@@ -165,7 +165,7 @@ jobs:
           if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/nginx-ingress/ --enable-helm
+            kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl apply -f -
           fi
 
       - name: Wait for NGINX Ingress Controller
@@ -183,7 +183,7 @@ jobs:
           if [ "${{ needs.detect-environment.outputs.dry_run }}" = "true" ]; then
             kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply --dry-run=client -f -
           else
-            kubectl apply -k infrastructure/platforms/networking/cert-manager/ --enable-helm
+            kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl apply -f -
           fi
 
       - name: Wait for Cert-Manager
