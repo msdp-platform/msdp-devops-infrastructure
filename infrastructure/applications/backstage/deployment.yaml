@@ -24,7 +24,7 @@ spec:
         fsGroup: 0
       containers:
         - name: backstage
-          image: backstage/backstage:1.25.0
+          image: spotify/backstage:latest
           ports:
             - containerPort: 7007
               name: http

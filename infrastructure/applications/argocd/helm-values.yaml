@@ -23,7 +23,7 @@ argo-cd:
 
     # Ingress configuration
     ingress:
-      enabled: false  # We'll create our own ingress
+      enabled: false # We'll create our own ingress
 
     # Resource limits
     resources:
@@ -44,7 +44,7 @@ argo-cd:
     config:
       # Disable admin user creation (we'll use OIDC)
       admin.enabled: "false"
-      
+
       # OIDC configuration (placeholder)
       oidc.config: |
         name: Azure AD
