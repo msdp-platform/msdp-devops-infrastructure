@@ -560,27 +560,20 @@ jobs:
         run: |
           echo "🧹 Cleaning up existing applications to avoid immutable field conflicts..."
 
-          # Delete ArgoCD deployments and statefulsets
+          # Clean up ArgoCD completely (like platform components)
           echo "🗑️ Cleaning up ArgoCD components..."
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-applicationset-controller --ignore-not-found=true || true
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-dex-server --ignore-not-found=true || true
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-notifications-controller --ignore-not-found=true || true
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-redis --ignore-not-found=true || true
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-repo-server --ignore-not-found=true || true
-          kubectl delete deployment -n argocd --selector=app.kubernetes.io/name=argocd-server --ignore-not-found=true || true
-          kubectl delete statefulset -n argocd --selector=app.kubernetes.io/name=argocd-application-controller --ignore-not-found=true || true
+          kubectl delete -k infrastructure/applications/argocd/ --ignore-not-found=true || true
 
-          # Delete Backstage deployment
+          # Clean up Backstage completely
           echo "🗑️ Cleaning up Backstage..."
-          kubectl delete deployment -n backstage --selector=app.kubernetes.io/name=backstage --ignore-not-found=true || true
+          kubectl delete -k infrastructure/applications/backstage/ --ignore-not-found=true || true
 
-          # Delete Crossplane deployments
+          # Clean up Crossplane completely
           echo "🗑️ Cleaning up Crossplane..."
-          kubectl delete deployment -n crossplane-system --selector=app.kubernetes.io/name=crossplane --ignore-not-found=true || true
-          kubectl delete deployment -n crossplane-system --selector=app.kubernetes.io/name=crossplane-rbac-manager --ignore-not-found=true || true
+          kubectl delete -k infrastructure/applications/crossplane/ --ignore-not-found=true || true
 
           echo "⏳ Waiting for cleanup to complete..."
-          sleep 10
+          sleep 15
           echo "✅ Cleanup completed"
 
       - name: Deploy Applications
@@ -591,6 +584,31 @@ jobs:
           else
             kustomize build --enable-helm infrastructure/applications/ | kubectl apply -f -
           fi
+
+      - name: Verify Application Deployments
+        if: github.event.inputs.dry_run != 'true'
+        run: |
+          echo "🔍 Verifying application deployments..."
+          
+          # Wait for ArgoCD to be ready
+          echo "⏳ Waiting for ArgoCD to be ready..."
+          kubectl wait --namespace argocd \
+            --for=condition=available deployment/argocd-server \
+            --timeout=300s || { echo "❌ ArgoCD server failed to start"; kubectl get pods -n argocd; exit 1; }
+          
+          # Wait for Backstage to be ready
+          echo "⏳ Waiting for Backstage to be ready..."
+          kubectl wait --namespace backstage \
+            --for=condition=available deployment/backstage \
+            --timeout=300s || { echo "❌ Backstage failed to start"; kubectl get pods -n backstage; exit 1; }
+          
+          # Wait for Crossplane to be ready
+          echo "⏳ Waiting for Crossplane to be ready..."
+          kubectl wait --namespace crossplane-system \
+            --for=condition=available deployment/crossplane \
+            --timeout=300s || { echo "❌ Crossplane failed to start"; kubectl get pods -n crossplane-system; exit 1; }
+          
+          echo "✅ All applications deployed successfully"
 
   verify-deployment:
     needs:
