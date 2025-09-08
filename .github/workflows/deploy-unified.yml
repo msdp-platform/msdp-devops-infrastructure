@@ -336,10 +336,26 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🧹 Cleaning up existing NGINX Ingress Controller..."
-          # Delete existing NGINX Ingress Controller using Kustomize (since it's deployed with Kustomize + Helm charts)
-          kubectl delete -k infrastructure/platforms/networking/nginx-ingress/ --ignore-not-found=true || true
-          # Wait a bit for cleanup
-          sleep 10
+          
+          # Delete using the same method as deployment (Kustomize + Helm)
+          echo "🗑️ Deleting NGINX Ingress Controller with Kustomize + Helm..."
+          kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl delete -f - --ignore-not-found=true || true
+          
+          # Also try direct namespace deletion as fallback
+          echo "🗑️ Deleting ingress-nginx namespace as fallback..."
+          kubectl delete namespace ingress-nginx --ignore-not-found=true || true
+          
+          # Wait for cleanup to complete
+          echo "⏳ Waiting for cleanup to complete..."
+          sleep 15
+          
+          # Verify cleanup
+          echo "🔍 Verifying cleanup..."
+          if kubectl get namespace ingress-nginx >/dev/null 2>&1; then
+            echo "⚠️ Namespace still exists, waiting longer..."
+            sleep 10
+          fi
+          
           echo "✅ Cleanup completed"
 
       - name: Deploy NGINX Ingress Controller
@@ -599,14 +615,14 @@ jobs:
       - name: Generate Dynamic Configurations
         run: |
           echo "🔧 Generating dynamic configurations for all Helm components from global.yaml..."
-          
+
           # Make the script executable
           chmod +x scripts/utilities/generate-all-helm-configs.sh
-          
+
           # Generate all Helm component configurations
           echo "📝 Generating all Helm component configurations..."
           ./scripts/utilities/generate-all-helm-configs.sh
-          
+
           # Show what was generated
           echo "📋 Generated configurations:"
           echo "  📦 Platform Components:"
@@ -617,7 +633,7 @@ jobs:
           echo "  📦 Applications:"
           echo "    - ArgoCD: $(wc -l < infrastructure/applications/argocd/helm-values.yaml) lines"
           echo "    - Crossplane: $(wc -l < infrastructure/applications/crossplane/helm-values.yaml) lines"
-          
+
           # Verify the generated configurations
           echo "🔍 Verifying generated configurations..."
           local failed=0
@@ -629,7 +645,7 @@ jobs:
               failed=1
             fi
           done
-          
+
           if [ $failed -eq 1 ]; then
             echo "❌ Configuration generation failed"
             exit 1
