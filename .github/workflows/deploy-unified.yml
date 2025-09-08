@@ -332,31 +332,48 @@ jobs:
           echo "🔄 Updating component versions from global configuration..."
           ./scripts/update-component-versions.sh
 
-      - name: Clean up existing NGINX Ingress Controller
+      - name: Clean up existing Platform Components
         if: github.event.inputs.dry_run != 'true'
         run: |
-          echo "🧹 Cleaning up existing NGINX Ingress Controller..."
-
-          # Delete using the same method as deployment (Kustomize + Helm)
-          echo "🗑️ Deleting NGINX Ingress Controller with Kustomize + Helm..."
+          echo "🧹 Cleaning up existing platform components to avoid immutable field conflicts..."
+          
+          # Clean up NGINX Ingress Controller
+          echo "🗑️ Cleaning up NGINX Ingress Controller..."
           kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl delete -f - --ignore-not-found=true || true
-
-          # Also try direct namespace deletion as fallback
-          echo "🗑️ Deleting ingress-nginx namespace as fallback..."
           kubectl delete namespace ingress-nginx --ignore-not-found=true || true
-
+          
+          # Clean up Cert-Manager
+          echo "🗑️ Cleaning up Cert-Manager..."
+          kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl delete -f - --ignore-not-found=true || true
+          kubectl delete namespace cert-manager --ignore-not-found=true || true
+          
+          # Clean up Grafana
+          echo "🗑️ Cleaning up Grafana..."
+          kustomize build --enable-helm infrastructure/platforms/monitoring/grafana/ | kubectl delete -f - --ignore-not-found=true || true
+          
+          # Clean up Prometheus
+          echo "🗑️ Cleaning up Prometheus..."
+          kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl delete -f - --ignore-not-found=true || true
+          
+          # Clean up External DNS (if it exists)
+          echo "🗑️ Cleaning up External DNS..."
+          kubectl delete -k infrastructure/platforms/networking/external-dns/ --ignore-not-found=true || true
+          kubectl delete namespace external-dns --ignore-not-found=true || true
+          
           # Wait for cleanup to complete
           echo "⏳ Waiting for cleanup to complete..."
-          sleep 15
-
+          sleep 20
+          
           # Verify cleanup
           echo "🔍 Verifying cleanup..."
-          if kubectl get namespace ingress-nginx >/dev/null 2>&1; then
-            echo "⚠️ Namespace still exists, waiting longer..."
-            sleep 10
-          fi
-
-          echo "✅ Cleanup completed"
+          for namespace in ingress-nginx cert-manager external-dns; do
+            if kubectl get namespace $namespace >/dev/null 2>&1; then
+              echo "⚠️ Namespace $namespace still exists, waiting longer..."
+              sleep 5
+            fi
+          done
+          
+          echo "✅ Platform components cleanup completed"
 
       - name: Deploy NGINX Ingress Controller
         run: |
