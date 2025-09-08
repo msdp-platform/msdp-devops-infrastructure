@@ -126,12 +126,14 @@ jobs:
         run: |
           echo "🔍 Checking component versions..."
 
-          # Define expected versions
+          # Define expected versions (from configuration files)
           EXPECTED_ARGOCD_VERSION="v2.9.3"
-          EXPECTED_GRAFANA_VERSION="10.1.5"
+          EXPECTED_GRAFANA_VERSION="10.4.0"
           EXPECTED_CROSSPLANE_VERSION="v1.14.2"
-          EXPECTED_CERT_MANAGER_VERSION="v1.13.3"
-          EXPECTED_NGINX_VERSION="1.8.2"
+          EXPECTED_CERT_MANAGER_VERSION="v1.13.2"
+          EXPECTED_NGINX_VERSION="v1.9.4"
+          EXPECTED_EXTERNAL_DNS_VERSION="v0.14.0"
+          EXPECTED_PROMETHEUS_VERSION="v2.50.1"
 
           DEPLOY_PLATFORM="false"
           DEPLOY_APPLICATIONS="false"
@@ -171,22 +173,46 @@ jobs:
           fi
 
           # Check platform components
-          if ! kubectl get deployment -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
+          if kubectl get deployment -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
+            CURRENT_NGINX=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "NGINX Ingress: Current=$CURRENT_NGINX, Expected=$EXPECTED_NGINX_VERSION"
+            if [ "$CURRENT_NGINX" != "$EXPECTED_NGINX_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_PLATFORM="true"
+            fi
+          else
             echo "NGINX Ingress not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
 
-          if ! kubectl get deployment -n cert-manager cert-manager >/dev/null 2>&1; then
+          if kubectl get deployment -n cert-manager cert-manager >/dev/null 2>&1; then
+            CURRENT_CERT_MANAGER=$(kubectl get deployment -n cert-manager cert-manager -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "Cert-Manager: Current=$CURRENT_CERT_MANAGER, Expected=$EXPECTED_CERT_MANAGER_VERSION"
+            if [ "$CURRENT_CERT_MANAGER" != "$EXPECTED_CERT_MANAGER_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_PLATFORM="true"
+            fi
+          else
             echo "Cert-Manager not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
 
-          if ! kubectl get deployment -n external-dns external-dns >/dev/null 2>&1; then
+          if kubectl get deployment -n external-dns external-dns >/dev/null 2>&1; then
+            CURRENT_EXTERNAL_DNS=$(kubectl get deployment -n external-dns external-dns -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "External DNS: Current=$CURRENT_EXTERNAL_DNS, Expected=v0.14.0"
+            if [ "$CURRENT_EXTERNAL_DNS" != "v0.14.0" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_PLATFORM="true"
+            fi
+          else
             echo "External DNS not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
 
-          if ! kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
+          if kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
+            CURRENT_PROMETHEUS=$(kubectl get deployment -n monitoring prometheus-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            echo "Prometheus: Current=$CURRENT_PROMETHEUS, Expected=v2.50.1"
+            if [ "$CURRENT_PROMETHEUS" != "v2.50.1" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+              DEPLOY_PLATFORM="true"
+            fi
+          else
             echo "Prometheus not found, will deploy"
             DEPLOY_PLATFORM="true"
           fi
