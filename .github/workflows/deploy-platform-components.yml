@@ -202,7 +202,7 @@ jobs:
         if: needs.detect-environment.outputs.dry_run != 'true'
         run: |
           echo "🔐 Checking AWS credentials secret for External DNS..."
-          
+
           # Check if secret already exists and is working
           if kubectl get secret aws-credentials -n external-dns >/dev/null 2>&1; then
             echo "✅ AWS credentials secret already exists, skipping creation"
@@ -338,10 +338,14 @@ jobs:
         if: needs.detect-environment.outputs.dry_run != 'true'
         run: |
           echo "⏳ Waiting for Grafana to be ready..."
-          kubectl wait --namespace grafana \
-            --for=condition=ready pod \
-            --selector=app.kubernetes.io/name=grafana \
+          # Wait for the Grafana deployment to be available (avoids test pod issues)
+          kubectl wait --namespace monitoring \
+            --for=condition=available deployment/grafana \
             --timeout=300s
+          
+          # Verify the main Grafana pod is running
+          kubectl get pods -n monitoring -l app.kubernetes.io/name=grafana,app.kubernetes.io/instance=grafana
+          echo "✅ Grafana deployment is ready"
 
   notify-deployment:
     runs-on: ubuntu-latest
