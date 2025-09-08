@@ -331,8 +331,8 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🧹 Cleaning up existing NGINX Ingress Controller..."
-          # Delete existing NGINX Ingress Controller using Helm (since it's deployed with Helm)
-          helm uninstall ingress-nginx -n ingress-nginx --ignore-not-found || true
+          # Delete existing NGINX Ingress Controller using Kustomize (since it's deployed with Kustomize + Helm charts)
+          kubectl delete -k infrastructure/platforms/networking/nginx-ingress/ --ignore-not-found=true || true
           # Wait a bit for cleanup
           sleep 10
           echo "✅ Cleanup completed"
@@ -560,17 +560,17 @@ jobs:
         run: |
           echo "🧹 Cleaning up existing applications to avoid immutable field conflicts..."
 
-          # Clean up ArgoCD using Helm (since it's deployed with Helm)
-          echo "🗑️ Cleaning up ArgoCD (Helm uninstall)..."
-          helm uninstall argocd -n argocd --ignore-not-found || true
+          # Clean up ArgoCD using Kustomize (since it's deployed with Kustomize + Helm charts)
+          echo "🗑️ Cleaning up ArgoCD (Kustomize delete)..."
+          kubectl delete -k infrastructure/applications/argocd/ --ignore-not-found=true || true
 
           # Clean up Backstage using Kustomize (since it's deployed with Kustomize)
           echo "🗑️ Cleaning up Backstage (Kustomize delete)..."
           kubectl delete -k infrastructure/applications/backstage/ --ignore-not-found=true || true
 
-          # Clean up Crossplane using Helm (since it's deployed with Helm)
-          echo "🗑️ Cleaning up Crossplane (Helm uninstall)..."
-          helm uninstall crossplane -n crossplane-system --ignore-not-found || true
+          # Clean up Crossplane using Kustomize (since it's deployed with Kustomize + Helm charts)
+          echo "🗑️ Cleaning up Crossplane (Kustomize delete)..."
+          kubectl delete -k infrastructure/applications/crossplane/ --ignore-not-found=true || true
 
           echo "⏳ Waiting for cleanup to complete..."
           sleep 15
