@@ -206,23 +206,6 @@ jobs:
             --selector=app.kubernetes.io/component=controller \
             --timeout=300s
 
-      - name: Create AWS Credentials Secret
-        if: needs.detect-environment.outputs.dry_run != 'true'
-        run: |
-          echo "🔐 Creating AWS credentials secret for External DNS..."
-          # Get current AWS credentials
-          AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
-          AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
-          AWS_SESSION_TOKEN=$(aws configure get aws_session_token)
-          
-          # Create the secret with AWS credentials
-          kubectl create secret generic aws-credentials \
-            --namespace=external-dns \
-            --from-literal=aws-access-key-id="$AWS_ACCESS_KEY_ID" \
-            --from-literal=aws-secret-access-key="$AWS_SECRET_ACCESS_KEY" \
-            --from-literal=aws-session-token="$AWS_SESSION_TOKEN" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Deploy External DNS
         run: |
           echo "🌍 Deploying External DNS..."

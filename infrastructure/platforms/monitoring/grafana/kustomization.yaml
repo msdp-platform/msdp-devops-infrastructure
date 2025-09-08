@@ -19,7 +19,8 @@ helmCharts:
     valuesFile: helm-values.yaml
 
 labels:
-  app.kubernetes.io/part-of: msdp-platform
-  app.kubernetes.io/managed-by: kustomize
+  - pairs:
+      app.kubernetes.io/part-of: msdp-platform
+      app.kubernetes.io/managed-by: kustomize
 
 namespace: grafana
