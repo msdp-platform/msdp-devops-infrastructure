@@ -336,34 +336,34 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🧹 Cleaning up existing platform components to avoid immutable field conflicts..."
-          
+
           # Clean up NGINX Ingress Controller
           echo "🗑️ Cleaning up NGINX Ingress Controller..."
           kustomize build --enable-helm infrastructure/platforms/networking/nginx-ingress/ | kubectl delete -f - --ignore-not-found=true || true
           kubectl delete namespace ingress-nginx --ignore-not-found=true || true
-          
+
           # Clean up Cert-Manager
           echo "🗑️ Cleaning up Cert-Manager..."
           kustomize build --enable-helm infrastructure/platforms/networking/cert-manager/ | kubectl delete -f - --ignore-not-found=true || true
           kubectl delete namespace cert-manager --ignore-not-found=true || true
-          
+
           # Clean up Grafana
           echo "🗑️ Cleaning up Grafana..."
           kustomize build --enable-helm infrastructure/platforms/monitoring/grafana/ | kubectl delete -f - --ignore-not-found=true || true
-          
+
           # Clean up Prometheus
           echo "🗑️ Cleaning up Prometheus..."
           kustomize build --enable-helm infrastructure/platforms/monitoring/prometheus/ | kubectl delete -f - --ignore-not-found=true || true
-          
+
           # Clean up External DNS (if it exists)
           echo "🗑️ Cleaning up External DNS..."
           kubectl delete -k infrastructure/platforms/networking/external-dns/ --ignore-not-found=true || true
           kubectl delete namespace external-dns --ignore-not-found=true || true
-          
+
           # Wait for cleanup to complete
           echo "⏳ Waiting for cleanup to complete..."
           sleep 20
-          
+
           # Verify cleanup
           echo "🔍 Verifying cleanup..."
           for namespace in ingress-nginx cert-manager external-dns; do
@@ -372,7 +372,7 @@ jobs:
               sleep 5
             fi
           done
-          
+
           echo "✅ Platform components cleanup completed"
 
       - name: Deploy NGINX Ingress Controller
@@ -451,35 +451,28 @@ jobs:
             echo "⚠️ Continuing anyway..."
           }
 
-      - name: Check AWS Credentials Secret
+      - name: Verify OIDC/IRSA Configuration
         if: github.event.inputs.dry_run != 'true'
         run: |
-          echo "🔐 Checking AWS credentials secret for External DNS..."
-
-          # Check if secret already exists and is working
-          if kubectl get secret aws-credentials -n external-dns >/dev/null 2>&1; then
-            echo "✅ AWS credentials secret already exists, skipping creation"
-            # Verify External DNS is working
-            if kubectl get pods -n external-dns -l app.kubernetes.io/name=external-dns --no-headers | grep -q Running; then
-              echo "✅ External DNS is running with existing credentials"
+          echo "🔐 Verifying OIDC/IRSA configuration for External DNS..."
+          
+          # Check if External DNS service account exists
+          if kubectl get serviceaccount external-dns -n external-dns >/dev/null 2>&1; then
+            echo "✅ External DNS service account exists"
+            
+            # Check if service account has IAM role annotation
+            IAM_ROLE=$(kubectl get serviceaccount external-dns -n external-dns -o jsonpath='{.metadata.annotations.eks\.amazonaws\.com/role-arn}' 2>/dev/null || echo "")
+            if [ -n "$IAM_ROLE" ]; then
+              echo "✅ External DNS service account has IAM role: $IAM_ROLE"
             else
-              echo "⚠️ External DNS not running, will redeploy"
+              echo "⚠️ External DNS service account missing IAM role annotation"
+              echo "   Please ensure the service account has the correct IAM role attached"
             fi
           else
-            echo "🔐 Creating AWS credentials secret for External DNS..."
-            # Get AWS credentials using the configured OIDC role
-            AWS_CREDS=$(aws sts get-caller-identity --output json)
-            AWS_ACCESS_KEY_ID=$(aws configure get aws_access_key_id)
-            AWS_SECRET_ACCESS_KEY=$(aws configure get aws_secret_access_key)
-            AWS_SESSION_TOKEN=$(aws configure get aws_session_token)
-
-            # Create the secret with AWS credentials
-            kubectl create secret generic aws-credentials \
-              --namespace=external-dns \
-              --from-literal=aws-access-key-id="$AWS_ACCESS_KEY_ID" \
-              --from-literal=aws-secret-access-key="$AWS_SECRET_ACCESS_KEY" \
-              --from-literal=aws-session-token="$AWS_SESSION_TOKEN"
+            echo "⚠️ External DNS service account not found, will be created during deployment"
           fi
+          
+          echo "✅ OIDC/IRSA verification completed"
 
       - name: Deploy External DNS
         run: |

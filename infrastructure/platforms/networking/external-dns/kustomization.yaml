@@ -9,7 +9,6 @@ metadata:
 resources:
   - namespace.yaml
   - rbac.yaml
-  - aws-credentials-secret.yaml
   - deployment.yaml
   - service.yaml
   - servicemonitor.yaml
