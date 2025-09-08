@@ -1,0 +1,80 @@
+# External DNS Configuration
+external_dns:
+  # Basic configuration
+  replica_count: 1
+  
+  # Image configuration
+  image:
+    repository: registry.k8s.io/external-dns/external-dns
+    pullPolicy: IfNotPresent
+  
+  # Resource configuration
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+  
+  # AWS configuration
+  aws:
+    region: "us-east-1"
+    zone_type: "public"
+  
+  # Domain configuration
+  domain_filters:
+    - "aztech-msdp.com"
+  
+  # Source configuration
+  sources:
+    - "service"
+    - "ingress"
+  
+  # Policy configuration
+  policy: "sync"
+  
+  # Log level
+  log_level: "info"
+  
+  # Log format
+  log_format: "json"
+  
+  # Interval for checking for changes
+  interval: "1m"
+  
+  # Service account
+  serviceAccount:
+    create: true
+    annotations:
+      eks.amazonaws.com/role-arn: ""  # Will be set by environment
+  
+  # RBAC
+  rbac:
+    create: true
+  
+  # Node selector
+  nodeSelector:
+    kubernetes.io/os: linux
+  
+  # Tolerations
+  tolerations: []
+  
+  # Affinity
+  affinity: {}
+  
+  # Pod annotations
+  podAnnotations: {}
+  
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    fsGroup: 65534
+  
+  # Prometheus monitoring
+  prometheus:
+    enabled: true
+    servicemonitor:
+      enabled: true
+      namespace: "monitoring"

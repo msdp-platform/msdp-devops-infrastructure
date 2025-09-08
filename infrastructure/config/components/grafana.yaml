@@ -1,0 +1,79 @@
+# Grafana Configuration
+grafana:
+  # Basic configuration
+  replica_count: 1
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 80
+    target_port: 3000
+  
+  # Persistence configuration
+  persistence:
+    enabled: true
+    size: "10Gi"
+    storage_class: ""
+  
+  # Resource configuration
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  
+  # Admin configuration
+  admin:
+    user: "admin"
+    password: "admin"  # Will be overridden by environment configs
+  
+  # Security configuration
+  security:
+    allow_embedding: true
+    cookie_samesite: "lax"
+  
+  # Dashboard configuration
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - name: 'default'
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
+  
+  # Datasources configuration
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true
+  
+  # Ingress configuration
+  ingress:
+    enabled: true
+    ingressClassName: "nginx"
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      external-dns.alpha.kubernetes.io/hostname: "grafana.dev.aztech-msdp.com"
+    hosts:
+      - grafana.dev.aztech-msdp.com
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.dev.aztech-msdp.com

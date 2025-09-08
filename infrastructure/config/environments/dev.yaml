@@ -1,0 +1,52 @@
+# Development Environment Configuration
+environment: "dev"
+
+# Cluster Configuration
+cluster:
+  name: "msdp-infra-aks"
+  resource_group: "delivery-platform-aks-rg"
+  location: "East US"
+
+# Environment-specific overrides
+overrides:
+  # Dev-specific resource limits (more generous for development)
+  resources:
+    grafana:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+    
+    prometheus:
+      requests:
+        cpu: "300m"
+        memory: "1Gi"
+      limits:
+        cpu: "1500m"
+        memory: "3Gi"
+    
+    argocd:
+      requests:
+        cpu: "200m"
+        memory: "512Mi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+
+  # Dev-specific timeouts (longer for debugging)
+  timeouts:
+    deployment: 600
+    verification: 900
+    pod_ready: 600
+
+  # Dev-specific configurations
+  grafana:
+    persistence:
+      enabled: false  # Disable persistence in dev for easier resets
+    admin_password: "admin"  # Simple password for dev
+  
+  prometheus:
+    retention: "7d"  # Shorter retention in dev
+    storage_size: "10Gi"

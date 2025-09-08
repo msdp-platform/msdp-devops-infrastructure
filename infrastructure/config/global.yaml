@@ -1,0 +1,116 @@
+# Global Configuration for MSDP DevOps Infrastructure
+# This file contains all global variables that are consistent across environments
+
+# Component Versions - Platform Components
+platform_components:
+  nginx_ingress:
+    version: "v1.9.4"
+    image: "registry.k8s.io/ingress-nginx/controller"
+    chart_version: "4.8.3"
+    namespace: "ingress-nginx"
+  cert_manager:
+    version: "v1.13.2"
+    image: "quay.io/jetstack/cert-manager-controller"
+    chart_version: "v1.13.3"
+    namespace: "cert-manager"
+  external_dns:
+    version: "v0.14.0"
+    image: "registry.k8s.io/external-dns/external-dns"
+    namespace: "external-dns"
+  prometheus:
+    version: "v2.50.1"
+    image: "quay.io/prometheus/prometheus"
+    chart_version: "25.8.2"
+    namespace: "monitoring"
+  grafana:
+    version: "10.4.0"
+    image: "docker.io/grafana/grafana"
+    chart_version: "6.61.0"
+    namespace: "monitoring"
+
+# Component Versions - Applications
+applications:
+  argocd:
+    version: "v2.9.3"
+    image: "quay.io/argoproj/argocd"
+    chart_version: "5.51.6"
+    namespace: "argocd"
+  backstage:
+    version: "1.25.0"
+    image: "backstage/backstage"
+    chart_version: "0.6.0"
+    namespace: "backstage"
+  crossplane:
+    version: "v1.14.2"
+    image: "xpkg.upbound.io/crossplane/crossplane"
+    chart_version: "1.14.2"
+    namespace: "crossplane-system"
+
+# Azure Configuration
+azure:
+  client_id: "129dd1fb-3d94-4e10-b451-2b0dea64daee"
+  tenant_id: "a4474822-c84f-4bd1-bc35-baed17234c9f"
+  subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+
+# Domain Configuration
+domains:
+  base: "aztech-msdp.com"
+  subdomains:
+    argocd: "argocd"
+    grafana: "grafana"
+    backstage: "backstage"
+
+# AWS Configuration
+aws:
+  region: "us-east-1"
+
+# Timeouts (in seconds)
+timeouts:
+  deployment: 300
+  verification: 600
+  pod_ready: 300
+  service_ready: 180
+
+# Default Resource Limits
+resources:
+  default:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  
+  # Component-specific resource overrides
+  nginx_ingress:
+    requests:
+      cpu: "100m"
+      memory: "90Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+  
+  grafana:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "1Gi"
+  
+  prometheus:
+    requests:
+      cpu: "200m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "2Gi"
+
+# Helm Chart Repositories
+helm_repos:
+  argo_cd: "https://argoproj.github.io/argo-helm"
+  grafana: "https://grafana.github.io/helm-charts"
+  prometheus: "https://prometheus-community.github.io/helm-charts"
+  cert_manager: "https://charts.jetstack.io"
+  nginx_ingress: "https://kubernetes.github.io/ingress-nginx"
+  crossplane: "https://charts.crossplane.io/stable"

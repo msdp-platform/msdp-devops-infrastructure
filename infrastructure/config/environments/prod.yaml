@@ -1,0 +1,71 @@
+# Production Environment Configuration
+environment: "prod"
+
+# Cluster Configuration
+cluster:
+  name: "msdp-infra-aks-prod"
+  resource_group: "delivery-platform-aks-rg-prod"
+  location: "East US"
+
+# Environment-specific overrides
+overrides:
+  # Production-specific resource limits (optimized for performance)
+  resources:
+    grafana:
+      requests:
+        cpu: "300m"
+        memory: "768Mi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+    
+    prometheus:
+      requests:
+        cpu: "500m"
+        memory: "2Gi"
+      limits:
+        cpu: "3000m"
+        memory: "8Gi"
+    
+    argocd:
+      requests:
+        cpu: "300m"
+        memory: "768Mi"
+      limits:
+        cpu: "2000m"
+        memory: "4Gi"
+    
+    nginx_ingress:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
+
+  # Production-specific timeouts (shorter for faster feedback)
+  timeouts:
+    deployment: 300
+    verification: 600
+    pod_ready: 300
+
+  # Production-specific configurations
+  grafana:
+    persistence:
+      enabled: true
+      size: "50Gi"
+    admin_password: "CHANGE_ME_IN_PRODUCTION"  # Must be changed in prod
+  
+  prometheus:
+    retention: "30d"  # Long retention for production
+    storage_size: "100Gi"
+  
+  nginx_ingress:
+    replica_count: 3  # More replicas for production
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "2000m"
+        memory: "2Gi"
