@@ -9,7 +9,7 @@ controller:
   image:
     registry: registry.k8s.io
     image: ingress-nginx/controller
-    tag: "v1.9.4"
+    tag: "v1.13.2"
     digest: ""
 
   # Service configuration
@@ -95,6 +95,18 @@ controller:
     limits:
       cpu: 1000m
       memory: 512Mi
+  
+  # Startup probe to help with pod startup
+  startupProbe:
+    httpGet:
+      path: /healthz
+      port: 10254
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 5
 
   # Node selector and affinity
   nodeSelector:
