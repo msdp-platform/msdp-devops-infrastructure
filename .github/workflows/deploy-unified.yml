@@ -549,16 +549,20 @@ jobs:
         run: |
           echo "🔐 Creating Grafana admin secret..."
           
+          # Ensure monitoring namespace exists
+          kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+          
           # Check if secret already exists
           if kubectl get secret grafana-admin-secret -n monitoring >/dev/null 2>&1; then
             echo "✅ Grafana admin secret already exists"
           else
             # Create the secret with default admin credentials
+            echo "📝 Creating new Grafana admin secret..."
             kubectl create secret generic grafana-admin-secret \
               --namespace=monitoring \
               --from-literal=admin-user=admin \
               --from-literal=admin-password="$(openssl rand -base64 32)"
-            echo "✅ Grafana admin secret created"
+            echo "✅ Grafana admin secret created successfully"
           fi
 
       - name: Deploy Grafana
