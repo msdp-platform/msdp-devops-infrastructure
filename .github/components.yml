@@ -66,6 +66,9 @@ components:
     version: 1.33.5
     dependencies:
       - argocd
+    chart: backstage
+    repository: https://backstage.github.io/charts
+    chart_version: 2.6.1
     path: infrastructure/applications/backstage
   crossplane:
     type: helm
