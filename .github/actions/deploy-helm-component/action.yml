@@ -1,0 +1,191 @@
+name: 'Deploy Helm Component'
+description: 'Deploy a component using Helm with configuration merging'
+
+inputs:
+  component_name:
+    description: 'Component name'
+    required: true
+  component_config:
+    description: 'Component configuration JSON'
+    required: true
+  environment:
+    description: 'Environment name'
+    required: true
+  dry_run:
+    description: 'Perform dry run'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Parse Component Configuration
+      id: parse
+      shell: bash
+      run: |
+        echo "🔧 Parsing component configuration for ${{ inputs.component_name }}..."
+        
+        # Parse the component config JSON
+        echo '${{ inputs.component_config }}' > /tmp/component.json
+        
+        CHART=$(jq -r '.chart' /tmp/component.json)
+        REPOSITORY=$(jq -r '.repository' /tmp/component.json)
+        NAMESPACE=$(jq -r '.namespace' /tmp/component.json)
+        CHART_VERSION=$(jq -r '.chart_version' /tmp/component.json)
+        CATEGORY=$(jq -r '.category' /tmp/component.json)
+        
+        echo "chart=$CHART" >> $GITHUB_OUTPUT
+        echo "repository=$REPOSITORY" >> $GITHUB_OUTPUT
+        echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
+        echo "chart_version=$CHART_VERSION" >> $GITHUB_OUTPUT
+        echo "category=$CATEGORY" >> $GITHUB_OUTPUT
+        
+        echo "📋 Component details:"
+        echo "  Chart: $CHART"
+        echo "  Repository: $REPOSITORY"
+        echo "  Namespace: $NAMESPACE"
+        echo "  Version: $CHART_VERSION"
+
+    - name: Setup Helm Repository
+      shell: bash
+      run: |
+        echo "📦 Setting up Helm repository for ${{ inputs.component_name }}..."
+        
+        REPO_NAME="${{ inputs.component_name }}-repo"
+        REPO_URL="${{ steps.parse.outputs.repository }}"
+        
+        # Add repository
+        helm repo add "$REPO_NAME" "$REPO_URL"
+        helm repo update
+        
+        echo "✅ Repository added: $REPO_NAME -> $REPO_URL"
+
+    - name: Generate Component Values
+      id: values
+      shell: bash
+      run: |
+        echo "🔧 Generating values for ${{ inputs.component_name }}..."
+        
+        COMPONENT="${{ inputs.component_name }}"
+        ENV="${{ inputs.environment }}"
+        VALUES_FILE="/tmp/${COMPONENT}-values.yaml"
+        
+        # Start with global component config
+        GLOBAL_CONFIG="infrastructure/config/global.yaml"
+        ENV_CONFIG="infrastructure/config/environments/${ENV}.yaml"
+        COMPONENT_CONFIG="infrastructure/config/components/${COMPONENT}.yaml"
+        
+        # Create base values from global config
+        yq eval ".platform_components.${COMPONENT} // .applications.${COMPONENT}" "$GLOBAL_CONFIG" > "$VALUES_FILE"
+        
+        # Merge environment overrides if they exist
+        if [ -f "$ENV_CONFIG" ] && yq eval ".overrides.${COMPONENT}" "$ENV_CONFIG" | grep -v "null"; then
+          yq eval-all 'select(fileIndex == 0) * select(fileIndex == 1)' \
+            "$VALUES_FILE" \
+            <(yq eval ".overrides.${COMPONENT}" "$ENV_CONFIG") > "${VALUES_FILE}.tmp"
+          mv "${VALUES_FILE}.tmp" "$VALUES_FILE"
+        fi
+        
+        # Add environment-specific settings
+        DOMAIN="${{ inputs.environment }}.$(yq eval '.domains.base' $GLOBAL_CONFIG)"
+        
+        # Component-specific domain configuration
+        case "$COMPONENT" in
+          "grafana")
+            yq eval ".ingress.hosts[0] = \"grafana.$DOMAIN\"" -i "$VALUES_FILE"
+            yq eval ".ingress.enabled = true" -i "$VALUES_FILE"
+            ;;
+          "argocd")
+            yq eval ".server.ingress.hosts[0] = \"argocd.$DOMAIN\"" -i "$VALUES_FILE"
+            yq eval ".server.ingress.enabled = true" -i "$VALUES_FILE"
+            ;;
+          "prometheus")
+            yq eval ".prometheus.ingress.hosts[0] = \"prometheus.$DOMAIN\"" -i "$VALUES_FILE"
+            yq eval ".prometheus.ingress.enabled = true" -i "$VALUES_FILE"
+            ;;
+        esac
+        
+        echo "values_file=$VALUES_FILE" >> $GITHUB_OUTPUT
+        
+        echo "📝 Generated values file: $VALUES_FILE"
+        echo "🔍 Values preview:"
+        head -20 "$VALUES_FILE"
+
+    - name: Create Namespace
+      shell: bash
+      run: |
+        echo "📁 Creating namespace: ${{ steps.parse.outputs.namespace }}"
+        kubectl create namespace "${{ steps.parse.outputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Create Required Secrets
+      shell: bash
+      run: |
+        echo "🔐 Creating required secrets for ${{ inputs.component_name }}..."
+        
+        NAMESPACE="${{ steps.parse.outputs.namespace }}"
+        COMPONENT="${{ inputs.component_name }}"
+        
+        case "$COMPONENT" in
+          "grafana")
+            if ! kubectl get secret grafana-admin-secret -n "$NAMESPACE" >/dev/null 2>&1; then
+              kubectl create secret generic grafana-admin-secret \
+                --namespace="$NAMESPACE" \
+                --from-literal=admin-user=admin \
+                --from-literal=admin-password="$(openssl rand -base64 32)"
+              echo "✅ Created grafana-admin-secret"
+            else
+              echo "✅ grafana-admin-secret already exists"
+            fi
+            ;;
+          *)
+            echo "ℹ️ No special secrets required for $COMPONENT"
+            ;;
+        esac
+
+    - name: Deploy Helm Chart
+      shell: bash
+      run: |
+        echo "🚀 Deploying ${{ inputs.component_name }}..."
+        
+        REPO_NAME="${{ inputs.component_name }}-repo"
+        CHART="${{ steps.parse.outputs.chart }}"
+        NAMESPACE="${{ steps.parse.outputs.namespace }}"
+        CHART_VERSION="${{ steps.parse.outputs.chart_version }}"
+        VALUES_FILE="${{ steps.values.outputs.values_file }}"
+        
+        if [ "${{ inputs.dry_run }}" = "true" ]; then
+          echo "🔍 DRY RUN MODE"
+          helm install "${{ inputs.component_name }}" "$REPO_NAME/$CHART" \
+            --namespace "$NAMESPACE" \
+            --version "$CHART_VERSION" \
+            --values "$VALUES_FILE" \
+            --dry-run --debug
+        else
+          helm upgrade --install "${{ inputs.component_name }}" "$REPO_NAME/$CHART" \
+            --namespace "$NAMESPACE" \
+            --version "$CHART_VERSION" \
+            --values "$VALUES_FILE" \
+            --wait --timeout=10m \
+            --create-namespace
+          
+          echo "✅ Successfully deployed ${{ inputs.component_name }}"
+        fi
+
+    - name: Verify Deployment
+      if: inputs.dry_run != 'true'
+      shell: bash
+      run: |
+        echo "🔍 Verifying deployment of ${{ inputs.component_name }}..."
+        
+        NAMESPACE="${{ steps.parse.outputs.namespace }}"
+        
+        # Check pods
+        kubectl get pods -n "$NAMESPACE" -l "app.kubernetes.io/name=${{ inputs.component_name }}"
+        
+        # Check services
+        kubectl get svc -n "$NAMESPACE"
+        
+        # Check ingress if it should exist
+        kubectl get ingress -n "$NAMESPACE" || echo "ℹ️ No ingress found (may be normal)"
+        
+        echo "✅ Verification complete for ${{ inputs.component_name }}"

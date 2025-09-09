@@ -1,15 +1,7 @@
-name: 🚀 Unified Deploy - Smart & Complete Pipeline
+name: 🚀 Legacy Pipeline (DISABLED)
 
 on:
-  push:
-    branches: [dev, test, prod]
-    paths:
-      - "infrastructure/**"
-      - ".github/workflows/deploy-unified.yml"
-  pull_request:
-    branches: [test, prod]
-    paths:
-      - "infrastructure/**"
+  # DISABLED - Use deploy-modular.yml instead
   workflow_dispatch:
     inputs:
       environment:
