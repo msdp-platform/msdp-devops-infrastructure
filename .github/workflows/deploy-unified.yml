@@ -455,7 +455,7 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🔐 Verifying OIDC/IRSA configuration for External DNS..."
-          
+
           # Check if External DNS service account exists
           if kubectl get serviceaccount external-dns -n external-dns >/dev/null 2>&1; then
             echo "✅ External DNS service account exists"
@@ -471,7 +471,7 @@ jobs:
           else
             echo "⚠️ External DNS service account not found, will be created during deployment"
           fi
-          
+
           echo "✅ OIDC/IRSA verification completed"
 
       - name: Deploy External DNS
