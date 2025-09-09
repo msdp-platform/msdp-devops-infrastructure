@@ -227,7 +227,35 @@ runs:
             ;;
           "external_secrets")
             echo "🔧 External Secrets deployed with Azure OIDC integration..."
-            echo "✅ External Secrets will automatically manage certificates from Azure Key Vault"
+            # Wait for External Secrets to be ready
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=external-secrets -n "${{ steps.parse.outputs.namespace }}" --timeout=300s
+            
+            # Apply ClusterSecretStore
+            echo "🔧 Applying ClusterSecretStore..."
+            kubectl apply -f infrastructure/platforms/security/external-secrets/azure-keyvault-store.yaml
+            
+            # Discover HTTPS ingress rules and generate certificate management
+            echo "🔍 Discovering HTTPS ingress rules..."
+            TEMP_DIR="/tmp/certificate-management-${{ inputs.environment }}"
+            ./scripts/discover-https-ingress.sh "${{ inputs.environment }}" "aztech-msdp.com" "$TEMP_DIR"
+            
+            # Apply Certificate resources for cert-manager
+            echo "🔧 Applying Certificate resources..."
+            find "$TEMP_DIR" -name "*-certificate.yaml" -exec kubectl apply -f {} \;
+            
+            # Wait for certificates to be generated
+            echo "⏳ Waiting for certificates to be generated..."
+            sleep 30
+            
+            # Sync certificates to Azure Key Vault
+            echo "🔄 Syncing certificates to Azure Key Vault..."
+            ./scripts/sync-certificates-to-keyvault.sh "${{ inputs.environment }}" "msdp-certificates-kv" "$TEMP_DIR"
+            
+            # Apply ExternalSecret resources
+            echo "🔧 Applying ExternalSecret resources..."
+            find "$TEMP_DIR" -name "*-externalsecret.yaml" -exec kubectl apply -f {} \;
+            
+            echo "✅ External Secrets integration resources applied successfully"
             ;;
         esac
 
