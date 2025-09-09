@@ -15,6 +15,10 @@ inputs:
     description: 'Perform dry run'
     required: false
     default: 'false'
+  github_token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
 
 runs:
   using: 'composite'
@@ -76,7 +80,7 @@ runs:
               kubectl create secret generic backstage-secrets \
                 --namespace="$NAMESPACE" \
                 --from-literal=postgres-password="$(openssl rand -base64 32)" \
-                --from-literal=github-token="${{ github.token }}"
+                --from-literal=github-token="${{ inputs.github_token }}"
               echo "✅ Created backstage-secrets"
             else
               echo "✅ backstage-secrets already exists"
