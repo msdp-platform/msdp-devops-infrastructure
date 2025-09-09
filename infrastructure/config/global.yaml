@@ -56,7 +56,7 @@ applications:
     namespace: "argocd"
   backstage:
     version: "1.25.0"
-    image: "spotify/backstage"
+    image: "ghcr.io/backstage/backstage"
     chart_version: "0.6.0"
     namespace: "backstage"
   crossplane:
