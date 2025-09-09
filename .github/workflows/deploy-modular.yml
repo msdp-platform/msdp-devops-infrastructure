@@ -273,7 +273,7 @@ jobs:
         run: |
           echo "🔍 Validating generated certificate resources..."
           TEMP_DIR="/tmp/certificate-management-${{ needs.detect-environment.outputs.environment }}"
-          
+
           # Validate YAML files
           for cert_file in "$TEMP_DIR"/*-certificate.yaml; do
             if [ -f "$cert_file" ]; then
