@@ -451,28 +451,24 @@ jobs:
             echo "⚠️ Continuing anyway..."
           }
 
-      - name: Verify OIDC/IRSA Configuration
+      - name: Create AWS Credentials Secret
         if: github.event.inputs.dry_run != 'true'
         run: |
-          echo "🔐 Verifying OIDC/IRSA configuration for External DNS..."
-
-          # Check if External DNS service account exists
-          if kubectl get serviceaccount external-dns -n external-dns >/dev/null 2>&1; then
-            echo "✅ External DNS service account exists"
-            
-            # Check if service account has IAM role annotation
-            IAM_ROLE=$(kubectl get serviceaccount external-dns -n external-dns -o jsonpath='{.metadata.annotations.eks\.amazonaws\.com/role-arn}' 2>/dev/null || echo "")
-            if [ -n "$IAM_ROLE" ]; then
-              echo "✅ External DNS service account has IAM role: $IAM_ROLE"
-            else
-              echo "⚠️ External DNS service account missing IAM role annotation"
-              echo "   Please ensure the service account has the correct IAM role attached"
-            fi
-          else
-            echo "⚠️ External DNS service account not found, will be created during deployment"
+          echo "🔐 Creating AWS credentials secret for External DNS..."
+          
+          # Check if secret already exists
+          if kubectl get secret aws-credentials -n external-dns >/dev/null 2>&1; then
+            echo "✅ AWS credentials secret already exists, updating..."
+            kubectl delete secret aws-credentials -n external-dns
           fi
-
-          echo "✅ OIDC/IRSA verification completed"
+          
+          # Create the secret with AWS credentials from GitHub secrets
+          kubectl create secret generic aws-credentials \
+            --namespace=external-dns \
+            --from-literal=aws-access-key-id="${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          
+          echo "✅ AWS credentials secret created for External DNS"
 
       - name: Deploy External DNS
         run: |

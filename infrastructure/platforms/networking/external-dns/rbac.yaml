@@ -6,10 +6,7 @@ metadata:
   labels:
     app.kubernetes.io/name: external-dns
     app.kubernetes.io/component: dns-controller
-  annotations:
-    # IAM role ARN for AWS Route53 access via OIDC/IRSA
-    # Replace YOUR_AWS_ACCOUNT_ID with your actual AWS account ID
-    eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/external-dns-role
+  annotations: {}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
