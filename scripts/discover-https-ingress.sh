@@ -32,23 +32,29 @@ if [ -z "$DEPLOYED_INGRESS" ]; then
 fi
 
 echo "📁 Found deployed ingress resources:"
-echo "$DEPLOYED_INGRESS" | yq eval '.items[].metadata | "\(.namespace)/\(.name)"' -o json
+echo "$DEPLOYED_INGRESS" | yq eval '.items[].metadata | "\(.namespace)/\(.name)"' -o json 2>/dev/null || echo "No ingress resources found"
 
 # Process each deployed ingress resource
 declare -A processed_certificates
 
 # Extract ingress information from deployed resources
-echo "$DEPLOYED_INGRESS" | yq eval '.items[]' -o json | while read -r ingress_json; do
-    if [ -n "$ingress_json" ]; then
-        namespace=$(echo "$ingress_json" | yq eval '.metadata.namespace' -o json)
-        name=$(echo "$ingress_json" | yq eval '.metadata.name' -o json)
+echo "$DEPLOYED_INGRESS" | yq eval '.items[]' -o json 2>/dev/null | while read -r ingress_json; do
+    if [ -n "$ingress_json" ] && [ "$ingress_json" != "null" ]; then
+        namespace=$(echo "$ingress_json" | yq eval '.metadata.namespace' -o json 2>/dev/null || echo "")
+        name=$(echo "$ingress_json" | yq eval '.metadata.name' -o json 2>/dev/null || echo "")
+        
+        # Skip if we don't have valid namespace and name
+        if [ -z "$namespace" ] || [ -z "$name" ] || [ "$namespace" = "null" ] || [ "$name" = "null" ]; then
+            echo "⚠️ Skipping invalid ingress resource (missing namespace or name)"
+            continue
+        fi
         
         echo "🔍 Processing deployed ingress: $name in namespace $namespace"
         
         # Check if ingress has TLS configuration
         tls_config=$(echo "$ingress_json" | yq eval '.spec.tls[0]' -o json 2>/dev/null || echo "null")
         
-        if [ "$tls_config" != "null" ] && [ -n "$tls_config" ]; then
+        if [ "$tls_config" != "null" ] && [ -n "$tls_config" ] && [ "$tls_config" != "" ]; then
             secret_name=$(echo "$tls_config" | yq eval '.secretName' -o json 2>/dev/null || echo "")
             hosts=$(echo "$tls_config" | yq eval '.hosts[]' -o json 2>/dev/null || echo "")
             
