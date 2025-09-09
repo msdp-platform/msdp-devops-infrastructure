@@ -494,9 +494,14 @@ jobs:
           
           echo "✅ AWS credentials secret created for External DNS"
           
-          # Restart External DNS deployment to pick up the new credentials
+          # Restart External DNS deployment to pick up the new credentials (if it exists)
           echo "🔄 Restarting External DNS deployment to use new credentials..."
-          kubectl rollout restart deployment/external-dns -n external-dns
+          if kubectl get deployment external-dns -n external-dns >/dev/null 2>&1; then
+            kubectl rollout restart deployment/external-dns -n external-dns
+            echo "✅ External DNS deployment restarted"
+          else
+            echo "⚠️ External DNS deployment not found, it will pick up credentials on first start"
+          fi
 
       - name: Wait for External DNS
         if: github.event.inputs.dry_run != 'true'
