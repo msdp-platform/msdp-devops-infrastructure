@@ -42,6 +42,7 @@ env:
   AZURE_CLIENT_ID: 129dd1fb-3d94-4e10-b451-2b0dea64daee
   AZURE_TENANT_ID: a4474822-c84f-4bd1-bc35-baed17234c9f
   AZURE_SUBSCRIPTION_ID: ecd977ed-b8df-4eb6-9cba-98397e1b2491
+  GITHUB_TOKEN: ${{ github.token }}
 
 jobs:
   detect-environment:
