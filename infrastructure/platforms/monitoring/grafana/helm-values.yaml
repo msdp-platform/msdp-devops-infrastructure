@@ -29,15 +29,11 @@ ingress:
       hosts:
         - grafana.dev.aztech-msdp.com
 
-# Persistence configuration
+# Persistence configuration (disabled in dev for easier resets)
 persistence:
-  enabled: true
-  storageClassName: "default"
-  accessModes:
-    - ReadWriteOnce
-  size: 10Gi
+  enabled: false
 
-# Resources
+# Resources (dev environment settings)
 resources:
   limits:
     cpu: 1000m
