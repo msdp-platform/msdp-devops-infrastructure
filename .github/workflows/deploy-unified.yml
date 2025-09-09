@@ -451,10 +451,34 @@ jobs:
             echo "⚠️ Continuing anyway..."
           }
 
+
+      - name: Deploy External DNS
+        run: |
+          echo "🌍 Deploying External DNS..."
+          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
+            kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply --dry-run=client -f -
+          else
+            # Deploy External DNS and ignore ServiceMonitor errors (expected when Prometheus not installed)
+            kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply -f - || {
+              echo "⚠️ External DNS deployment completed with expected ServiceMonitor error (Prometheus not installed)"
+              echo "✅ Core External DNS components deployed successfully"
+            }
+          fi
+
       - name: Create AWS Credentials Secret
         if: github.event.inputs.dry_run != 'true'
         run: |
           echo "🔐 Creating AWS credentials secret for External DNS..."
+          
+          # Wait for external-dns namespace to be created
+          echo "⏳ Waiting for external-dns namespace to be created..."
+          kubectl wait --for=condition=Active namespace/external-dns --timeout=60s || {
+            echo "⚠️ Namespace creation timeout, checking if it exists..."
+            kubectl get namespace external-dns || {
+              echo "❌ external-dns namespace not found, creating it manually..."
+              kubectl create namespace external-dns
+            }
+          }
           
           # Check if secret already exists
           if kubectl get secret aws-credentials -n external-dns >/dev/null 2>&1; then
@@ -469,19 +493,10 @@ jobs:
             --from-literal=aws-secret-access-key="${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           
           echo "✅ AWS credentials secret created for External DNS"
-
-      - name: Deploy External DNS
-        run: |
-          echo "🌍 Deploying External DNS..."
-          if [ "${{ github.event.inputs.dry_run || 'false' }}" = "true" ]; then
-            kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply --dry-run=client -f -
-          else
-            # Deploy External DNS and ignore ServiceMonitor errors (expected when Prometheus not installed)
-            kustomize build infrastructure/platforms/networking/external-dns/ | kubectl apply -f - || {
-              echo "⚠️ External DNS deployment completed with expected ServiceMonitor error (Prometheus not installed)"
-              echo "✅ Core External DNS components deployed successfully"
-            }
-          fi
+          
+          # Restart External DNS deployment to pick up the new credentials
+          echo "🔄 Restarting External DNS deployment to use new credentials..."
+          kubectl rollout restart deployment/external-dns -n external-dns
 
       - name: Wait for External DNS
         if: github.event.inputs.dry_run != 'true'
