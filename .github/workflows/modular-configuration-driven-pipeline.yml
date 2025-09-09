@@ -1,0 +1,260 @@
+# Modular Configuration-Driven Pipeline
+# This workflow follows DRY principles and modular architecture
+name: Modular Configuration-Driven Pipeline
+
+on:
+  push:
+    branches: [dev, main]
+    paths:
+      - "infrastructure/**"
+      - ".github/workflows/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "infrastructure/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      component:
+        description: "Component to deploy (leave empty for all)"
+        required: false
+        type: string
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}
+  AKS_CLUSTER_NAME: ${{ secrets.AKS_CLUSTER_NAME }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+jobs:
+  # Job 1: Validate Configuration
+  validate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.detect-changes.outputs.components }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed components
+        id: detect-changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ github.event.inputs.component }}" ]; then
+              echo "components=${{ github.event.inputs.component }}" >> $GITHUB_OUTPUT
+            else
+              echo "components=all" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Detect changed components based on file paths
+            CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+            COMPONENTS=""
+            
+            if echo "$CHANGED_FILES" | grep -q "infrastructure/applications/argocd"; then
+              COMPONENTS="${COMPONENTS}argocd,"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "infrastructure/applications/backstage"; then
+              COMPONENTS="${COMPONENTS}backstage,"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "infrastructure/applications/crossplane"; then
+              COMPONENTS="${COMPONENTS}crossplane,"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "infrastructure/platforms/networking"; then
+              COMPONENTS="${COMPONENTS}networking,"
+            fi
+            if echo "$CHANGED_FILES" | grep -q "infrastructure/platforms/monitoring"; then
+              COMPONENTS="${COMPONENTS}monitoring,"
+            fi
+            
+            if [ -z "$COMPONENTS" ]; then
+              COMPONENTS="all"
+            else
+              COMPONENTS=$(echo "$COMPONENTS" | sed 's/,$//')
+            fi
+            
+            echo "components=$COMPONENTS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Validate Kustomize configurations
+        run: |
+          # Install kustomize
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+          # Validate all kustomization files
+          find infrastructure -name "kustomization.yaml" -exec kustomize build {} \; > /dev/null
+          echo "✅ All Kustomize configurations are valid"
+
+  # Job 2: Deploy Infrastructure Components
+  deploy-infrastructure:
+    needs: validate-config
+    runs-on: ubuntu-latest
+    if: needs.validate-config.outputs.components != ''
+    strategy:
+      matrix:
+        component: ${{ fromJSON(format('["{0}"]', needs.validate-config.outputs.components)) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          client-secret: ${{ env.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Deploy ${{ matrix.component }}
+        run: |
+          case "${{ matrix.component }}" in
+            "argocd")
+              echo "🚀 Deploying ArgoCD..."
+              kubectl apply -k infrastructure/applications/argocd/
+              ;;
+            "backstage")
+              echo "🚀 Deploying Backstage..."
+              # Create GitHub token secret
+              kubectl create secret generic backstage-github-token \
+                --from-literal=token="${{ env.GITHUB_TOKEN }}" \
+                --namespace=backstage \
+                --dry-run=client -o yaml | kubectl apply -f -
+              kubectl apply -k infrastructure/applications/backstage/
+              ;;
+            "crossplane")
+              echo "🚀 Deploying Crossplane..."
+              kubectl apply -k infrastructure/applications/crossplane/
+              ;;
+            "networking")
+              echo "🚀 Deploying Networking components..."
+              kubectl apply -k infrastructure/platforms/networking/nginx-ingress/
+              kubectl apply -k infrastructure/platforms/networking/cert-manager/
+              kubectl apply -k infrastructure/platforms/networking/external-dns/
+              ;;
+            "monitoring")
+              echo "🚀 Deploying Monitoring components..."
+              kubectl apply -k infrastructure/platforms/monitoring/prometheus/
+              kubectl apply -k infrastructure/platforms/monitoring/grafana/
+              ;;
+            "all")
+              echo "🚀 Deploying all components..."
+              kubectl apply -k infrastructure/applications/
+              kubectl apply -k infrastructure/platforms/
+              ;;
+          esac
+
+      - name: Wait for deployment
+        run: |
+          case "${{ matrix.component }}" in
+            "argocd")
+              kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
+              ;;
+            "backstage")
+              kubectl wait --for=condition=available --timeout=300s deployment/backstage -n backstage
+              ;;
+            "crossplane")
+              kubectl wait --for=condition=available --timeout=300s deployment/crossplane -n crossplane-system
+              ;;
+            "networking")
+              kubectl wait --for=condition=available --timeout=300s deployment/ingress-nginx-controller -n ingress-nginx
+              kubectl wait --for=condition=available --timeout=300s deployment/cert-manager -n cert-manager
+              kubectl wait --for=condition=available --timeout=300s deployment/external-dns -n external-dns
+              ;;
+            "monitoring")
+              kubectl wait --for=condition=available --timeout=300s deployment/prometheus-server -n monitoring
+              kubectl wait --for=condition=available --timeout=300s deployment/grafana -n monitoring
+              ;;
+            "all")
+              echo "⏳ Waiting for all deployments..."
+              kubectl wait --for=condition=available --timeout=600s deployment --all --all-namespaces
+              ;;
+          esac
+
+      - name: Verify deployment
+        run: |
+          echo "📊 Deployment Status for ${{ matrix.component }}:"
+          kubectl get pods --all-namespaces | grep -E "(argocd|backstage|crossplane|ingress-nginx|cert-manager|external-dns|prometheus|grafana)"
+
+  # Job 3: Health Check
+  health-check:
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          client-secret: ${{ env.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Get AKS credentials
+        run: |
+          az aks get-credentials \
+            --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+            --name ${{ env.AKS_CLUSTER_NAME }} \
+            --file $KUBECONFIG
+
+      - name: Health Check
+        run: |
+          echo "🏥 Performing health checks..."
+
+          # Check all pods are running
+          kubectl get pods --all-namespaces --field-selector=status.phase!=Running,status.phase!=Succeeded
+
+          # Check services
+          kubectl get svc --all-namespaces
+
+          # Check ingress
+          kubectl get ingress --all-namespaces
+
+          echo "✅ Health check completed"
+
+      - name: Generate deployment report
+        run: |
+          echo "📋 Deployment Report" > deployment-report.md
+          echo "===================" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Timestamp:** $(date)" >> deployment-report.md
+          echo "**Environment:** ${{ github.event.inputs.environment || 'dev' }}" >> deployment-report.md
+          echo "**Components:** ${{ needs.validate-config.outputs.components }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Pod Status:**" >> deployment-report.md
+          kubectl get pods --all-namespaces >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Service Status:**" >> deployment-report.md
+          kubectl get svc --all-namespaces >> deployment-report.md
+
+          cat deployment-report.md

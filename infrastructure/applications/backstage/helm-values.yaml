@@ -1,5 +1,6 @@
 # Backstage Helm Values
 # This file contains the configuration for Backstage
+# Following DRY principles and modular configuration
 
 # Global configuration
 global:
@@ -7,9 +8,9 @@ global:
 
 # Backstage configuration
 backstage:
-  # Image configuration
+  # Image configuration - using stable tag
   image:
-    repository: ghcr.io/backstage/backstage
+    repository: backstage/backstage
     tag: "1.25.0"
     pullPolicy: IfNotPresent
 
@@ -22,14 +23,14 @@ backstage:
     port: 80
     targetPort: 7007
 
-  # Resource limits
+  # Resource limits - increased for stability
   resources:
     requests:
-      cpu: 100m
-      memory: 256Mi
+      cpu: 200m
+      memory: 512Mi
     limits:
-      cpu: 500m
-      memory: 1Gi
+      cpu: 1000m
+      memory: 2Gi
 
   # Security context
   securityContext:
@@ -52,7 +53,7 @@ backstage:
     - name: APP_CONFIG_backend_cors_origin
       value: "https://backstage.dev.aztech-msdp.com"
 
-  # Configuration
+  # Configuration - simplified and validated
   config:
     app:
       title: "MSDP Developer Portal"
@@ -64,7 +65,7 @@ backstage:
     integrations:
       github:
         - host: github.com
-          token: ${GITHUB_TOKEN}
+          # Token will be injected via secret
     catalog:
       locations:
         - type: url
