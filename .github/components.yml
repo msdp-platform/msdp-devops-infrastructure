@@ -59,26 +59,6 @@ components:
     chart: argo-cd
     repository: https://argoproj.github.io/argo-helm
     chart_version: 5.53.0
-  backstage:
-    type: helm
-    category: platform
-    namespace: backstage
-    version: 1.33.5
-    dependencies:
-      - argocd
-    chart: oci://ghcr.io/backstage/charts/backstage
-    repository: ""
-    chart_version: 2.6.1
-    path: infrastructure/applications/backstage
-  crossplane:
-    type: helm
-    category: infrastructure
-    namespace: crossplane-system
-    version: v2.0.2
-    dependencies: []
-    chart: crossplane
-    repository: https://charts.crossplane.io/stable
-    chart_version: 2.0.2
   external_secrets:
     type: helm
     category: security
