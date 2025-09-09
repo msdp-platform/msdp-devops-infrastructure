@@ -14,6 +14,20 @@ platform_components:
     global:
       leaderElection:
         namespace: "cert-manager"
+    image:
+      registry: quay.io
+      repository: jetstack/cert-manager-controller
+      pullPolicy: IfNotPresent
+    webhook:
+      image:
+        registry: quay.io
+        repository: jetstack/cert-manager-webhook
+        pullPolicy: IfNotPresent
+    cainjector:
+      image:
+        registry: quay.io
+        repository: jetstack/cert-manager-cainjector
+        pullPolicy: IfNotPresent
   external_dns:
     version: "v0.19.0"
     image: "registry.k8s.io/external-dns/external-dns"
