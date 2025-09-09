@@ -18,11 +18,11 @@ platform_components:
     image: "registry.k8s.io/external-dns/external-dns"
     namespace: "external-dns"
   prometheus:
-    version: "v3.5.0"
+    version: "v0.85.0"
     image:
       repository: "quay.io/prometheus/prometheus"
       tag: "v3.5.0"
-    chart_version: "25.8.1"
+    chart_version: "77.5.0"
     namespace: "monitoring"
   grafana:
     version: "12.1.1"
