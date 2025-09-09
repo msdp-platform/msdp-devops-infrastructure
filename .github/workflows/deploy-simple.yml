@@ -110,6 +110,9 @@ jobs:
           echo "📦 Repository: $REPOSITORY"
           echo "📦 Version: $CHART_VERSION"
           
+          # Convert component name to valid Helm release name (replace underscores with hyphens)
+          RELEASE_NAME=$(echo "$COMPONENT" | tr '_' '-')
+          
           # Add Helm repository
           REPO_NAME="${COMPONENT}-repo"
           helm repo add "$REPO_NAME" "$REPOSITORY"
@@ -117,6 +120,8 @@ jobs:
           
           # Create namespace
           kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "📋 Release name: $RELEASE_NAME (converted from $COMPONENT)"
           
           # Create component-specific secrets
           case "$COMPONENT" in
@@ -164,20 +169,20 @@ jobs:
           # Deploy with Helm
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             echo "🔍 DRY RUN MODE"
-            helm install "$COMPONENT" "$REPO_NAME/$CHART" \
+            helm install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
               --namespace "$NAMESPACE" \
               --version "$CHART_VERSION" \
               --values "$VALUES_FILE" \
               --dry-run --debug
           else
-            helm upgrade --install "$COMPONENT" "$REPO_NAME/$CHART" \
+            helm upgrade --install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
               --namespace "$NAMESPACE" \
               --version "$CHART_VERSION" \
               --values "$VALUES_FILE" \
               --wait --timeout=10m \
               --create-namespace
             
-            echo "✅ Successfully deployed $COMPONENT"
+            echo "✅ Successfully deployed $COMPONENT as $RELEASE_NAME"
           fi
 
       - name: Deploy YAML Component
