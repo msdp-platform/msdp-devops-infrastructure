@@ -1,45 +1,45 @@
-name: 'Deploy YAML Component'
-description: 'Deploy a component using Kustomize/YAML manifests'
+name: "Deploy YAML Component"
+description: "Deploy a component using Kustomize/YAML manifests"
 
 inputs:
   component_name:
-    description: 'Component name'
+    description: "Component name"
     required: true
   component_config:
-    description: 'Component configuration JSON'
+    description: "Component configuration JSON"
     required: true
   environment:
-    description: 'Environment name'
+    description: "Environment name"
     required: true
   dry_run:
-    description: 'Perform dry run'
+    description: "Perform dry run"
     required: false
-    default: 'false'
+    default: "false"
   github_token:
-    description: 'GitHub token for API access'
+    description: "GitHub token for API access"
     required: false
     default: ${{ github.token }}
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Parse Component Configuration
       id: parse
       shell: bash
       run: |
         echo "🔧 Parsing YAML component configuration for ${{ inputs.component_name }}..."
-        
+
         # Parse the component config JSON
         echo '${{ inputs.component_config }}' > /tmp/component.json
-        
+
         COMPONENT_PATH=$(jq -r '.path' /tmp/component.json)
         NAMESPACE=$(jq -r '.namespace' /tmp/component.json)
         CATEGORY=$(jq -r '.category' /tmp/component.json)
-        
+
         echo "path=$COMPONENT_PATH" >> $GITHUB_OUTPUT
         echo "namespace=$NAMESPACE" >> $GITHUB_OUTPUT
         echo "category=$CATEGORY" >> $GITHUB_OUTPUT
-        
+
         echo "📋 Component details:"
         echo "  Path: $COMPONENT_PATH"
         echo "  Namespace: $NAMESPACE"
@@ -49,27 +49,27 @@ runs:
       shell: bash
       run: |
         echo "🔧 Setting up Kustomize..."
-        
+
         # Install kustomize if not available
         if ! command -v kustomize &> /dev/null; then
           cd /tmp
           curl -L "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.0/kustomize_v5.0.0_linux_amd64.tar.gz" | tar xz
           sudo mv kustomize /usr/local/bin/
         fi
-        
+
         kustomize version
 
     - name: Create Required Secrets
       shell: bash
       run: |
         echo "🔐 Creating required secrets for ${{ inputs.component_name }}..."
-        
+
         NAMESPACE="${{ steps.parse.outputs.namespace }}"
         COMPONENT="${{ inputs.component_name }}"
-        
+
         # Create namespace first
         kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-        
+
         case "$COMPONENT" in
           "external_dns")
             echo "ℹ️ External DNS secrets managed separately"
@@ -95,14 +95,14 @@ runs:
       shell: bash
       run: |
         echo "🚀 Deploying ${{ inputs.component_name }}..."
-        
+
         COMPONENT_PATH="${{ steps.parse.outputs.path }}"
-        
+
         if [ ! -d "$COMPONENT_PATH" ]; then
           echo "❌ Component path not found: $COMPONENT_PATH"
           exit 1
         fi
-        
+
         if [ "${{ inputs.dry_run }}" = "true" ]; then
           echo "🔍 DRY RUN MODE"
           if [ -f "$COMPONENT_PATH/kustomization.yaml" ]; then
@@ -139,9 +139,9 @@ runs:
       shell: bash
       run: |
         echo "⏳ Waiting for ${{ inputs.component_name }} to be ready..."
-        
+
         NAMESPACE="${{ steps.parse.outputs.namespace }}"
-        
+
         # Wait for pods to be ready (with timeout)
         timeout 300s bash -c "
           while ! kubectl get pods -n '$NAMESPACE' -l 'app.kubernetes.io/name=${{ inputs.component_name }}' --no-headers | grep -q Running; do
@@ -160,20 +160,20 @@ runs:
       shell: bash
       run: |
         echo "🔍 Verifying deployment of ${{ inputs.component_name }}..."
-        
+
         NAMESPACE="${{ steps.parse.outputs.namespace }}"
-        
+
         # Check all resources
         echo "📊 Pods:"
         kubectl get pods -n "$NAMESPACE"
-        
+
         echo "📊 Services:"
         kubectl get svc -n "$NAMESPACE" || echo "ℹ️ No services found"
-        
+
         echo "📊 Ingress:"
         kubectl get ingress -n "$NAMESPACE" || echo "ℹ️ No ingress found"
-        
+
         echo "📊 Deployments:"
         kubectl get deployments -n "$NAMESPACE" || echo "ℹ️ No deployments found"
-        
+
         echo "✅ Verification complete for ${{ inputs.component_name }}"
