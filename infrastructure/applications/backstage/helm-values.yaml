@@ -6,22 +6,13 @@
 global:
   imageRegistry: ""
 
-# Backstage configuration
+# Backstage configuration - updated for chart v2.6.1 schema
 backstage:
   # Image configuration - using latest stable tag
   image:
     repository: ghcr.io/backstage/backstage
     tag: "1.33.5"
     pullPolicy: IfNotPresent
-
-  # Replica count
-  replicaCount: 1
-
-  # Service configuration
-  service:
-    type: ClusterIP
-    port: 80
-    targetPort: 7007
 
   # Resource limits - increased for stability
   resources:
@@ -32,44 +23,53 @@ backstage:
       cpu: 1000m
       memory: 2Gi
 
-  # Security context
-  securityContext:
-    runAsNonRoot: true
-    runAsUser: 1000
-    fsGroup: 1000
+# Replica count (moved to root level)
+replicaCount: 1
 
-  # Environment variables
-  env:
-    - name: NODE_ENV
-      value: "production"
-    - name: LOG_LEVEL
-      value: "info"
-    - name: APP_CONFIG_app_baseUrl
-      value: "https://backstage.dev.aztech-msdp.com"
-    - name: APP_CONFIG_app_title
-      value: "MSDP Developer Portal"
-    - name: APP_CONFIG_backend_baseUrl
-      value: "https://backstage.dev.aztech-msdp.com"
-    - name: APP_CONFIG_backend_cors_origin
-      value: "https://backstage.dev.aztech-msdp.com"
+# Service configuration (moved to root level)
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 7007
 
-  # Configuration - simplified and validated
-  config:
-    app:
-      title: "MSDP Developer Portal"
-      baseUrl: "https://backstage.dev.aztech-msdp.com"
-    backend:
-      baseUrl: "https://backstage.dev.aztech-msdp.com"
-      cors:
-        origin: "https://backstage.dev.aztech-msdp.com"
-    integrations:
-      github:
-        - host: github.com
-          # Token will be injected via secret
-    catalog:
-      locations:
-        - type: url
-          target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
+# Security context (moved to root level)
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+# Environment variables (moved to root level)
+env:
+  - name: NODE_ENV
+    value: "production"
+  - name: LOG_LEVEL
+    value: "info"
+  - name: APP_CONFIG_app_baseUrl
+    value: "https://backstage.dev.aztech-msdp.com"
+  - name: APP_CONFIG_app_title
+    value: "MSDP Developer Portal"
+  - name: APP_CONFIG_backend_baseUrl
+    value: "https://backstage.dev.aztech-msdp.com"
+  - name: APP_CONFIG_backend_cors_origin
+    value: "https://backstage.dev.aztech-msdp.com"
+
+# Configuration (moved to root level)
+config:
+  app:
+    title: "MSDP Developer Portal"
+    baseUrl: "https://backstage.dev.aztech-msdp.com"
+  backend:
+    baseUrl: "https://backstage.dev.aztech-msdp.com"
+    cors:
+      origin: "https://backstage.dev.aztech-msdp.com"
+  integrations:
+    github:
+      - host: github.com
+        # Token will be injected via secret
+  catalog:
+    locations:
+      - type: url
+        target: https://github.com/backstage/backstage/blob/master/packages/catalog-model/examples/all.yaml
 
 # Service monitors configuration
 serviceMonitor:
