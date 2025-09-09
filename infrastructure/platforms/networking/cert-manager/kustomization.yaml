@@ -6,6 +6,7 @@ metadata:
     config.kubernetes.io/local-config: "true"
 resources:
   - namespace.yaml
+  - cluster-issuer.yaml
 # Helm chart configuration
 helmCharts:
   - name: cert-manager
