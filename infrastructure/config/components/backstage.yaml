@@ -5,7 +5,7 @@ backstage:
 
   # Image configuration
   image:
-    repository: backstage/backstage
+    repository: spotify/backstage
     pullPolicy: IfNotPresent
 
   # Resource configuration
