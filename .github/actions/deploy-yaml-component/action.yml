@@ -106,13 +106,27 @@ runs:
         if [ "${{ inputs.dry_run }}" = "true" ]; then
           echo "🔍 DRY RUN MODE"
           if [ -f "$COMPONENT_PATH/kustomization.yaml" ]; then
-            kubectl kustomize "$COMPONENT_PATH" | kubectl apply --dry-run=client -f -
+            # Check if kustomization.yaml contains helmCharts
+            if grep -q "helmCharts:" "$COMPONENT_PATH/kustomization.yaml"; then
+              echo "🔍 DRY RUN: Using kustomize with --enable-helm for Helm charts"
+              kustomize build --enable-helm "$COMPONENT_PATH" | kubectl apply --dry-run=client -f -
+            else
+              echo "🔍 DRY RUN: Using standard kustomize build"
+              kubectl kustomize "$COMPONENT_PATH" | kubectl apply --dry-run=client -f -
+            fi
           else
             kubectl apply --dry-run=client -f "$COMPONENT_PATH/"
           fi
         else
           if [ -f "$COMPONENT_PATH/kustomization.yaml" ]; then
-            kubectl apply -k "$COMPONENT_PATH"
+            # Check if kustomization.yaml contains helmCharts
+            if grep -q "helmCharts:" "$COMPONENT_PATH/kustomization.yaml"; then
+              echo "🔧 Using kustomize with --enable-helm for Helm charts"
+              kustomize build --enable-helm "$COMPONENT_PATH" | kubectl apply -f -
+            else
+              echo "📦 Using standard kustomize build"
+              kubectl apply -k "$COMPONENT_PATH"
+            fi
           else
             kubectl apply -f "$COMPONENT_PATH/"
           fi
