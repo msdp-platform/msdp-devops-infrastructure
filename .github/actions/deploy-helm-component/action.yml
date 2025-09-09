@@ -181,6 +181,18 @@ runs:
             --create-namespace
           
           echo "✅ Successfully deployed ${{ inputs.component_name }} as $RELEASE_NAME"
+          
+          # Post-deployment steps for specific components
+          case "${{ inputs.component_name }}" in
+            "cert_manager")
+              echo "🔧 Applying ClusterIssuer for cert-manager..."
+              # Wait for cert-manager to be ready
+              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n "${{ steps.parse.outputs.namespace }}" --timeout=300s
+              # Apply ClusterIssuer
+              kubectl apply -f infrastructure/platforms/networking/cert-manager/cluster-issuer.yaml
+              echo "✅ ClusterIssuer applied successfully"
+              ;;
+          esac
         fi
 
     - name: Verify Deployment
