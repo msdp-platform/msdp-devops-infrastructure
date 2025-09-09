@@ -282,6 +282,12 @@ jobs:
           sleep 60
           echo "✅ Certificate generation wait complete"
 
+      - name: Test Azure Key Vault Access
+        run: |
+          echo "🔍 Testing Azure Key Vault access..."
+          ./scripts/test-keyvault-access.sh "msdp-certificates-kv"
+          echo "✅ Key Vault access test complete"
+
       - name: Sync Certificates to Azure Key Vault
         run: |
           echo "🔄 Syncing certificates to Azure Key Vault..."
