@@ -9,13 +9,10 @@ platform_components:
     chart_version: "4.8.3"
     namespace: "ingress-nginx"
   cert_manager:
-    version: "v1.18.0"
-    image:
-      repository: "quay.io/jetstack/cert-manager-controller"
-      tag: "v1.18.0"
-    chart_version: "v1.18.0"
-    namespace: "cert-manager"
     installCRDs: true
+    global:
+      leaderElection:
+        namespace: "cert-manager"
   external_dns:
     version: "v0.19.0"
     image: "registry.k8s.io/external-dns/external-dns"
