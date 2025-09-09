@@ -20,19 +20,33 @@ echo "🔍 Discovering HTTPS ingress rules for environment: $ENVIRONMENT"
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Find all ingress files
-INGRESS_FILES=$(find . -name "*.yaml" -type f -exec grep -l "kind: Ingress" {} \;)
+# Find all ingress files, excluding example files and chart templates
+INGRESS_FILES=$(find . -name "*.yaml" -type f -exec grep -l "kind: Ingress" {} \; | grep -v "/charts/" | grep -v "example" | grep -v "template")
 
 echo "📁 Found ingress files:"
 echo "$INGRESS_FILES"
 
-# Process each ingress file
+# Process each ingress file and collect unique certificate requirements
+declare -A processed_certificates
+
 for ingress_file in $INGRESS_FILES; do
     echo "🔍 Processing: $ingress_file"
+    
+    # Validate YAML file first
+    if ! yq eval '.' "$ingress_file" >/dev/null 2>&1; then
+        echo "⚠️ Invalid YAML file, skipping: $ingress_file"
+        continue
+    fi
     
     # Extract ingress information
     namespace=$(yq eval '.metadata.namespace' "$ingress_file" 2>/dev/null || echo "default")
     name=$(yq eval '.metadata.name' "$ingress_file" 2>/dev/null || echo "unknown")
+    
+    # Skip if namespace or name is invalid
+    if [ "$namespace" = "null" ] || [ "$name" = "null" ] || [ -z "$namespace" ] || [ -z "$name" ]; then
+        echo "⚠️ Invalid ingress metadata, skipping: $ingress_file"
+        continue
+    fi
     
     # Check if ingress has TLS configuration
     tls_hosts=$(yq eval '.spec.tls[].hosts[]' "$ingress_file" 2>/dev/null || echo "")
@@ -48,6 +62,19 @@ for ingress_file in $INGRESS_FILES; do
             echo "📋 TLS Configuration:"
             echo "  - Secret Name: $secret_name"
             echo "  - Hosts: $hosts"
+            
+            # Create unique key for this certificate (namespace + secret_name)
+            cert_key="${namespace}:${secret_name}"
+            
+            # Check if we've already processed this certificate
+            if [ -n "${processed_certificates[$cert_key]}" ]; then
+                echo "⚠️ Certificate already processed: $cert_key"
+                echo "  - Skipping duplicate certificate generation"
+                continue
+            fi
+            
+            # Mark this certificate as processed
+            processed_certificates[$cert_key]="true"
             
             # Convert hosts to space-separated string for the script
             hosts_string=$(echo "$hosts" | tr '\n' ' ' | sed 's/ $//')

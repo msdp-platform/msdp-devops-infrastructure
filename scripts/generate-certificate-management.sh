@@ -58,7 +58,7 @@ spec:
     kind: ClusterIssuer
   dnsNames:
 $(echo "$HOSTS" | tr ' ' '\n' | while read -r host; do
-  if [ -n "$host" ]; then
+  if [ -n "$host" ] && [ "$host" != "null" ]; then
     echo "    - $host"
   fi
 done)
