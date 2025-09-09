@@ -32,6 +32,16 @@ echo "  - Component: $COMPONENT_NAME"
 echo "  - Primary Host: $PRIMARY_HOST"
 echo "  - Secret Name: $SECRET_NAME"
 echo "  - Namespace: $NAMESPACE"
+echo "  - Hosts: $HOSTS"
+
+# Validate required parameters
+if [ -z "$SECRET_NAME" ] || [ -z "$NAMESPACE" ] || [ -z "$HOSTS" ]; then
+    echo "❌ Missing required parameters:"
+    echo "  - Secret Name: $SECRET_NAME"
+    echo "  - Namespace: $NAMESPACE"
+    echo "  - Hosts: $HOSTS"
+    exit 1
+fi
 
 # Generate Certificate resource for cert-manager
 cat > "$OUTPUT_DIR/${COMPONENT_NAME}-certificate.yaml" << EOF
@@ -47,8 +57,10 @@ spec:
     name: letsencrypt-prod
     kind: ClusterIssuer
   dnsNames:
-$(echo "$HOSTS" | while read -r host; do
-  echo "    - $host"
+$(echo "$HOSTS" | tr ' ' '\n' | while read -r host; do
+  if [ -n "$host" ]; then
+    echo "    - $host"
+  fi
 done)
 EOF
 

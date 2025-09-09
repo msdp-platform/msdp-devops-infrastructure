@@ -49,8 +49,11 @@ for ingress_file in $INGRESS_FILES; do
             echo "  - Secret Name: $secret_name"
             echo "  - Hosts: $hosts"
             
+            # Convert hosts to space-separated string for the script
+            hosts_string=$(echo "$hosts" | tr '\n' ' ' | sed 's/ $//')
+            
             # Generate certificate management for this ingress
-            ./scripts/generate-certificate-management.sh "$name" "$namespace" "$secret_name" "$hosts" "$ENVIRONMENT" "$OUTPUT_DIR"
+            ./scripts/generate-certificate-management.sh "$name" "$namespace" "$secret_name" "$hosts_string" "$ENVIRONMENT" "$OUTPUT_DIR"
         fi
     else
         echo "ℹ️ No TLS configuration found in $name"

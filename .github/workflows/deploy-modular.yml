@@ -269,6 +269,27 @@ jobs:
           ./scripts/discover-https-ingress.sh "${{ needs.detect-environment.outputs.environment }}" "aztech-msdp.com" "$TEMP_DIR"
           echo "✅ HTTPS ingress discovery complete"
 
+      - name: Validate Generated Certificate Resources
+        run: |
+          echo "🔍 Validating generated certificate resources..."
+          TEMP_DIR="/tmp/certificate-management-${{ needs.detect-environment.outputs.environment }}"
+          
+          # Validate YAML files
+          for cert_file in "$TEMP_DIR"/*-certificate.yaml; do
+            if [ -f "$cert_file" ]; then
+              echo "📄 Validating: $cert_file"
+              if yq eval '.' "$cert_file" >/dev/null 2>&1; then
+                echo "✅ Valid YAML: $cert_file"
+              else
+                echo "❌ Invalid YAML: $cert_file"
+                echo "Content:"
+                cat "$cert_file"
+                exit 1
+              fi
+            fi
+          done
+          echo "✅ All certificate resources are valid"
+
       - name: Apply Certificate Resources
         run: |
           echo "🔧 Applying Certificate resources for cert-manager..."
