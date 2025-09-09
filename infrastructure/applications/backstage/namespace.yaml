@@ -1,8 +1,8 @@
 apiVersion: v1
-kind: ServiceAccount
+kind: Namespace
 metadata:
   name: backstage
-  namespace: backstage
   labels:
     app.kubernetes.io/name: backstage
     app.kubernetes.io/part-of: msdp-platform
+    app.kubernetes.io/managed-by: kustomize

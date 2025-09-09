@@ -7,9 +7,15 @@ metadata:
     config.kubernetes.io/local-config: "true"
 
 resources:
-  - serviceaccount.yaml
-  - deployment.yaml
-  - service.yaml
-  - ingress.yaml
+  - namespace.yaml
+
+# Helm chart configuration
+helmCharts:
+  - name: backstage
+    repo: https://backstage.github.io/charts
+    version: 0.6.0
+    releaseName: backstage
+    namespace: backstage
+    valuesFile: helm-values.yaml
 
 namespace: backstage
