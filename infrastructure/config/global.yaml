@@ -39,22 +39,6 @@ platform_components:
       tag: "v3.5.0"
     chart_version: "77.5.0"
     namespace: "monitoring"
-    prometheus:
-      prometheusSpec:
-        ingress:
-          enabled: true
-          ingressClassName: "nginx"
-          annotations:
-            cert-manager.io/cluster-issuer: "letsencrypt-prod"
-            nginx.ingress.kubernetes.io/ssl-redirect: "true"
-            nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-            external-dns.alpha.kubernetes.io/hostname: "prometheus.dev.aztech-msdp.com"
-          hosts:
-            - prometheus.dev.aztech-msdp.com
-          tls:
-            - secretName: prometheus-tls
-              hosts:
-                - prometheus.dev.aztech-msdp.com
   grafana:
     version: "12.1.1"
     image:
