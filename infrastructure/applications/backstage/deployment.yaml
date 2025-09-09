@@ -24,7 +24,7 @@ spec:
         fsGroup: 0
       containers:
         - name: backstage
-          image: backstage/backstage:1.25.0
+          image: spotify/backstage:1.25.0
           ports:
             - containerPort: 7007
               name: http
@@ -32,7 +32,7 @@ spec:
             - name: NODE_ENV
               value: "production"
             - name: POSTGRES_HOST
-              value: "ep-royal-star-a8y1e1rh-pooler.eastus2.azure.neon.tech"
+              value: "ep-gentle-tree-a80got5h-pooler.eastus2.azure.neon.tech"
             - name: POSTGRES_PORT
               value: "5432"
             - name: POSTGRES_USER
@@ -40,9 +40,9 @@ spec:
             - name: POSTGRES_PASSWORD
               value: "npg_Cw3r6GeXASIb"
             - name: POSTGRES_DB
-              value: "backstage"
+              value: "neondb"
             - name: DATABASE_URL
-              value: "postgresql://neondb_owner:npg_Cw3r6GeXASIb@ep-royal-star-a8y1e1rh-pooler.eastus2.azure.neon.tech/backstage?sslmode=require&channel_binding=require"
+              value: "postgresql://neondb_owner:npg_Cw3r6GeXASIb@ep-gentle-tree-a80got5h-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
           resources:
             requests:
               cpu: 100m
