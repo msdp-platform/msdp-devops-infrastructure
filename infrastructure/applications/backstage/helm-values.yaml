@@ -9,7 +9,7 @@ global:
 backstage:
   # Image configuration
   image:
-    repository: backstage/backstage
+    repository: ghcr.io/backstage/backstage
     tag: "1.25.0"
     pullPolicy: IfNotPresent
 
