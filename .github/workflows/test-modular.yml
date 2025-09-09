@@ -1,0 +1,108 @@
+name: 🧪 Test Modular Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to test"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      component:
+        description: "Single component to test deploy"
+        required: true
+        default: "nginx_ingress"
+        type: choice
+        options:
+          - nginx_ingress
+          - cert_manager
+          - grafana
+          - prometheus
+          - argocd
+          - crossplane
+          - backstage
+      dry_run:
+        description: "Perform dry run"
+        required: false
+        default: true
+        type: boolean
+
+env:
+  AZURE_CLIENT_ID: 129dd1fb-3d94-4e10-b451-2b0dea64daee
+  AZURE_TENANT_ID: a4474822-c84f-4bd1-bc35-baed17234c9f
+  AZURE_SUBSCRIPTION_ID: ecd977ed-b8df-4eb6-9cba-98397e1b2491
+
+jobs:
+  test-single-component:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Environment
+        uses: ./.github/actions/setup-environment
+        with:
+          azure_client_id: ${{ env.AZURE_CLIENT_ID }}
+          azure_tenant_id: ${{ env.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+          environment: ${{ github.event.inputs.environment }}
+
+      - name: Load Component Configuration
+        id: load-config
+        run: |
+          echo "🔧 Loading component configuration..."
+          
+          COMPONENT="${{ github.event.inputs.component }}"
+          
+          # Load component from registry
+          COMPONENT_CONFIG=$(yq eval ".components.$COMPONENT" .github/components.yml -o json)
+          
+          if [ "$COMPONENT_CONFIG" = "null" ]; then
+            echo "❌ Component $COMPONENT not found in registry"
+            exit 1
+          fi
+          
+          COMPONENT_TYPE=$(echo "$COMPONENT_CONFIG" | jq -r '.type')
+          
+          echo "component_config=$COMPONENT_CONFIG" >> $GITHUB_OUTPUT
+          echo "component_type=$COMPONENT_TYPE" >> $GITHUB_OUTPUT
+          
+          echo "📋 Component: $COMPONENT"
+          echo "📋 Type: $COMPONENT_TYPE" 
+          echo "📋 Config: $COMPONENT_CONFIG"
+
+      - name: Test Helm Deployment
+        if: steps.load-config.outputs.component_type == 'helm'
+        uses: ./.github/actions/deploy-helm-component
+        with:
+          component_name: ${{ github.event.inputs.component }}
+          component_config: ${{ steps.load-config.outputs.component_config }}
+          environment: ${{ github.event.inputs.environment }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+
+      - name: Test YAML Deployment
+        if: steps.load-config.outputs.component_type == 'yaml'
+        uses: ./.github/actions/deploy-yaml-component
+        with:
+          component_name: ${{ github.event.inputs.component }}
+          component_config: ${{ steps.load-config.outputs.component_config }}
+          environment: ${{ github.event.inputs.environment }}
+          dry_run: ${{ github.event.inputs.dry_run }}
+
+      - name: Show Results
+        run: |
+          echo "🎉 Test deployment completed!"
+          echo "Component: ${{ github.event.inputs.component }}"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Dry Run: ${{ github.event.inputs.dry_run }}"
+          
+          if [ "${{ github.event.inputs.dry_run }}" = "false" ]; then
+            echo "🔍 Checking deployment status..."
+            NAMESPACE=$(echo '${{ steps.load-config.outputs.component_config }}' | jq -r '.namespace')
+            kubectl get all -n "$NAMESPACE" || echo "ℹ️ Namespace may not exist yet"
+          fi

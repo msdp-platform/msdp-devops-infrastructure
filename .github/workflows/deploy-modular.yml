@@ -117,8 +117,6 @@ jobs:
       fail-fast: false
       matrix:
         component: ${{ fromJson(needs.detect-environment.outputs.components_to_deploy) }}
-        include:
-          - component: { key: "nginx_ingress", value: { type: "helm", category: "networking" } }
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
