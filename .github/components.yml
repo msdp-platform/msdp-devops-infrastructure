@@ -1,0 +1,78 @@
+metadata:
+  name: msdp-components
+  description: Component registry for MSDP DevOps Infrastructure
+  version: 1.0.0
+  generated: "2025-09-09T03:30:35Z"
+components:
+  nginx_ingress:
+    type: helm
+    category: networking
+    namespace: ingress-nginx
+    version: v1.13.2
+    dependencies: []
+    chart: ingress-nginx
+    repository: https://kubernetes.github.io/ingress-nginx
+    chart_version: 4.8.3
+  cert_manager:
+    type: helm
+    category: networking
+    namespace: cert-manager
+    version: v1.18.0
+    dependencies: []
+    chart: cert-manager
+    repository: https://charts.jetstack.io
+    chart_version: v1.18.0
+  external_dns:
+    type: yaml
+    category: networking
+    namespace: external-dns
+    version: v0.19.0
+    dependencies: []
+    path: infrastructure/platforms/networking/external-dns
+  prometheus:
+    type: helm
+    category: monitoring
+    namespace: monitoring
+    version: v3.5.0
+    dependencies: []
+    chart: kube-prometheus-stack
+    repository: https://prometheus-community.github.io/helm-charts
+    chart_version: 25.8.2
+  grafana:
+    type: helm
+    category: monitoring
+    namespace: monitoring
+    version: 12.1.1
+    dependencies:
+      - prometheus
+    chart: grafana
+    repository: https://grafana.github.io/helm-charts
+    chart_version: 6.61.0
+  argocd:
+    type: helm
+    category: gitops
+    namespace: argocd
+    version: v2.9.3
+    dependencies:
+      - nginx_ingress
+      - cert_manager
+    chart: argo-cd
+    repository: https://argoproj.github.io/argo-helm
+    chart_version: 5.53.0
+  backstage:
+    type: yaml
+    category: platform
+    namespace: backstage
+    version: 1.25.0
+    dependencies:
+      - argocd
+    path: infrastructure/applications/backstage
+  crossplane:
+    type: helm
+    category: infrastructure
+    namespace: crossplane-system
+    version: v2.0.2
+    dependencies: []
+    chart: crossplane
+    repository: https://charts.crossplane.io/stable
+    chart_version: 2.0.2

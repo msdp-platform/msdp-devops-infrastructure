@@ -1,0 +1,10 @@
+# Requirements for MSDP DevOps Infrastructure Scripts
+
+# YAML processing
+PyYAML>=6.0
+
+# HTTP requests for API calls
+requests>=2.28.0
+
+# For advanced version comparison (optional)
+packaging>=21.0
