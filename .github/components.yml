@@ -60,7 +60,7 @@ components:
     repository: https://argoproj.github.io/argo-helm
     chart_version: 5.53.0
   backstage:
-    type: yaml
+    type: helm
     category: platform
     namespace: backstage
     version: 1.33.5
