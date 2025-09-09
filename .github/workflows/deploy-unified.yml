@@ -217,9 +217,11 @@ jobs:
 
           # Check platform components
           if kubectl get deployment -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
-            CURRENT_NGINX=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o '[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            CURRENT_NGINX=$(kubectl get deployment -n ingress-nginx ingress-nginx-controller -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v\?[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            NORMALIZED_CURRENT_NGINX=$(normalize_version "$CURRENT_NGINX")
+            NORMALIZED_EXPECTED_NGINX=$(normalize_version "$EXPECTED_NGINX_VERSION")
             echo "NGINX Ingress: Current=$CURRENT_NGINX, Expected=$EXPECTED_NGINX_VERSION"
-            if [ "$CURRENT_NGINX" != "$EXPECTED_NGINX_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            if [ "$NORMALIZED_CURRENT_NGINX" != "$NORMALIZED_EXPECTED_NGINX" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
               echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
             else
@@ -259,9 +261,11 @@ jobs:
           fi
 
           if kubectl get deployment -n monitoring prometheus-server >/dev/null 2>&1; then
-            CURRENT_PROMETHEUS=$(kubectl get deployment -n monitoring prometheus-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            CURRENT_PROMETHEUS=$(kubectl get deployment -n monitoring prometheus-server -o jsonpath='{.spec.template.spec.containers[0].image}' | grep -o 'v\?[0-9]\+\.[0-9]\+\.[0-9]\+' || echo "unknown")
+            NORMALIZED_CURRENT_PROMETHEUS=$(normalize_version "$CURRENT_PROMETHEUS")
+            NORMALIZED_EXPECTED_PROMETHEUS=$(normalize_version "$EXPECTED_PROMETHEUS_VERSION")
             echo "Prometheus: Current=$CURRENT_PROMETHEUS, Expected=$EXPECTED_PROMETHEUS_VERSION"
-            if [ "$CURRENT_PROMETHEUS" != "$EXPECTED_PROMETHEUS_VERSION" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
+            if [ "$NORMALIZED_CURRENT_PROMETHEUS" != "$NORMALIZED_EXPECTED_PROMETHEUS" ] || [ "${{ github.event.inputs.force_deploy }}" = "true" ]; then
               echo "  ⚠️  Version mismatch detected - will deploy"
               DEPLOY_PLATFORM="true"
             else
