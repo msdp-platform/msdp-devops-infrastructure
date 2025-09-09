@@ -5,7 +5,7 @@
 
 # Image configuration
 image:
-  repository: docker.io/grafana/grafana
+  repository: grafana/grafana
   tag: "12.1.1"
   pullPolicy: IfNotPresent
 

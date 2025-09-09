@@ -24,7 +24,7 @@ platform_components:
     namespace: "monitoring"
   grafana:
     version: "12.1.1"
-    image: "docker.io/grafana/grafana"
+    image: "grafana/grafana"
     chart_version: "6.61.0"
     namespace: "monitoring"
 
