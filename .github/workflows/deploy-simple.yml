@@ -39,6 +39,9 @@ jobs:
   deploy-component:
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
