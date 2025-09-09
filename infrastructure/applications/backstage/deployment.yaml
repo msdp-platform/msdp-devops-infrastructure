@@ -42,7 +42,9 @@ spec:
             - name: POSTGRES_DB
               value: "neondb"
             - name: DATABASE_URL
-              value: "postgresql://neondb_owner:npg_Cw3r6GeXASIb@ep-gentle-tree-a80got5h-pooler.eastus2.azure.neon.tech/neondb?sslmode=require&channel_binding=require"
+              value: "postgresql://neondb_owner:npg_Cw3r6GeXASIb@ep-gentle-tree-a80got5h-pooler.eastus2.azure.neon.tech/neondb?sslmode=require"
+            - name: PGSSLMODE
+              value: "require"
           resources:
             requests:
               cpu: 100m
