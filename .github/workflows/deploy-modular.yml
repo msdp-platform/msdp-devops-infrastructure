@@ -102,8 +102,16 @@ jobs:
           else
             # Deploy specific components
             IFS=',' read -ra COMPONENT_LIST <<< "${{ github.event.inputs.components }}"
-            COMPONENT_FILTER=$(printf '"%s",' "${COMPONENT_LIST[@]}" | sed 's/,$//')
-            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq -c "to_entries | map(select(.key | IN([$COMPONENT_FILTER])))")
+            # Build a filter condition for each component
+            FILTER_CONDITION=""
+            for component in "${COMPONENT_LIST[@]}"; do
+              if [ -z "$FILTER_CONDITION" ]; then
+                FILTER_CONDITION=".key == \"$component\""
+              else
+                FILTER_CONDITION="$FILTER_CONDITION or .key == \"$component\""
+              fi
+            done
+            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq -c "to_entries | map(select($FILTER_CONDITION))")
           fi
           
           # Ensure proper JSON formatting for GitHub Actions matrix
