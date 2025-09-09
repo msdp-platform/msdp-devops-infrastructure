@@ -8,7 +8,6 @@ metadata:
 
 resources:
   - namespace.yaml
-  - github-secret.yaml
 
 # Helm chart configuration
 helmCharts:
