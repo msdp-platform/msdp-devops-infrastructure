@@ -19,8 +19,10 @@ platform_components:
     namespace: "external-dns"
   prometheus:
     version: "v3.5.0"
-    image: "quay.io/prometheus/prometheus"
-    chart_version: "25.8.2"
+    image:
+      repository: "quay.io/prometheus/prometheus"
+      tag: "v3.5.0"
+    chart_version: "25.8.1"
     namespace: "monitoring"
   grafana:
     version: "12.1.1"
