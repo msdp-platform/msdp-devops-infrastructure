@@ -54,11 +54,16 @@ runs:
         REPO_NAME="${{ inputs.component_name }}-repo"
         REPO_URL="${{ steps.parse.outputs.repository }}"
         
-        # Add repository
-        helm repo add "$REPO_NAME" "$REPO_URL"
-        helm repo update
-        
-        echo "✅ Repository added: $REPO_NAME -> $REPO_URL"
+        # Special case for Backstage OCI chart
+        if [ "${{ inputs.component_name }}" = "backstage" ] && [ -z "$REPO_URL" ]; then
+          echo "🔧 Backstage OCI chart detected - skipping repository setup"
+          echo "✅ OCI chart - no repository setup needed"
+        else
+          # Add repository for traditional Helm charts
+          helm repo add "$REPO_NAME" "$REPO_URL"
+          helm repo update
+          echo "✅ Repository added: $REPO_NAME -> $REPO_URL"
+        fi
 
     - name: Generate Component Values
       id: values
@@ -165,22 +170,46 @@ runs:
         
         echo "📋 Release name: $RELEASE_NAME (converted from ${{ inputs.component_name }})"
         
-        if [ "${{ inputs.dry_run }}" = "true" ]; then
-          echo "🔍 DRY RUN MODE"
-          helm install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
-            --namespace "$NAMESPACE" \
-            --version "$CHART_VERSION" \
-            --values "$VALUES_FILE" \
-            --dry-run --debug
+        # Special case for Backstage OCI chart
+        if [ "${{ inputs.component_name }}" = "backstage" ] && [ -z "$REPO_URL" ]; then
+          echo "🔧 Deploying Backstage OCI chart: $CHART"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "🔍 DRY RUN MODE"
+            helm install "$RELEASE_NAME" "$CHART" \
+              --namespace "$NAMESPACE" \
+              --version "$CHART_VERSION" \
+              --values "$VALUES_FILE" \
+              --dry-run --debug
+          else
+            helm upgrade --install "$RELEASE_NAME" "$CHART" \
+              --namespace "$NAMESPACE" \
+              --version "$CHART_VERSION" \
+              --values "$VALUES_FILE" \
+              --wait --timeout=10m \
+              --create-namespace
+            
+            echo "✅ Successfully deployed ${{ inputs.component_name }} as $RELEASE_NAME (OCI chart)"
+          fi
         else
-          helm upgrade --install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
-            --namespace "$NAMESPACE" \
-            --version "$CHART_VERSION" \
-            --values "$VALUES_FILE" \
-            --wait --timeout=10m \
-            --create-namespace
-          
-          echo "✅ Successfully deployed ${{ inputs.component_name }} as $RELEASE_NAME"
+          echo "📦 Deploying traditional Helm chart: $REPO_NAME/$CHART"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "🔍 DRY RUN MODE"
+            helm install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
+              --namespace "$NAMESPACE" \
+              --version "$CHART_VERSION" \
+              --values "$VALUES_FILE" \
+              --dry-run --debug
+          else
+            helm upgrade --install "$RELEASE_NAME" "$REPO_NAME/$CHART" \
+              --namespace "$NAMESPACE" \
+              --version "$CHART_VERSION" \
+              --values "$VALUES_FILE" \
+              --wait --timeout=10m \
+              --create-namespace
+            
+            echo "✅ Successfully deployed ${{ inputs.component_name }} as $RELEASE_NAME"
+          fi
+        fi
           
           # Post-deployment steps for specific components
           case "${{ inputs.component_name }}" in
