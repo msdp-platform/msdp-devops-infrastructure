@@ -51,17 +51,21 @@ runs:
       run: |
         echo "📦 Setting up Helm repository for ${{ inputs.component_name }}..."
 
-        REPO_NAME="${{ inputs.component_name }}-repo"
+        CHART="${{ steps.parse.outputs.chart }}"
         REPO_URL="${{ steps.parse.outputs.repository }}"
 
-        # Special case for Backstage OCI chart
-        if [ "${{ inputs.component_name }}" = "backstage" ] && [ -z "$REPO_URL" ]; then
-          echo "🔧 Backstage OCI chart detected - skipping repository setup"
-          echo "✅ OCI chart - no repository setup needed"
+        # Check if this is an OCI chart
+        if [[ "$CHART" == oci://* ]]; then
+          echo "🔧 Detected OCI chart: $CHART"
+          echo "✅ OCI chart detected - no repository setup needed"
         else
-          # Add repository for traditional Helm charts
+          echo "📦 Setting up traditional Helm repository..."
+          REPO_NAME="${{ inputs.component_name }}-repo"
+          
+          # Add repository
           helm repo add "$REPO_NAME" "$REPO_URL"
           helm repo update
+          
           echo "✅ Repository added: $REPO_NAME -> $REPO_URL"
         fi
 
@@ -170,9 +174,9 @@ runs:
 
         echo "📋 Release name: $RELEASE_NAME (converted from ${{ inputs.component_name }})"
 
-        # Special case for Backstage OCI chart
-        if [ "${{ inputs.component_name }}" = "backstage" ] && [ -z "$REPO_URL" ]; then
-          echo "🔧 Deploying Backstage OCI chart: $CHART"
+        # Check if this is an OCI chart
+        if [[ "$CHART" == oci://* ]]; then
+          echo "🔧 Deploying OCI chart: $CHART"
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "🔍 DRY RUN MODE"
             helm install "$RELEASE_NAME" "$CHART" \
@@ -210,19 +214,18 @@ runs:
             echo "✅ Successfully deployed ${{ inputs.component_name }} as $RELEASE_NAME"
           fi
         fi
-          
-          # Post-deployment steps for specific components
-          case "${{ inputs.component_name }}" in
-            "cert_manager")
-              echo "🔧 Applying ClusterIssuer for cert-manager..."
-              # Wait for cert-manager to be ready
-              kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n "${{ steps.parse.outputs.namespace }}" --timeout=300s
-              # Apply ClusterIssuer
-              kubectl apply -f infrastructure/platforms/networking/cert-manager/cluster-issuer.yaml
-              echo "✅ ClusterIssuer applied successfully"
-              ;;
-          esac
-        fi
+
+        # Post-deployment steps for specific components
+        case "${{ inputs.component_name }}" in
+          "cert_manager")
+            echo "🔧 Applying ClusterIssuer for cert-manager..."
+            # Wait for cert-manager to be ready
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=cert-manager -n "${{ steps.parse.outputs.namespace }}" --timeout=300s
+            # Apply ClusterIssuer
+            kubectl apply -f infrastructure/platforms/networking/cert-manager/cluster-issuer.yaml
+            echo "✅ ClusterIssuer applied successfully"
+            ;;
+        esac
 
     - name: Verify Deployment
       if: inputs.dry_run != 'true'
