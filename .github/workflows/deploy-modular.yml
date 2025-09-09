@@ -95,14 +95,15 @@ jobs:
           # Filter components based on input
           if [ "${{ github.event.inputs.components }}" = "" ] || [ "${{ github.event.inputs.components }}" = "all" ]; then
             # Deploy all components except external-dns (unless explicitly requested)
-            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq 'to_entries | map(select(.key != "external_dns"))')
+            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq -c 'to_entries | map(select(.key != "external_dns"))')
           else
             # Deploy specific components
             IFS=',' read -ra COMPONENT_LIST <<< "${{ github.event.inputs.components }}"
             COMPONENT_FILTER=$(printf '"%s",' "${COMPONENT_LIST[@]}" | sed 's/,$//')
-            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq "to_entries | map(select(.key | IN([$COMPONENT_FILTER])))")
+            FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq -c "to_entries | map(select(.key | IN([$COMPONENT_FILTER])))")
           fi
           
+          # Ensure proper JSON formatting for GitHub Actions matrix
           echo "components_to_deploy=$FILTERED_COMPONENTS" >> $GITHUB_OUTPUT
           
           echo "📋 Components to deploy:"
