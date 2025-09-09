@@ -2,7 +2,7 @@ metadata:
   name: msdp-components
   description: Component registry for MSDP DevOps Infrastructure
   version: 1.0.0
-  generated: "2025-09-09T03:30:35Z"
+  generated: "2025-09-09T10:39:05Z"
 components:
   nginx_ingress:
     type: helm
@@ -16,12 +16,12 @@ components:
   cert_manager:
     type: helm
     category: networking
-    namespace: cert-manager
-    version: v1.18.0
+    namespace: cert_manager
+    version: ""
     dependencies: []
     chart: cert-manager
     repository: https://charts.jetstack.io
-    chart_version: v1.18.0
+    chart_version: ""
   external_dns:
     type: yaml
     category: networking
@@ -37,7 +37,7 @@ components:
     dependencies: []
     chart: kube-prometheus-stack
     repository: https://prometheus-community.github.io/helm-charts
-    chart_version: 25.8.2
+    chart_version: 25.8.1
   grafana:
     type: helm
     category: monitoring
