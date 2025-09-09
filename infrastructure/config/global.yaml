@@ -47,7 +47,9 @@ applications:
     namespace: "backstage"
   crossplane:
     version: "v2.0.2"
-    image: "xpkg.upbound.io/crossplane/crossplane"
+    image:
+      repository: "xpkg.upbound.io/crossplane/crossplane"
+      tag: "v2.0.2"
     chart_version: "2.0.2"
     namespace: "crossplane-system"
 
