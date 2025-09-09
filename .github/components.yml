@@ -79,3 +79,12 @@ components:
     chart: crossplane
     repository: https://charts.crossplane.io/stable
     chart_version: 2.0.2
+  external_secrets:
+    type: helm
+    category: security
+    namespace: external-secrets
+    version: v0.9.11
+    dependencies: []
+    chart: external-secrets
+    repository: https://charts.external-secrets.io
+    chart_version: 0.9.11

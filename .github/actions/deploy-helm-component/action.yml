@@ -225,6 +225,10 @@ runs:
             kubectl apply -f infrastructure/platforms/networking/cert-manager/cluster-issuer.yaml
             echo "✅ ClusterIssuer applied successfully"
             ;;
+          "external_secrets")
+            echo "🔧 External Secrets deployed with Azure OIDC integration..."
+            echo "✅ External Secrets will automatically manage certificates from Azure Key Vault"
+            ;;
         esac
 
     - name: Verify Deployment
