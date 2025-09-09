@@ -54,6 +54,16 @@ jobs:
           azure_subscription_id: ${{ env.AZURE_SUBSCRIPTION_ID }}
           environment: ${{ github.event.inputs.environment }}
 
+      - name: Debug Environment
+        run: |
+          echo "🔍 Debug information:"
+          echo "KUBECONFIG: $KUBECONFIG"
+          echo "Environment: ${{ github.event.inputs.environment }}"
+          echo "Component: ${{ github.event.inputs.component }}"
+          
+          # Test kubectl connection
+          kubectl cluster-info --request-timeout=10s || echo "⚠️ kubectl connection failed"
+
       - name: Load Component Configuration
         id: config
         run: |

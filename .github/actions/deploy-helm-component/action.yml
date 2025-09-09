@@ -115,6 +115,14 @@ runs:
       shell: bash
       run: |
         echo "📁 Creating namespace: ${{ steps.parse.outputs.namespace }}"
+        
+        # Ensure we're using the correct kubeconfig
+        if [ -z "$KUBECONFIG" ]; then
+          echo "⚠️ KUBECONFIG not set, using default"
+        else
+          echo "✅ Using KUBECONFIG: $KUBECONFIG"
+        fi
+        
         kubectl create namespace "${{ steps.parse.outputs.namespace }}" --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Create Required Secrets

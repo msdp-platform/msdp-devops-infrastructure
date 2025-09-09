@@ -80,7 +80,8 @@ runs:
       run: |
         echo "🔐 Getting AKS credentials..."
         
-        KUBECONFIG_FILE="/tmp/kubeconfig-${{ inputs.environment }}-$(date +%s)"
+        # Use a consistent kubeconfig path
+        KUBECONFIG_FILE="/tmp/kubeconfig-${{ inputs.environment }}"
         echo "KUBECONFIG=$KUBECONFIG_FILE" >> $GITHUB_ENV
         
         az aks get-credentials \
@@ -90,6 +91,10 @@ runs:
           --overwrite-existing
         
         echo "✅ Connected to cluster: ${{ steps.get-config.outputs.cluster_name }}"
+        echo "✅ Kubeconfig saved to: $KUBECONFIG_FILE"
         
-        # Verify connection
-        kubectl cluster-info --request-timeout=10s
+        # Verify connection with explicit kubeconfig
+        KUBECONFIG=$KUBECONFIG_FILE kubectl cluster-info --request-timeout=10s
+        
+        # Export for subsequent steps
+        echo "KUBECONFIG=$KUBECONFIG_FILE" >> $GITHUB_ENV
