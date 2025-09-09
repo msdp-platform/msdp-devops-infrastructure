@@ -1,0 +1,18 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::YOUR_AWS_ACCOUNT_ID:oidc-provider/eastus.oic.prod-aks.azure.com/a4474822-c84f-4bd1-bc35-baed17234c9f/e7abd138-540d-4eea-9d06-5b4a88562748"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "eastus.oic.prod-aks.azure.com/a4474822-c84f-4bd1-bc35-baed17234c9f/e7abd138-540d-4eea-9d06-5b4a88562748:sub": "system:serviceaccount:external-dns:external-dns",
+          "eastus.oic.prod-aks.azure.com/a4474822-c84f-4bd1-bc35-baed17234c9f/e7abd138-540d-4eea-9d06-5b4a88562748:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
