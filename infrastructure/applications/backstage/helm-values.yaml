@@ -8,10 +8,10 @@ global:
 
 # Backstage configuration
 backstage:
-  # Image configuration - using stable tag
+  # Image configuration - using latest stable tag
   image:
-    repository: backstage/backstage
-    tag: "1.25.0"
+    repository: ghcr.io/backstage/backstage
+    tag: "1.33.5"
     pullPolicy: IfNotPresent
 
   # Replica count

@@ -14,7 +14,7 @@ resources:
 helmCharts:
   - name: backstage
     repo: https://backstage.github.io/charts
-    version: 0.6.0
+    version: 2.6.1
     releaseName: backstage
     namespace: backstage
     valuesFile: helm-values.yaml

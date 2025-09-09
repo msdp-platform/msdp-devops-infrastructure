@@ -63,7 +63,7 @@ components:
     type: yaml
     category: platform
     namespace: backstage
-    version: 1.25.0
+    version: 1.33.5
     dependencies:
       - argocd
     path: infrastructure/applications/backstage
