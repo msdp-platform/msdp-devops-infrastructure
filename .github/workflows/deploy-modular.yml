@@ -68,7 +68,7 @@ jobs:
           else
             ENV=$(echo "${{ github.ref_name }}" | sed 's/.*\///')
           fi
-          
+
           # Validate environment
           case $ENV in
             dev|test|prod)
@@ -80,11 +80,11 @@ jobs:
               echo "should_deploy=false" >> $GITHUB_OUTPUT
               ;;
           esac
-          
+
           # Set domain
           DOMAIN_BASE=$(yq eval '.domains.base' infrastructure/config/global.yaml)
           echo "domain=${ENV}.${DOMAIN_BASE}" >> $GITHUB_OUTPUT
-          
+
           echo "🎯 Environment: $ENV"
           echo "🌐 Domain: ${ENV}.${DOMAIN_BASE}"
 
@@ -92,10 +92,10 @@ jobs:
         id: components
         run: |
           echo "🔍 Discovering components to deploy..."
-          
+
           # Load component registry
           COMPONENTS_JSON=$(yq eval '.components' .github/components.yml -o json)
-          
+
           # Filter components based on input
           if [ "${{ github.event.inputs.components }}" = "" ] || [ "${{ github.event.inputs.components }}" = "all" ]; then
             # Deploy all components except external-dns (unless explicitly requested)
@@ -114,10 +114,10 @@ jobs:
             done
             FILTERED_COMPONENTS=$(echo "$COMPONENTS_JSON" | jq -c "to_entries | map(select($FILTER_CONDITION))")
           fi
-          
+
           # Ensure proper JSON formatting for GitHub Actions matrix
           echo "components_to_deploy=$FILTERED_COMPONENTS" >> $GITHUB_OUTPUT
-          
+
           echo "📋 Components to deploy:"
           echo "$FILTERED_COMPONENTS" | jq -r '.[].key'
 
@@ -186,16 +186,16 @@ jobs:
       - name: Verify All Components
         run: |
           echo "🔍 Verifying all deployed components..."
-          
+
           # Check all namespaces
           echo "📊 All namespaces:"
           kubectl get namespaces
-          
+
           # Check external-dns (should be preserved)
           echo "📊 External DNS status:"
           kubectl get pods -n external-dns
           kubectl logs deployment/external-dns -n external-dns --tail=3
-          
+
           # Check deployed components
           COMPONENTS='${{ needs.detect-environment.outputs.components_to_deploy }}'
           echo "$COMPONENTS" | jq -r '.[].key' | while read component; do
@@ -205,19 +205,19 @@ jobs:
             kubectl get svc -n "$namespace" 2>/dev/null || echo "  No services found"
             kubectl get ingress -n "$namespace" 2>/dev/null || echo "  No ingress found"
           done
-          
+
           echo "✅ Verification completed"
 
       - name: Test Component Access
         run: |
           echo "🌐 Testing component access..."
-          
+
           # Get ingress IP
           INGRESS_IP=""
           if kubectl get svc -n ingress-nginx ingress-nginx-controller >/dev/null 2>&1; then
             INGRESS_IP=$(kubectl get svc -n ingress-nginx ingress-nginx-controller -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
           fi
-          
+
           if [ -n "$INGRESS_IP" ]; then
             echo "🔗 Ingress IP: $INGRESS_IP"
             
@@ -233,7 +233,7 @@ jobs:
           else
             echo "ℹ️ No ingress controller found, skipping access tests"
           fi
-          
+
           echo "✅ Access testing completed"
 
   post-deployment-certificate-management:
@@ -299,13 +299,13 @@ jobs:
       - name: Verify Certificate Management
         run: |
           echo "🔍 Verifying certificate management..."
-          
+
           # Check External Secrets status
           echo "📊 External Secrets status:"
           kubectl get externalsecrets -A
-          
+
           # Check certificate sync status
           echo "📊 Certificate sync status:"
           kubectl get secrets -A | grep tls
-          
+
           echo "✅ Certificate management verification complete"
