@@ -82,9 +82,6 @@ module "eks" {
   subnet_ids                     = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
-  # Enable EKS Pod Identity
-  enable_pod_identity = true
-
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
   eks_managed_node_groups = {
     # Critical system nodes - ARM-based spot instances for cost savings
