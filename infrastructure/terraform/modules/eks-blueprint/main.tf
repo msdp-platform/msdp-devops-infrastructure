@@ -85,14 +85,14 @@ module "eks" {
   access_entries = {
     github_actions = {
       principal_arn = "arn:aws:iam::319422413814:role/GitHubActions-Role"
-      policy_associations = [
-        {
+      policy_associations = {
+        admin = {
           policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
           access_scope = {
             type = "cluster"
           }
         }
-      ]
+      }
     }
   }
 
