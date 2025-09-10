@@ -1,140 +1,127 @@
-# 📚 Multi-Service Delivery Platform Documentation
+# 📚 Documentation - MSDP DevOps Infrastructure
 
-## 🎯 **Documentation Overview**
+## 📋 **Overview**
 
-This directory contains comprehensive documentation for the Multi-Service Delivery Platform, organized into logical categories for easy navigation and maintenance.
+This directory contains comprehensive documentation for the MSDP DevOps Infrastructure platform, built on AWS EKS with cost optimization and comprehensive DevOps tooling.
 
 ## 📁 **Documentation Structure**
 
-### 🏗️ **Architecture** (`docs/architecture/`)
-High-level system design and architectural decisions.
+### **Architecture**
+- [Architecture Index](architecture/ARCHITECTURE-INDEX.md) - Complete architecture documentation index
+- [Technical Architecture](architecture/Technical-Architecture.md) - Technical architecture overview
 
-- **[ARCHITECTURE-INDEX.md](architecture/ARCHITECTURE-INDEX.md)** - Master index of all architecture documentation
-- **[Business-Architecture-Overview.md](architecture/Business-Architecture-Overview.md)** - Business requirements and domain modeling
-- **[Technical-Architecture.md](architecture/Technical-Architecture.md)** - Technical system architecture and components
-- **[Multi-Cloud-Deployment-Architecture.md](architecture/Multi-Cloud-Deployment-Architecture.md)** - Multi-cloud deployment strategy
-- **[Crossplane-ArgoCD-Integration-Analysis.md](architecture/Crossplane-ArgoCD-Integration-Analysis.md)** - GitOps integration architecture
-- **[Phase4-Technical-Specifications.md](architecture/Phase4-Technical-Specifications.md)** - Detailed technical specifications
-- **[Phase4-Database-Design.md](architecture/Phase4-Database-Design.md)** - Database architecture and design
-- **[Phase4-Folder-Structure.md](architecture/Phase4-Folder-Structure.md)** - Modular folder structure design
-- **[Phase4-Implementation-Tracker.md](architecture/Phase4-Implementation-Tracker.md)** - Implementation roadmap and tracking
+### **Deployment**
+- [Deployment Guide](deployment/Deployment-Guide.md) - Step-by-step deployment instructions
 
-### 🛠️ **Infrastructure** (`docs/infrastructure/`)
-Infrastructure setup, configuration, and operational guides.
+### **Operations**
+- [Operations Guide](operations/Operations-Guide.md) - Operational procedures and maintenance
 
-- **[AKS-Setup-Guide.md](infrastructure/AKS-Setup-Guide.md)** - Azure Kubernetes Service setup
-- **[Node-Auto-Provisioning-Setup.md](infrastructure/Node-Auto-Provisioning-Setup.md)** - Karpenter and NAP configuration
-- **[Single-Public-IP-Setup.md](infrastructure/Single-Public-IP-Setup.md)** - Cost-optimized networking setup
-- **[Route53-Azure-Hybrid-Setup-Complete.md](infrastructure/Route53-Azure-Hybrid-Setup-Complete.md)** - AWS Route53 + Azure hybrid setup
-- **[DNS-Delegation-Fix-Complete.md](infrastructure/DNS-Delegation-Fix-Complete.md)** - DNS configuration and troubleshooting
-- **[System-Pod-Affinity-Enforcement-Summary.md](infrastructure/System-Pod-Affinity-Enforcement-Summary.md)** - Pod scheduling and isolation
-- **[System-Node-Pool-Scale-Down-Analysis.md](infrastructure/System-Node-Pool-Scale-Down-Analysis.md)** - Node pool scaling analysis
-- **[System-Node-Pool-Scale-Down-Status.md](infrastructure/System-Node-Pool-Scale-Down-Status.md)** - Current scaling status
-- **[Node-Pool-Pod-Allocation-Analysis.md](infrastructure/Node-Pool-Pod-Allocation-Analysis.md)** - Pod allocation strategies
+### **Setup Guides**
+- [Comprehensive EKS Platform Setup](setup-guides/Comprehensive-EKS-Platform-Setup.md) - Complete platform setup
+- [GitHub OIDC Setup Guide](setup-guides/GitHub-OIDC-Setup-Guide.md) - OIDC authentication setup
+- [GitHub Organization Setup](setup-guides/GitHub-Organization-Setup.md) - GitHub organization configuration
 
-### 💰 **Cost Optimization** (`docs/cost-optimization/`)
-Cost analysis, optimization strategies, and savings documentation.
+### **Testing**
+- [Testing Guide](testing/Testing-Guide.md) - Testing procedures and validation
 
-- **[Cost-Analysis-Serverless-Strategy.md](cost-optimization/Cost-Analysis-Serverless-Strategy.md)** - Serverless cost analysis
-- **[Cost-Optimized-Multi-Cloud-Strategy.md](cost-optimization/Cost-Optimized-Multi-Cloud-Strategy.md)** - Multi-cloud cost optimization
-- **[Multi-Cloud-Cost-Analysis.md](cost-optimization/Multi-Cloud-Cost-Analysis.md)** - Comprehensive cost analysis
-- **[Current-Cost-Efficient-Configuration.md](cost-optimization/Current-Cost-Efficient-Configuration.md)** - Current cost-optimized setup
-- **[Most-Cost-Efficient-Configuration-Analysis.md](cost-optimization/Most-Cost-Efficient-Configuration-Analysis.md)** - Optimal configuration analysis
-- **[Node-Pool-Size-Optimization-Cost-Analysis.md](cost-optimization/Node-Pool-Size-Optimization-Cost-Analysis.md)** - Node pool cost optimization
-- **[Enhanced-Platform-Manager-Cost-Optimization.md](cost-optimization/Enhanced-Platform-Manager-Cost-Optimization.md)** - Platform manager cost features
-- **[Intelligent-Cost-Optimization-Feature.md](cost-optimization/Intelligent-Cost-Optimization-Feature.md)** - AI-powered cost optimization
-- **[Intelligent-Spot-NodePool-Optimization.md](cost-optimization/Intelligent-Spot-NodePool-Optimization.md)** - Spot instance optimization
-- **[Broad-SKU-Selection-vs-Specific-Instance-Types.md](cost-optimization/Broad-SKU-Selection-vs-Specific-Instance-Types.md)** - SKU selection strategy
-- **[AWS-Route53-Azure-Hybrid-Cost-Analysis.md](cost-optimization/AWS-Route53-Azure-Hybrid-Cost-Analysis.md)** - Hybrid cloud cost analysis
+### **Diagrams**
+- Architecture diagrams and visual representations
 
-### 🚀 **Setup Guides** (`docs/setup-guides/`)
-Step-by-step setup and configuration guides.
+## 🎯 **Quick Start**
 
-- **[AWS-Free-Tier-Setup-Guide.md](setup-guides/AWS-Free-Tier-Setup-Guide.md)** - AWS free tier configuration
-- **[Free-Tier-Quick-Reference.md](setup-guides/Free-Tier-Quick-Reference.md)** - Quick reference for free tiers
-- **[Implementation-Guide-Multi-Cloud.md](setup-guides/Implementation-Guide-Multi-Cloud.md)** - Multi-cloud implementation guide
-- **[Multi-Cloud-Setup-Guide.md](setup-guides/Multi-Cloud-Setup-Guide.md)** - Complete multi-cloud setup
+### **1. Setup OIDC Authentication**
+```bash
+./scripts/setup-github-oidc.sh
+```
 
-### ⚙️ **Operations** (`docs/operations/`)
-Operational procedures, management scripts, and maintenance guides.
+### **2. Deploy Platform**
+```bash
+cd infrastructure/terraform/environments/dev
+terraform init && terraform apply
+```
 
-- **[Platform-Management-Scripts.md](operations/Platform-Management-Scripts.md)** - Platform management automation
-- **[Unified-Platform-Manager-Summary.md](operations/Unified-Platform-Manager-Summary.md)** - Platform manager overview
-- **[App-Domain-Fix-Summary.md](operations/App-Domain-Fix-Summary.md)** - Domain configuration fixes
-- **[Final-Setup-Summary.md](operations/Final-Setup-Summary.md)** - Final setup status and summary
-- **[Cleanup-Summary.md](operations/Cleanup-Summary.md)** - Cleanup procedures and status
+### **3. Access Services**
+- **EKS Cluster**: `kubectl get nodes`
+- **ArgoCD**: Port-forward to access UI
+- **Grafana**: Access via ingress or port-forward
 
-### 🧪 **Testing** (`docs/testing/`)
-Test results, validation procedures, and quality assurance documentation.
+## 🏗️ **Platform Features**
 
-- **[Karpenter-Scaling-Test-Results.md](testing/Karpenter-Scaling-Test-Results.md)** - Karpenter scaling validation results
+- **Cost Optimization**: Mixed ARM/x86 instances with spot optimization
+- **High Availability**: Multi-AZ deployment with auto-scaling
+- **Security**: OIDC authentication, IAM roles, network security
+- **Observability**: Prometheus, Grafana, CloudWatch integration
+- **GitOps**: ArgoCD deployment automation
+- **Infrastructure as Code**: Terraform for all infrastructure
 
-### 📊 **Diagrams** (`docs/diagrams/`)
-Visual diagrams, architecture charts, and system flow diagrams.
+## 📊 **Architecture Overview**
 
-- **[README.md](diagrams/README.md)** - Diagram documentation and usage guide
+```
+GitHub Actions → OIDC → AWS IAM → EKS Cluster
+                    ↓
+            Karpenter (Auto-scaling)
+                    ↓
+        Mixed Architecture (ARM/x86)
+                    ↓
+    Platform Components (ArgoCD, Prometheus, Grafana)
+```
 
-## 🎯 **Quick Navigation**
+## 🔧 **Key Components**
 
-### **For New Users**
-1. Start with **[Architecture Overview](architecture/ARCHITECTURE-INDEX.md)**
-2. Follow **[Setup Guides](setup-guides/)** for initial configuration
-3. Review **[Cost Optimization](cost-optimization/)** for cost-effective deployment
+### **Core Infrastructure**
+- **EKS Cluster**: Managed Kubernetes service
+- **Karpenter**: Intelligent autoscaling with cost optimization
+- **VPC**: Secure network architecture
 
-### **For Developers**
-1. Review **[Technical Architecture](architecture/Technical-Architecture.md)**
-2. Check **[Infrastructure Setup](infrastructure/)** for deployment details
-3. Use **[Operations Guides](operations/)** for platform management
+### **Platform Components**
+- **ArgoCD**: GitOps deployment automation
+- **Prometheus**: Metrics collection and alerting
+- **Grafana**: Dashboards and visualization
+- **Backstage**: Developer portal
+- **Crossplane**: Infrastructure provisioning
 
-### **For Operations Teams**
-1. Start with **[Platform Management Scripts](operations/Platform-Management-Scripts.md)**
-2. Review **[Infrastructure Documentation](infrastructure/)** for operational procedures
-3. Monitor **[Cost Optimization](cost-optimization/)** for ongoing cost management
+### **Security & Networking**
+- **GitHub OIDC**: Secure authentication
+- **AWS Load Balancer Controller**: Ingress management
+- **External DNS**: Automatic DNS management
+- **Cert-Manager**: TLS certificate automation
 
-### **For Cost Optimization**
-1. Review **[Cost Analysis](cost-optimization/Cost-Analysis-Serverless-Strategy.md)**
-2. Check **[Current Configuration](cost-optimization/Current-Cost-Efficient-Configuration.md)**
-3. Use **[Intelligent Optimization](cost-optimization/Intelligent-Cost-Optimization-Feature.md)**
+## 💰 **Cost Optimization**
 
-## 🔍 **Documentation Standards**
+- **ARM Instances**: Up to 40% better price/performance
+- **Spot Instances**: Up to 90% cost savings
+- **Mixed Architecture**: Automatic cost-based instance selection
+- **Auto-scaling**: Right-sized instances based on demand
 
-### **File Naming Convention**
-- Use descriptive, kebab-case names
-- Include category prefixes where appropriate
-- Use consistent terminology across documents
+## 🚀 **Getting Started**
 
-### **Document Structure**
-- Clear headings and sections
-- Code examples with syntax highlighting
-- Links to related documents
-- Status indicators and timestamps
+1. **Read the Architecture**: Start with [Technical Architecture](architecture/Technical-Architecture.md)
+2. **Setup OIDC**: Follow [GitHub OIDC Setup Guide](setup-guides/GitHub-OIDC-Setup-Guide.md)
+3. **Deploy Platform**: Use [Comprehensive EKS Platform Setup](setup-guides/Comprehensive-EKS-Platform-Setup.md)
+4. **Operate Platform**: Reference [Operations Guide](operations/Operations-Guide.md)
 
-### **Maintenance**
-- Regular updates with implementation changes
-- Version control for all documentation
-- Cross-references between related documents
-- Clear ownership and review processes
+## 📚 **Additional Resources**
 
-## 📈 **Documentation Status**
+- **AWS Documentation**: [EKS User Guide](https://docs.aws.amazon.com/eks/)
+- **Karpenter Documentation**: [Karpenter Docs](https://karpenter.sh/)
+- **ArgoCD Documentation**: [ArgoCD Docs](https://argo-cd.readthedocs.io/)
+- **Prometheus Documentation**: [Prometheus Docs](https://prometheus.io/docs/)
 
-- ✅ **Architecture**: Complete and up-to-date
-- ✅ **Infrastructure**: Complete with operational procedures
-- ✅ **Cost Optimization**: Comprehensive analysis and strategies
-- ✅ **Setup Guides**: Step-by-step implementation guides
-- ✅ **Operations**: Platform management and maintenance
-- ✅ **Testing**: Validation results and procedures
+## 🤝 **Contributing**
 
-## 🎉 **Contributing**
+When contributing to the documentation:
 
-When adding new documentation:
-1. Place files in the appropriate category folder
-2. Update this README with new entries
-3. Follow the established naming conventions
-4. Include cross-references to related documents
-5. Update the architecture index if needed
+1. **Update relevant sections** when making changes
+2. **Add new procedures** to appropriate guides
+3. **Update architecture docs** for significant changes
+4. **Test procedures** before documenting
+
+## 📄 **License**
+
+This documentation is part of the MSDP DevOps Infrastructure project and follows the same license terms.
 
 ---
 
-**Last Updated**: September 7, 2025  
-**Documentation Version**: 2.0  
-**Platform Status**: Production Ready
+**Last Updated**: December 2024  
+**Version**: 3.0.0  
+**Maintainer**: DevOps Team

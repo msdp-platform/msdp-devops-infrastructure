@@ -16,7 +16,7 @@ This guide walks you through setting up a comprehensive EKS platform with all th
 - **External DNS** (auto-manage Route 53 DNS records)
 - **Cert-Manager** (TLS cert automation with ACM)
 - **Secrets Store CSI Driver** (integrates with AWS Secrets Manager & SSM Parameter Store)
-- **Karpenter** (intelligent autoscaling, cost-optimized mixed architecture spot instances)
+- **Karpenter** (intelligent autoscaling, ARM-based spot instance optimization)
 
 ### **Networking & Traffic Management**
 - **Amazon VPC CNI** (default networking)
@@ -556,52 +556,6 @@ kubectl get pv,pvc --all-namespaces
 # Update NodePool limits
 kubectl patch nodepool cost-optimized --type merge -p '{"spec":{"limits":{"cpu":"2000"}}}'
 ```
-
-### **Cost-Optimized Mixed Architecture Configuration**
-
-The platform is configured with cost-optimized mixed architecture instances for maximum cost savings:
-
-```hcl
-# Instance Types for Karpenter - Cost-optimized mixed architecture (ARM + x86)
-karpenter_instance_types = [
-  # ARM-based instances (Graviton) - Up to 40% better price/performance
-  # t4g instances - General purpose with good memory
-  "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
-  # r6g instances - Memory-optimized (high memory to CPU ratio)
-  "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
-  "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
-  # m6g instances - Balanced memory and compute
-  "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
-  "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge",
-  # c6g instances - Compute-optimized
-  "c6g.medium", "c6g.large", "c6g.xlarge", "c6g.2xlarge", "c6g.4xlarge",
-  
-  # x86-based instances - For cost comparison and availability
-  # t3 instances - General purpose (often cheaper than t4g in some regions)
-  "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge",
-  # t3a instances - AMD-based, often cheapest
-  "t3a.medium", "t3a.large", "t3a.xlarge", "t3a.2xlarge",
-  # m5 instances - General purpose
-  "m5.medium", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge",
-  # m5a instances - AMD-based, often cheaper
-  "m5a.medium", "m5a.large", "m5a.xlarge", "m5a.2xlarge", "m5a.4xlarge",
-  # r5 instances - Memory-optimized
-  "r5.medium", "r5.large", "r5.xlarge", "r5.2xlarge", "r5.4xlarge",
-  # r5a instances - AMD-based memory-optimized
-  "r5a.medium", "r5a.large", "r5a.xlarge", "r5a.2xlarge", "r5a.4xlarge",
-  # c5 instances - Compute-optimized
-  "c5.medium", "c5.large", "c5.xlarge", "c5.2xlarge", "c5.4xlarge",
-  # c5a instances - AMD-based compute-optimized
-  "c5a.medium", "c5a.large", "c5a.xlarge", "c5a.2xlarge", "c5a.4xlarge"
-]
-```
-
-**Cost Optimization Strategy:**
-1. **Karpenter automatically selects the cheapest available instance** that meets your requirements
-2. **ARM-based instances** (t4g, r6g, m6g, c6g) - Up to 40% better price/performance
-3. **x86-based instances** (t3, t3a, m5, m5a, r5, r5a, c5, c5a) - Often cheaper in some regions
-4. **AMD-based instances** (t3a, m5a, r5a, c5a) - Often the cheapest option
-5. **Spot instances** - Up to 90% cost savings vs on-demand
 
 ### **Adding New Instance Types**
 
