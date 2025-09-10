@@ -15,14 +15,14 @@ karpenter_instance_types = [
   # t4g instances - General purpose with good memory
   "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
   # r6g instances - Memory-optimized (high memory to CPU ratio)
-  "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
+  "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge",
   "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
   # m6g instances - Balanced memory and compute
   "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
   "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge",
   # c6g instances - Compute-optimized
   "c6g.medium", "c6g.large", "c6g.xlarge", "c6g.2xlarge", "c6g.4xlarge",
-  
+
   # x86-based instances - For cost comparison and availability
   # t3 instances - General purpose (often cheaper than t4g in some regions)
   "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge",
@@ -52,8 +52,8 @@ karpenter_instance_types = [
 # ]
 
 # DNS and Certificate Configuration
-domain_name = "aztech-msdp.com"
-create_route53_zone = false  # Set to false if you already have the Route53 zone
-route53_zone_id = "Z1234567890ABC"  # Replace with your actual Route53 zone ID
-create_acm_certificate = true
-letsencrypt_email = "admin@aztech-msdp.com"
+domain_name            = "aztech-msdp.com"
+create_route53_zone    = false            # Using existing Route53 zone
+route53_zone_id        = "Z1234567890ABC" # Replace with your actual Route53 zone ID
+create_acm_certificate = false            # Using Let's Encrypt via cert-manager instead
+letsencrypt_email      = "admin@aztech-msdp.com"

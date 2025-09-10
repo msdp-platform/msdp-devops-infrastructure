@@ -54,7 +54,7 @@ karpenter_instance_types = [
 
 # DNS and Certificate Configuration
 domain_name = "aztech-msdp.com"
-create_route53_zone = false  # Set to false if you already have the Route53 zone
+create_route53_zone = false  # Using existing Route53 zone
 route53_zone_id = "Z1234567890ABC"  # Replace with your actual Route53 zone ID
-create_acm_certificate = true
+create_acm_certificate = false  # Using Let's Encrypt via cert-manager instead
 letsencrypt_email = "admin@aztech-msdp.com"
