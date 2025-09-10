@@ -73,7 +73,7 @@ module "vpc" {
 # EKS Cluster with Fargate Profiles
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 21.1.5"
+  version = "~> 19.0"
 
   name            = local.name
   cluster_version = var.kubernetes_version
