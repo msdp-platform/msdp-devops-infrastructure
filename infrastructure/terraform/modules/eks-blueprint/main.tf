@@ -73,14 +73,14 @@ module "vpc" {
 # EKS Cluster with Fargate Profiles
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 21.1.5"
 
   name            = local.name
-  cluster_version = var.kubernetes_version
+  kubernetes_version = var.kubernetes_version
 
   vpc_id                         = module.vpc.vpc_id
   subnet_ids                     = module.vpc.private_subnets
-  cluster_endpoint_public_access = true
+  endpoint_public_access         = true
 
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
   eks_managed_node_groups = {
