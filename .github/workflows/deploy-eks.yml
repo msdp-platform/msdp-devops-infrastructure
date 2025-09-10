@@ -64,8 +64,13 @@ jobs:
         run: terraform fmt -check -recursive
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Clean Terraform cache (env)
+        run: |
+          rm -rf .terraform .terraform.lock.hcl || true
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Init (upgrade)
+        run: terraform init -upgrade
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Validate
@@ -125,8 +130,13 @@ jobs:
           name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
           path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Clean Terraform cache (env)
+        run: |
+          rm -rf .terraform .terraform.lock.hcl || true
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Init (upgrade)
+        run: terraform init -upgrade
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Apply
@@ -207,8 +217,13 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
-      - name: Terraform Init
-        run: terraform init
+      - name: Clean Terraform cache (env)
+        run: |
+          rm -rf .terraform .terraform.lock.hcl || true
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Init (upgrade)
+        run: terraform init -upgrade
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Destroy
