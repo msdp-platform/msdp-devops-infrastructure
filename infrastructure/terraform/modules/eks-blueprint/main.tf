@@ -812,18 +812,18 @@ resource "aws_acm_certificate_validation" "main" {
 
 # Serverless PostgreSQL for Backstage
 resource "aws_rds_cluster" "backstage_postgres" {
-  cluster_identifier      = "${local.name}-backstage-postgres"
-  engine                  = "aurora-postgresql"
-  engine_mode            = "serverless"
-  engine_version         = "13.7"
-  database_name          = "backstage"
-  master_username        = "backstage"
-  master_password        = random_password.backstage_postgres_password.result
-  backup_retention_period = 7
-  preferred_backup_window = "07:00-09:00"
+  cluster_identifier           = "${local.name}-backstage-postgres"
+  engine                       = "aurora-postgresql"
+  engine_mode                  = "serverless"
+  engine_version               = "13.7"
+  database_name                = "backstage"
+  master_username              = "backstage"
+  master_password              = random_password.backstage_postgres_password.result
+  backup_retention_period      = 7
+  preferred_backup_window      = "07:00-09:00"
   preferred_maintenance_window = "sun:09:00-sun:11:00"
-  skip_final_snapshot    = true
-  deletion_protection    = false
+  skip_final_snapshot          = true
+  deletion_protection          = false
 
   serverlessv2_scaling_configuration {
     max_capacity = 16

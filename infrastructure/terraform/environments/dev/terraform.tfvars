@@ -1,5 +1,4 @@
-# Example Terraform variables for development environment
-# Copy this file to terraform.tfvars and customize the values
+# Terraform variables for development environment
 
 # Cluster Configuration
 cluster_name = "msdp-eks-dev"

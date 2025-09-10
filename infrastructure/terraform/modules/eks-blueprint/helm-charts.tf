@@ -153,6 +153,11 @@ resource "helm_release" "external_dns" {
   }
 
   set {
+    name  = "aws.zoneId"
+    value = var.create_route53_zone ? aws_route53_zone.main[0].zone_id : var.route53_zone_id
+  }
+
+  set {
     name  = "policy"
     value = "sync"
   }
