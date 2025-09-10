@@ -364,24 +364,6 @@ module "eks_blueprints_addons" {
     }
   }
 
-  # Enable Crossplane
-  enable_crossplane = true
-  crossplane = {
-    helm_config = {
-      values = [
-        yamlencode({
-          serviceAccount = {
-            create = false
-            name   = "crossplane"
-            annotations = {
-              "eks.amazonaws.com/role-arn" = aws_iam_role.crossplane.arn
-            }
-          }
-        })
-      ]
-    }
-  }
-
   tags = local.tags
 }
 
@@ -475,6 +457,35 @@ resource "helm_release" "backstage" {
             hosts      = ["backstage.${var.domain_name}"]
           }
         ]
+      }
+    })
+  ]
+
+  timeout = 600
+}
+
+# Crossplane - Infrastructure as Code (not included in EKS Blueprints Addons)
+resource "helm_release" "crossplane" {
+  name       = "crossplane"
+  repository = "https://charts.crossplane.io/stable"
+  chart      = "crossplane"
+  version    = "1.14.1"
+  namespace  = "crossplane-system"
+
+  create_namespace = true
+
+  depends_on = [
+    module.eks_blueprints_addons
+  ]
+
+  values = [
+    yamlencode({
+      serviceAccount = {
+        create = false
+        name   = "crossplane"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.crossplane.arn
+        }
       }
     })
   ]

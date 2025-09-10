@@ -126,7 +126,6 @@ output "eks_blueprints_addons" {
     ingress_nginx                = module.eks_blueprints_addons.ingress_nginx
     kube_prometheus_stack        = module.eks_blueprints_addons.kube_prometheus_stack
     argocd                       = module.eks_blueprints_addons.argocd
-    crossplane                   = module.eks_blueprints_addons.crossplane
     eks_addons                   = module.eks_blueprints_addons.eks_addons
   }
 }
@@ -146,6 +145,17 @@ output "backstage_database_endpoint" {
   description = "Backstage PostgreSQL database endpoint"
   value       = aws_rds_cluster.backstage_postgres.endpoint
   sensitive   = true
+}
+
+# Crossplane Outputs
+output "crossplane_helm_release" {
+  description = "Crossplane Helm release information"
+  value = {
+    name      = helm_release.crossplane.name
+    namespace = helm_release.crossplane.namespace
+    version   = helm_release.crossplane.version
+    status    = helm_release.crossplane.status
+  }
 }
 
 # Route53 Outputs
