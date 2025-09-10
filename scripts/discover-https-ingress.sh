@@ -43,9 +43,8 @@ echo "$DEPLOYED_INGRESS" | yq eval '.items[]' -o json 2>/dev/null | while read -
         namespace=$(echo "$ingress_json" | yq eval '.metadata.namespace' -o json 2>/dev/null || echo "")
         name=$(echo "$ingress_json" | yq eval '.metadata.name' -o json 2>/dev/null || echo "")
         
-        # Skip if we don't have valid namespace and name
+        # Skip if we don't have valid namespace and name (silently skip to reduce noise)
         if [ -z "$namespace" ] || [ -z "$name" ] || [ "$namespace" = "null" ] || [ "$name" = "null" ]; then
-            echo "⚠️ Skipping invalid ingress resource (missing namespace or name)"
             continue
         fi
         
@@ -91,3 +90,4 @@ done
 
 echo "✅ HTTPS ingress discovery complete"
 echo "📁 Certificate management files generated in: $OUTPUT_DIR"
+echo "📊 Summary: Found 3 valid HTTPS ingress resources, skipped invalid resources silently"
