@@ -15,7 +15,7 @@ variable "aws_region" {
 variable "kubernetes_version" {
   description = "Kubernetes version"
   type        = string
-  default     = "1.32"
+  default     = "1.28"
 }
 
 variable "vpc_cidr" {
@@ -28,61 +28,61 @@ variable "vpc_cidr" {
 variable "karpenter_version" {
   description = "Karpenter version"
   type        = string
-  default     = "0.41.0"
+  default     = "0.37.0"
 }
 
 variable "aws_load_balancer_controller_version" {
   description = "AWS Load Balancer Controller version"
   type        = string
-  default     = "1.8.0"
+  default     = "1.6.2"
 }
 
 variable "external_dns_version" {
   description = "External DNS version"
   type        = string
-  default     = "1.17.0"
+  default     = "1.13.1"
 }
 
 variable "cert_manager_version" {
   description = "Cert-Manager version"
   type        = string
-  default     = "v1.17.0"
+  default     = "v1.13.2"
 }
 
 variable "secrets_store_csi_version" {
   description = "Secrets Store CSI Driver version"
   type        = string
-  default     = "1.7.0"
+  default     = "1.3.4"
 }
 
 variable "secrets_store_csi_aws_provider_version" {
   description = "Secrets Store CSI AWS Provider version"
   type        = string
-  default     = "0.7.0"
+  default     = "0.3.4"
 }
 
 variable "nginx_ingress_version" {
   description = "NGINX Ingress Controller version"
   type        = string
-  default     = "5.2.0"
+  default     = "4.8.3"
 }
 
 variable "prometheus_version" {
   description = "Prometheus version"
   type        = string
-  default     = "59.0.0"
+  default     = "55.4.0"
 }
 
 variable "argocd_version" {
   description = "ArgoCD version"
   type        = string
-  default     = "5.56.0"
+  default     = "5.51.6"
 }
 
 variable "crossplane_version" {
   description = "Crossplane version"
   type        = string
-  default     = "1.18.0"
+  default     = "1.14.1"
 }
 
 variable "ack_s3_version" {
@@ -100,7 +100,7 @@ variable "ack_rds_version" {
 variable "backstage_version" {
   description = "Backstage version"
   type        = string
-  default     = "0.5.0"
+  default     = "0.1.0"
 }
 
 # Instance Types - Cost-optimized mixed architecture (ARM + x86)
