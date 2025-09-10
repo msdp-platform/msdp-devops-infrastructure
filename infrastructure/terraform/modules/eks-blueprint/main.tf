@@ -324,18 +324,15 @@ resource "aws_iam_instance_profile" "karpenter" {
 }
 
 # Karpenter SQS Queue for Spot Interruption
-module "karpenter_sqs" {
-  source  = "terraform-aws-modules/sqs/aws"
-  version = "~> 4.0"
-
-  queue_name = "${local.name}-karpenter"
+resource "aws_sqs_queue" "karpenter" {
+  name = "${local.name}-karpenter"
 
   tags = local.tags
 }
 
 # SQS Queue Policy for Spot Interruption
 resource "aws_sqs_queue_policy" "karpenter" {
-  queue_url = module.karpenter_sqs.queue_id
+  queue_url = aws_sqs_queue.karpenter.id
 
   policy = jsonencode({
     Version = "2012-10-17"
