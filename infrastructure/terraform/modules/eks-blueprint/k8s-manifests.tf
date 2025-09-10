@@ -1,5 +1,18 @@
 # Kubernetes Manifests for Platform Components
 
+# Namespace for Fargate jobs
+resource "kubectl_manifest" "jobs_namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "jobs"
+    }
+  })
+
+  depends_on = [module.eks_blueprints_addons]
+}
+
 # Karpenter EC2NodeClass - ARM-based (Graviton)
 resource "kubectl_manifest" "karpenter_nodeclass_arm" {
   yaml_body = yamlencode({
@@ -142,6 +155,62 @@ resource "kubectl_manifest" "karpenter_nodeclass_x86" {
   depends_on = [module.eks_blueprints_addons]
 }
 
+# Karpenter EC2NodeClass - default (alias to arm64 for cost efficiency)
+resource "kubectl_manifest" "karpenter_nodeclass_default" {
+  yaml_body = yamlencode({
+    apiVersion = "karpenter.k8s.aws/v1beta1"
+    kind       = "EC2NodeClass"
+    metadata = {
+      name = "default"
+    }
+    spec = {
+      role                = aws_iam_role.karpenter_node_instance_profile.name
+      amiFamily           = "AL2"
+      instanceStorePolicy = "RAID0"
+      userData = base64encode(templatefile("${path.module}/userdata.sh", {
+        cluster_name     = local.name
+        cluster_endpoint = module.eks.cluster_endpoint
+        cluster_ca       = module.eks.cluster_certificate_authority_data
+      }))
+      blockDeviceMappings = [
+        {
+          deviceName = "/dev/xvda"
+          ebs = {
+            volumeSize          = "50Gi"
+            volumeType          = "gp3"
+            iops                = 3000
+            throughput          = 125
+            encrypted           = true
+            deleteOnTermination = true
+          }
+        }
+      ]
+      subnetSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.name
+          }
+        }
+      ]
+      securityGroupSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.name
+          }
+        }
+      ]
+      metadataOptions = {
+        httpEndpoint            = "enabled"
+        httpProtocolIPv6        = "disabled"
+        httpPutResponseHopLimit = 2
+        httpTokens              = "required"
+      }
+    }
+  })
+
+  depends_on = [module.eks_blueprints_addons]
+}
+
 # Karpenter NodePool - Cost Optimized with Mixed Architecture
 resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
   yaml_body = yamlencode({
@@ -195,6 +264,12 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
               effect = "NO_SCHEDULE"
             }
           ]
+
+          nodeClassRef = {
+            apiVersion = "karpenter.k8s.aws/v1beta1"
+            kind       = "EC2NodeClass"
+            name       = "default"
+          }
         }
       }
 

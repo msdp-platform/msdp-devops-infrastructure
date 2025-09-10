@@ -88,14 +88,14 @@ module "eks" {
     system = {
       name = "system"
 
-      instance_types = ["t4g.medium", "t4g.large", "m6g.medium", "m6g.large"]
+      instance_types = ["t4g.micro"]
 
       min_size     = 1
-      max_size     = 4
+      max_size     = 1
       desired_size = 1
 
-      # Use spot instances for maximum cost savings
-      capacity_type = "SPOT"
+      # Use on-demand instances to ensure reliable creation
+      capacity_type = "ON_DEMAND"
 
       # Taints to prevent user workloads
       taints = {
@@ -134,38 +134,11 @@ module "eks" {
 
   # Fargate Profiles for serverless workloads
   fargate_profiles = {
-    default = {
-      name = "default"
+    jobs = {
+      name = "jobs"
       selectors = [
         {
-          namespace = "default"
-        },
-        {
-          namespace = "kube-system"
-        }
-      ]
-    }
-
-    monitoring = {
-      name = "monitoring"
-      selectors = [
-        {
-          namespace = "monitoring"
-        },
-        {
-          namespace = "prometheus"
-        }
-      ]
-    }
-
-    gitops = {
-      name = "gitops"
-      selectors = [
-        {
-          namespace = "argocd"
-        },
-        {
-          namespace = "crossplane-system"
+          namespace = "jobs"
         }
       ]
     }
@@ -815,7 +788,7 @@ resource "aws_iam_role_policy" "aws_load_balancer_controller" {
         ]
         Condition = {
           Null = {
-            "aws:RequestedRegion"                   = "false"
+            "aws:RequestedRegion"                   = "false",
             "aws:ResourceTag/elbv2.k8s.aws/cluster" = "false"
           }
         }
@@ -866,7 +839,7 @@ resource "aws_iam_role" "external_dns" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns"
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }
@@ -920,7 +893,7 @@ resource "aws_iam_role" "cert_manager" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:cert-manager:cert-manager"
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:cert-manager:cert-manager",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }
@@ -979,7 +952,7 @@ resource "aws_iam_role" "secrets_store_csi" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kube-system:secrets-store-csi-driver"
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kube-system:secrets-store-csi-driver",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }
@@ -1033,7 +1006,7 @@ resource "aws_iam_role" "argocd" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:argocd:argocd-server"
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:argocd:argocd-server",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }
@@ -1078,7 +1051,7 @@ resource "aws_iam_role" "crossplane" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:crossplane-system:crossplane"
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:crossplane-system:crossplane",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }

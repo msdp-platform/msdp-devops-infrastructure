@@ -13,6 +13,18 @@ This directory contains comprehensive documentation for the MSDP DevOps Infrastr
 ### **Deployment**
 - [Deployment Guide](deployment/Deployment-Guide.md) - Step-by-step deployment instructions
 
+### **Infrastructure**
+- [AKS Setup Guide](infrastructure/AKS-Setup-Guide.md) - AKS cluster installation and configuration
+- [Route53-Azure Hybrid Setup](infrastructure/Route53-Azure-Hybrid-Setup-Complete.md) - Hybrid DNS configuration
+- [External DNS Setup](infrastructure/EXTERNAL_DNS_SETUP.md) - ExternalDNS configuration and policies
+- [Node Auto-Provisioning](infrastructure/Node-Auto-Provisioning-Setup.md) - Karpenter/Cluster Autoscaler configuration
+- [Pod Allocation Analysis](infrastructure/Node-Pool-Pod-Allocation-Analysis.md) - Scheduling and resource allocation
+- [Single Public IP Setup](infrastructure/Single-Public-IP-Setup.md) - Egress IP configuration
+- [System Node Pool Scale Down (Analysis)](infrastructure/System-Node-Pool-Scale-Down-Analysis.md)
+- [System Node Pool Scale Down (Status)](infrastructure/System-Node-Pool-Scale-Down-Status.md)
+- [Pod Affinity Enforcement Summary](infrastructure/System-Pod-Affinity-Enforcement-Summary.md)
+- [DNS Delegation Fix Complete](infrastructure/DNS-Delegation-Fix-Complete.md)
+
 ### **Operations**
 - [Operations Guide](operations/Operations-Guide.md) - Operational procedures and maintenance
 

@@ -6,7 +6,7 @@ aws_region   = "us-west-2"
 vpc_cidr     = "10.0.0.0/16"
 
 # Kubernetes Configuration
-kubernetes_version = "1.28"
+kubernetes_version = "1.31"
 
 # Instance Types for Karpenter - Cost-optimized mixed architecture (ARM + x86)
 karpenter_instance_types = [
