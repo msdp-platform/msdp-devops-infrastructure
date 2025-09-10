@@ -82,6 +82,20 @@ module "eks" {
   subnet_ids             = module.vpc.private_subnets
   endpoint_public_access = true
 
+  access_entries = {
+    github_actions = {
+      principal_arn = "arn:aws:iam::319422413814:role/GitHubActions-Role"
+      policy_associations = [
+        {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      ]
+    }
+  }
+
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
   eks_managed_node_groups = {
     # Critical system nodes - ARM-based spot instances for cost savings
