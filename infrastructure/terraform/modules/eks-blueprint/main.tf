@@ -109,7 +109,7 @@ module "eks" {
       labels = {
         "node-type"              = "system"
         "karpenter.sh/discovery" = local.name
-        "kubernetes.io/arch"     = "arm64"
+        "node.kubernetes.io/arch" = "arm64"
       }
 
       # ARM-based AMI
@@ -272,11 +272,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
   })
 }
 
-# Karpenter Controller Service Account
-resource "aws_iam_role_policy_attachment" "karpenter_controller" {
-  policy_arn = aws_iam_role_policy.karpenter_controller.id
-  role       = aws_iam_role.karpenter_controller.name
-}
+# Note: Karpenter controller policy is an inline policy, no attachment needed
 
 # Karpenter Instance Profile
 resource "aws_iam_instance_profile" "karpenter" {
