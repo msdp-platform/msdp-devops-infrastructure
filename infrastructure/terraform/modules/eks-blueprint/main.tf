@@ -101,11 +101,11 @@ module "eks" {
   cluster_version = var.kubernetes_version
 
   vpc_id                         = module.vpc.vpc_id
-  subnet_ids                     = module.vpc.private_subnets
+  subnets                        = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
-  eks_managed_node_groups = {
+  node_groups = {
     # Critical system nodes - ARM-based spot instances for cost savings
     system = {
       name = "system"
@@ -155,7 +155,7 @@ module "eks" {
   }
 
   # Fargate Profiles for serverless workloads
-  fargate_profiles = {
+  fargate_profile = {
     default = {
       name = "default"
       selectors = [
