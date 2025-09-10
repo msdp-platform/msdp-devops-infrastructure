@@ -274,7 +274,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
 
 # Karpenter Controller Service Account
 resource "aws_iam_role_policy_attachment" "karpenter_controller" {
-  policy_arn = aws_iam_role_policy.karpenter_controller.arn
+  policy_arn = aws_iam_role_policy.karpenter_controller.id
   role       = aws_iam_role.karpenter_controller.name
 }
 

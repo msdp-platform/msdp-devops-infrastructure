@@ -131,9 +131,9 @@ output "acm_certificate_arn" {
   value       = var.create_acm_certificate ? aws_acm_certificate.main[0].arn : ""
 }
 
-output "acm_certificate_validation_status" {
-  description = "Validation status of the ACM certificate"
-  value       = var.create_acm_certificate ? aws_acm_certificate_validation.main[0].status : ""
+output "acm_certificate_validation_arn" {
+  description = "ARN of the validated ACM certificate"
+  value       = var.create_acm_certificate ? aws_acm_certificate_validation.main[0].certificate_arn : ""
 }
 
 # Service URLs
