@@ -115,6 +115,12 @@ resource "aws_iam_role_policy_attachment" "github_actions" {
   policy_arn = aws_iam_policy.github_actions.arn
 }
 
+# Attach AWS managed AdministratorAccess for full admin privileges
+resource "aws_iam_role_policy_attachment" "github_actions_admin" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
 # S3 Bucket for Terraform state
 resource "aws_s3_bucket" "terraform_state" {
   count  = var.create_terraform_backend ? 1 : 0
