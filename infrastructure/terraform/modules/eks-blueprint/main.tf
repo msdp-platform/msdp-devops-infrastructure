@@ -328,7 +328,7 @@ module "karpenter_sqs" {
   source  = "terraform-aws-modules/sqs/aws"
   version = "~> 4.0"
 
-  name = "${local.name}-karpenter"
+  queue_name = "${local.name}-karpenter"
 
   tags = local.tags
 }
