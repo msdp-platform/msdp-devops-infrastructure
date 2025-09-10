@@ -144,7 +144,7 @@ variable "karpenter_instance_types" {
 variable "domain_name" {
   description = "Domain name for the cluster"
   type        = string
-  default     = "example.com"
+  default     = "aztech-msdp.com"
 }
 
 variable "create_route53_zone" {

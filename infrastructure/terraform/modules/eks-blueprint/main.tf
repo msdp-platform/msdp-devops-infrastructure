@@ -810,6 +810,74 @@ resource "aws_acm_certificate_validation" "main" {
   }
 }
 
+# Serverless PostgreSQL for Backstage
+resource "aws_rds_cluster" "backstage_postgres" {
+  cluster_identifier      = "${local.name}-backstage-postgres"
+  engine                  = "aurora-postgresql"
+  engine_mode            = "serverless"
+  engine_version         = "13.7"
+  database_name          = "backstage"
+  master_username        = "backstage"
+  master_password        = random_password.backstage_postgres_password.result
+  backup_retention_period = 7
+  preferred_backup_window = "07:00-09:00"
+  preferred_maintenance_window = "sun:09:00-sun:11:00"
+  skip_final_snapshot    = true
+  deletion_protection    = false
+
+  serverlessv2_scaling_configuration {
+    max_capacity = 16
+    min_capacity = 0.5
+  }
+
+  vpc_security_group_ids = [aws_security_group.backstage_postgres.id]
+  db_subnet_group_name   = aws_db_subnet_group.backstage_postgres.name
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-backstage-postgres"
+  })
+}
+
+# Random password for Backstage PostgreSQL
+resource "random_password" "backstage_postgres_password" {
+  length  = 32
+  special = true
+}
+
+# Security group for Backstage PostgreSQL
+resource "aws_security_group" "backstage_postgres" {
+  name_prefix = "${local.name}-backstage-postgres-"
+  vpc_id      = module.vpc.vpc_id
+
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = [module.vpc.vpc_cidr_block]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-backstage-postgres"
+  })
+}
+
+# DB subnet group for Backstage PostgreSQL
+resource "aws_db_subnet_group" "backstage_postgres" {
+  name       = "${local.name}-backstage-postgres"
+  subnet_ids = module.vpc.private_subnets
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-backstage-postgres"
+  })
+}
+
 resource "aws_route53_record" "cert_validation" {
   for_each = var.create_acm_certificate ? {
     for dvo in aws_acm_certificate.main[0].domain_validation_options : dvo.domain_name => {

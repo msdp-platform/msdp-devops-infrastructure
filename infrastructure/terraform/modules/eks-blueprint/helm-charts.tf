@@ -10,6 +10,12 @@ resource "helm_release" "karpenter" {
   chart      = "karpenter"
   version    = var.karpenter_version
 
+  depends_on = [
+    module.eks,
+    aws_iam_instance_profile.karpenter,
+    module.karpenter_sqs
+  ]
+
   set {
     name  = "settings.aws.clusterName"
     value = module.eks.cluster_name
@@ -440,7 +446,7 @@ resource "helm_release" "ack_s3" {
   create_namespace = true
 
   name       = "ack-s3-controller"
-  repository = "https://aws-controllers-k8s.github.io/community-charts"
+  repository = "oci://public.ecr.aws/aws-controllers-k8s"
   chart      = "ack-s3-controller"
   version    = var.ack_s3_version
 
@@ -457,7 +463,7 @@ resource "helm_release" "ack_rds" {
   create_namespace = true
 
   name       = "ack-rds-controller"
-  repository = "https://aws-controllers-k8s.github.io/community-charts"
+  repository = "oci://public.ecr.aws/aws-controllers-k8s"
   chart      = "ack-rds-controller"
   version    = var.ack_rds_version
 
@@ -492,6 +498,19 @@ resource "helm_release" "backstage" {
             listen = {
               port = 7007
             }
+            database = {
+              client = "pg"
+              connection = {
+                host     = aws_rds_cluster.backstage_postgres.endpoint
+                port     = aws_rds_cluster.backstage_postgres.port
+                user     = aws_rds_cluster.backstage_postgres.master_username
+                password = aws_rds_cluster.backstage_postgres.master_password
+                database = aws_rds_cluster.backstage_postgres.database_name
+                ssl = {
+                  rejectUnauthorized = false
+                }
+              }
+            }
           }
         }
       }
@@ -525,5 +544,5 @@ resource "helm_release" "backstage" {
     })
   ]
 
-  depends_on = [module.eks, helm_release.nginx_ingress, helm_release.cert_manager]
+  depends_on = [module.eks, helm_release.nginx_ingress, helm_release.cert_manager, aws_rds_cluster.backstage_postgres]
 }
