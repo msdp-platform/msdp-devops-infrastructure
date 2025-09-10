@@ -192,7 +192,7 @@ resource "null_resource" "wait_for_cluster" {
   }
 
   triggers = {
-    cluster_name = module.eks.cluster_name
+    cluster_name     = module.eks.cluster_name
     cluster_endpoint = module.eks.cluster_endpoint
   }
 }
