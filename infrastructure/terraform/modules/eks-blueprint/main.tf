@@ -82,6 +82,9 @@ module "eks" {
   subnet_ids                     = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
+  # Enable EKS Pod Identity
+  enable_pod_identity = true
+
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
   eks_managed_node_groups = {
     # Critical system nodes - ARM-based spot instances for cost savings
@@ -175,6 +178,23 @@ module "eks" {
   # Karpenter node role is managed via EKS managed node groups and IRSA
 
   tags = local.tags
+}
+
+# Wait for EKS cluster to be ready and update kubeconfig
+resource "null_resource" "wait_for_cluster" {
+  depends_on = [module.eks]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      aws eks wait cluster-active --region ${var.aws_region} --name ${module.eks.cluster_name}
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}
+    EOT
+  }
+
+  triggers = {
+    cluster_name = module.eks.cluster_name
+    cluster_endpoint = module.eks.cluster_endpoint
+  }
 }
 
 # Karpenter Node IAM Role
@@ -814,8 +834,8 @@ resource "aws_acm_certificate_validation" "main" {
 resource "aws_rds_cluster" "backstage_postgres" {
   cluster_identifier           = "${local.name}-backstage-postgres"
   engine                       = "aurora-postgresql"
-  engine_mode                  = "serverless"
-  engine_version               = "13.7"
+  engine_mode                  = "provisioned"
+  engine_version               = "15.4"
   database_name                = "backstage"
   master_username              = "backstage"
   master_password              = random_password.backstage_postgres_password.result
@@ -835,6 +855,18 @@ resource "aws_rds_cluster" "backstage_postgres" {
 
   tags = merge(local.tags, {
     Name = "${local.name}-backstage-postgres"
+  })
+}
+
+# Aurora Serverless v2 instance
+resource "aws_rds_cluster_instance" "backstage_postgres" {
+  cluster_identifier = aws_rds_cluster.backstage_postgres.id
+  instance_class     = "db.serverless"
+  engine             = aws_rds_cluster.backstage_postgres.engine
+  engine_version     = aws_rds_cluster.backstage_postgres.engine_version
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-backstage-postgres-instance"
   })
 }
 

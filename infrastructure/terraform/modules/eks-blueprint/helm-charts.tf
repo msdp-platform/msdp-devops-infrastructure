@@ -11,7 +11,7 @@ resource "helm_release" "karpenter" {
   version    = var.karpenter_version
 
   depends_on = [
-    module.eks,
+    null_resource.wait_for_cluster,
     aws_iam_instance_profile.karpenter,
     module.karpenter_sqs
   ]
@@ -97,7 +97,7 @@ resource "helm_release" "aws_load_balancer_controller" {
     value = module.vpc.vpc_id
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # External DNS
@@ -160,7 +160,7 @@ resource "helm_release" "external_dns" {
     value = "sync"
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # Cert-Manager
@@ -198,7 +198,7 @@ resource "helm_release" "cert_manager" {
     value = "cert-manager"
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # Secrets Store CSI Driver
@@ -226,7 +226,7 @@ resource "helm_release" "secrets_store_csi_driver" {
     value = "2m"
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # AWS Secrets Manager Provider
@@ -358,7 +358,7 @@ resource "helm_release" "prometheus" {
     })
   ]
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # ArgoCD
@@ -440,7 +440,7 @@ resource "helm_release" "crossplane" {
     value = aws_iam_role.crossplane.arn
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # AWS Controllers for Kubernetes (ACK)
@@ -458,7 +458,7 @@ resource "helm_release" "ack_s3" {
     value = var.aws_region
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 resource "helm_release" "ack_rds" {
@@ -475,7 +475,7 @@ resource "helm_release" "ack_rds" {
     value = var.aws_region
   }
 
-  depends_on = [module.eks]
+  depends_on = [null_resource.wait_for_cluster]
 }
 
 # Backstage

@@ -88,13 +88,13 @@ variable "crossplane_version" {
 variable "ack_s3_version" {
   description = "ACK S3 Controller version"
   type        = string
-  default     = "1.0.0"
+  default     = "1.1.0"
 }
 
 variable "ack_rds_version" {
   description = "ACK RDS Controller version"
   type        = string
-  default     = "1.0.0"
+  default     = "1.1.0"
 }
 
 variable "backstage_version" {
