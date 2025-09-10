@@ -73,26 +73,26 @@ module "vpc" {
 # EKS Cluster with Fargate Profiles
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 12.0"
+  version = "~> 21.1.5"
 
-  cluster_name    = local.name
-  cluster_version = var.kubernetes_version
+  name    = local.name
+  version = var.kubernetes_version
 
   vpc_id                         = module.vpc.vpc_id
-  subnets                        = module.vpc.private_subnets
+  subnet_ids                     = module.vpc.private_subnets
   cluster_endpoint_public_access = true
 
   # EKS Managed Node Groups - ARM-based system nodes (spot only for cost optimization)
-  node_groups = {
+  eks_managed_node_groups = {
     # Critical system nodes - ARM-based spot instances for cost savings
     system = {
       name = "system"
 
       instance_types = ["t4g.medium", "t4g.large", "m6g.medium", "m6g.large"]
 
-      min_size     = 2
+      min_size     = 1
       max_size     = 4
-      desired_size = 2
+      desired_size = 1
 
       # Use spot instances for maximum cost savings
       capacity_type = "SPOT"
@@ -133,7 +133,7 @@ module "eks" {
   }
 
   # Fargate Profiles for serverless workloads
-  fargate_profiles = {
+  fargate_profile = {
     default = {
       name = "default"
       selectors = [
@@ -405,7 +405,7 @@ resource "helm_release" "backstage" {
       backstage = {
         appConfig = {
           app = {
-            title = "MSDP Developer Portal"
+            title   = "MSDP Developer Portal"
             baseUrl = "https://backstage.${var.domain_name}"
           }
           backend = {
@@ -417,16 +417,16 @@ resource "helm_release" "backstage" {
               "connect-src" = ["'self'", "http:", "https:"]
             }
             cors = {
-              origin = "https://backstage.${var.domain_name}"
-              methods = ["GET", "HEAD", "PATCH", "POST", "PUT", "DELETE"]
+              origin      = "https://backstage.${var.domain_name}"
+              methods     = ["GET", "HEAD", "PATCH", "POST", "PUT", "DELETE"]
               credentials = true
             }
             database = {
               client = "pg"
               connection = {
-                host = aws_rds_cluster.backstage_postgres.endpoint
-                port = 5432
-                user = aws_rds_cluster.backstage_postgres.master_username
+                host     = aws_rds_cluster.backstage_postgres.endpoint
+                port     = 5432
+                user     = aws_rds_cluster.backstage_postgres.master_username
                 password = random_password.backstage_postgres_password.result
                 database = aws_rds_cluster.backstage_postgres.database_name
                 ssl = {
@@ -438,7 +438,7 @@ resource "helm_release" "backstage" {
           integrations = {
             github = [
               {
-                host = "github.com"
+                host  = "github.com"
                 token = var.github_token
               }
             ]
@@ -452,10 +452,10 @@ resource "helm_release" "backstage" {
         }
       }
       ingress = {
-        enabled = true
+        enabled   = true
         className = "nginx"
         annotations = {
-          "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+          "cert-manager.io/cluster-issuer"           = "letsencrypt-prod"
           "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
         }
         hosts = [
@@ -463,7 +463,7 @@ resource "helm_release" "backstage" {
             host = "backstage.${var.domain_name}"
             paths = [
               {
-                path = "/"
+                path     = "/"
                 pathType = "Prefix"
               }
             ]
@@ -472,7 +472,7 @@ resource "helm_release" "backstage" {
         tls = [
           {
             secretName = "backstage-tls"
-            hosts = ["backstage.${var.domain_name}"]
+            hosts      = ["backstage.${var.domain_name}"]
           }
         ]
       }
