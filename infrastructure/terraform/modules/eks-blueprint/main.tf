@@ -171,21 +171,8 @@ module "eks" {
     }
   }
 
-  # aws-auth configmap
-  manage_aws_auth_configmap = true
-
-  aws_auth_roles = [
-    {
-      rolearn  = aws_iam_role.karpenter_node_instance_profile.arn
-      username = "system:node:{{EC2PrivateDNSName}}"
-      groups = [
-        "system:bootstrappers",
-        "system:nodes",
-      ]
-    },
-  ]
-
-  aws_auth_users = var.aws_auth_users
+  # Note: aws-auth configmap management is handled automatically in EKS module v20+
+  # Karpenter node role is managed via EKS managed node groups and IRSA
 
   tags = local.tags
 }
