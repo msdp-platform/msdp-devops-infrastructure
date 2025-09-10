@@ -1,0 +1,50 @@
+# Example Terraform variables for development environment
+# Copy this file to terraform.tfvars and customize the values
+
+# Cluster Configuration
+cluster_name = "msdp-eks-dev"
+aws_region   = "us-west-2"
+vpc_cidr     = "10.0.0.0/16"
+
+# Kubernetes Configuration
+kubernetes_version = "1.28"
+karpenter_version  = "0.37.0"
+
+# Instance Types for Karpenter - ARM-based for maximum cost savings
+karpenter_instance_types = [
+  # ARM-based instances (Graviton) - up to 40% better price/performance
+  "t4g.medium",
+  "t4g.large",
+  "t4g.xlarge",
+  "t4g.2xlarge",
+  "m6g.medium",
+  "m6g.large",
+  "m6g.xlarge",
+  "m6g.2xlarge",
+  "m6g.4xlarge",
+  "c6g.medium",
+  "c6g.large",
+  "c6g.xlarge",
+  "c6g.2xlarge",
+  "c6g.4xlarge",
+  "r6g.medium",
+  "r6g.large",
+  "r6g.xlarge",
+  "r6g.2xlarge",
+  "r6g.4xlarge"
+]
+
+# AWS Auth Users (optional)
+# aws_auth_users = [
+#   {
+#     userarn  = "arn:aws:iam::123456789012:user/developer"
+#     username = "developer"
+#     groups   = ["system:masters"]
+#   }
+# ]
+
+# DNS and Certificate Configuration
+domain_name = "your-domain.com"
+create_route53_zone = true
+create_acm_certificate = true
+letsencrypt_email = "admin@your-domain.com"

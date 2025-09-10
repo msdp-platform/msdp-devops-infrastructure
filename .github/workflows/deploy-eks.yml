@@ -1,0 +1,271 @@
+name: Deploy EKS with Karpenter
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - "infrastructure/terraform/**"
+      - ".github/workflows/deploy-eks.yml"
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - "infrastructure/terraform/**"
+      - ".github/workflows/deploy-eks.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      action:
+        description: "Action to perform"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+env:
+  AWS_REGION: us-west-2
+  TERRAFORM_VERSION: 1.6.0
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+
+      - name: Upload Terraform Plan
+        uses: actions/upload-artifact@v3
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: "v3.13.0"
+
+      - name: Download Terraform Plan
+        uses: actions/download-artifact@v3
+        with:
+          name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
+          path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name msdp-eks-${{ github.event.inputs.environment || 'dev' }}
+          kubectl get nodes
+
+      - name: Verify Karpenter Installation
+        run: |
+          kubectl get pods -n karpenter
+          kubectl get nodepools
+          kubectl get nodeclasses
+
+      - name: Test Node Provisioning
+        run: |
+          # Create a test deployment to trigger Karpenter
+          cat <<EOF | kubectl apply -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: test-karpenter
+            namespace: default
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test-karpenter
+            template:
+              metadata:
+                labels:
+                  app: test-karpenter
+              spec:
+                containers:
+                - name: nginx
+                  image: nginx:1.21
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                    limits:
+                      cpu: 200m
+                      memory: 256Mi
+          EOF
+
+          # Wait for deployment to be ready
+          kubectl wait --for=condition=available --timeout=300s deployment/test-karpenter
+
+          # Clean up test deployment
+          kubectl delete deployment test-karpenter
+
+  terraform-destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Terraform Destroy
+        run: terraform destroy -auto-approve
+        working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
+        env:
+          TF_VAR_aws_region: ${{ env.AWS_REGION }}
+
+  cost-optimization-check:
+    name: Cost Optimization Check
+    runs-on: ubuntu-latest
+    needs: terraform-apply
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev'
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name msdp-eks-${{ github.event.inputs.environment || 'dev' }}
+
+      - name: Check Node Types
+        run: |
+          echo "Current node types:"
+          kubectl get nodes -o custom-columns=NAME:.metadata.name,INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,CAPACITY-TYPE:.metadata.labels.karpenter\\.sh/capacity-type
+
+          echo "Karpenter NodePools:"
+          kubectl get nodepools -o wide
+
+          echo "Node utilization:"
+          kubectl top nodes
+
+      - name: Verify Spot Instance Usage
+        run: |
+          # Check if we have spot instances
+          SPOT_COUNT=$(kubectl get nodes -l karpenter.sh/capacity-type=spot --no-headers | wc -l)
+          ON_DEMAND_COUNT=$(kubectl get nodes -l karpenter.sh/capacity-type=on-demand --no-headers | wc -l)
+
+          echo "Spot instances: $SPOT_COUNT"
+          echo "On-demand instances: $ON_DEMAND_COUNT"
+
+          if [ $SPOT_COUNT -gt 0 ]; then
+            echo "✅ Spot instances are being used for cost optimization"
+          else
+            echo "⚠️ No spot instances found - check Karpenter configuration"
+          fi

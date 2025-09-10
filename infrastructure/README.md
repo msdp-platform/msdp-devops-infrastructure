@@ -1,142 +1,325 @@
-# 🚀 MSDP Infrastructure - Consolidated
+# 🏗️ Comprehensive EKS Platform - Infrastructure as Code
 
-## 🎯 **Overview**
+## 📋 **Overview**
 
-This directory contains the **consolidated, clean infrastructure** for the MSDP platform, aligned with the smart deployment system. All duplications and inconsistencies have been resolved.
+This infrastructure provides a comprehensive EKS platform with all the components you requested. The platform includes cost-optimized EKS cluster with Karpenter, security components, observability, GitOps, and developer tools. The setup ensures you can never scale down to 0 instances while maximizing cost savings through spot instances.
 
-## 🏗️ **Clean Architecture**
+## 🎯 **Key Features**
 
-The MSDP infrastructure follows a **clean, consolidated architecture** that provides:
+### **Core EKS Cluster Components**
+- **✅ EKS Cluster** with managed node groups
+- **✅ Fargate Profiles** for serverless workloads
+- **✅ VPC CNI** for advanced networking
 
-- **🔄 Smart Deployment**: Branch-driven deployment (dev/test/prod)
-- **☁️ Multi-Cloud**: Azure AKS + AWS Route53 + Crossplane providers
-- **💰 Cost Optimization**: Spot instances, auto-scaling, shared resources
-- **🔒 Enterprise Security**: Automated SSL, RBAC, network policies
-- **⚡ High Availability**: Multi-zone deployment with auto-failover
+### **Security & Governance**
+- **✅ AWS Load Balancer Controller** (ALB/NLB ingress)
+- **✅ External DNS** (auto-manage Route 53 DNS records)
+- **✅ Cert-Manager** (TLS cert automation with ACM)
+- **✅ Secrets Store CSI Driver** (integrates with AWS Secrets Manager & SSM Parameter Store)
+- **✅ Karpenter** (intelligent autoscaling, spot instance optimization)
 
-## 📁 **Consolidated Directory Structure**
+### **Networking & Traffic Management**
+- **✅ Amazon VPC CNI** (default networking)
+- **✅ NGINX Ingress Controller** (popular ingress option)
+
+### **Observability (Monitoring & Logging)**
+- **✅ Prometheus + Alertmanager** (metrics + alerting)
+- **✅ Grafana** (dashboards, often with AWS Managed Grafana)
+
+### **CI/CD & GitOps**
+- **✅ ArgoCD** (GitOps controller, deploy workloads via Git)
+- **✅ AWS Controllers for Kubernetes (ACK)**
+
+### **Others**
+- **✅ Crossplane** (Infrastructure as Code)
+- **✅ Backstage** (Developer portal)
+
+### **Cost Optimization**
+- **✅ ARM-Based Instances**: AWS Graviton processors for up to 40% better price/performance
+- **✅ Spot Instances Only**: Up to 90% cost savings with no on-demand instances
+- **✅ Zero Downtime**: Minimum node configuration prevents 0 instance scaling
+- **✅ Multi-Instance Types**: Support for various ARM instance types and families
+- **✅ Auto-Scaling**: Intelligent node provisioning based on workload demands
+- **✅ Spot Interruption Handling**: Graceful handling of spot instance interruptions
+- **✅ System Node Isolation**: Dedicated system nodes for critical workloads
+
+## 🏗️ **Architecture**
 
 ```
-infrastructure/
-├── environments/                   # Environment-specific configurations
-│   ├── dev/values.yaml            # Development environment
-│   ├── test/values.yaml           # Test environment  
-│   └── prod/values.yaml           # Production environment
-├── components/                     # Reusable infrastructure components
-│   ├── crossplane/                # Crossplane XRDs and Compositions
-│   ├── argocd/                    # ArgoCD applications and projects
-│   └── backstage/                 # Backstage Helm chart (legacy)
-├── platforms/                     # Platform-specific configurations
-│   ├── networking/                # Ingress, DNS, SSL
-│   ├── security/                  # Certificates, RBAC
-│   └── monitoring/                # Prometheus, Grafana
-├── applications/                  # Application deployments
-│   ├── backstage/                 # Backstage application
-│   ├── argocd/                    # ArgoCD installation
-│   └── crossplane/                # Crossplane installation
-└── kubernetes/                    # Legacy Kubernetes configs
-    └── backstage/                 # Simplified Backstage (current)
+┌─────────────────────────────────────────────────────────────┐
+│                Comprehensive EKS Platform                  │
+├─────────────────────────────────────────────────────────────┤
+│  Core EKS Cluster Components                               │
+│  ├── EKS Cluster with Managed Node Groups                  │
+│  ├── Fargate Profiles (Serverless)                        │
+│  └── VPC CNI (Advanced Networking)                        │
+├─────────────────────────────────────────────────────────────┤
+│  Security & Governance                                     │
+│  ├── AWS Load Balancer Controller (ALB/NLB)               │
+│  ├── External DNS (Route 53)                              │
+│  ├── Cert-Manager (TLS Automation)                        │
+│  ├── Secrets Store CSI Driver (AWS Secrets)               │
+│  └── Karpenter (Intelligent Autoscaling)                  │
+├─────────────────────────────────────────────────────────────┤
+│  Networking & Traffic Management                           │
+│  ├── NGINX Ingress Controller                             │
+│  └── Amazon VPC CNI                                       │
+├─────────────────────────────────────────────────────────────┤
+│  Observability (Monitoring & Logging)                     │
+│  ├── Prometheus + Alertmanager                            │
+│  └── Grafana (Dashboards)                                 │
+├─────────────────────────────────────────────────────────────┤
+│  CI/CD & GitOps                                           │
+│  ├── ArgoCD (GitOps Controller)                           │
+│  └── AWS Controllers for Kubernetes (ACK)                 │
+├─────────────────────────────────────────────────────────────┤
+│  Others                                                    │
+│  ├── Crossplane (Infrastructure as Code)                  │
+│  └── Backstage (Developer Portal)                         │
+└─────────────────────────────────────────────────────────────┘
 ```
-
-## 🔄 **Smart Deployment Integration**
-
-### **Branch-Driven Deployment**
-- **`dev` branch** → Development environment
-- **`test` branch** → Test environment
-- **`prod` branch** → Production environment
-
-### **GitHub Actions Workflow**
-- **Automatic deployment** on push to branches
-- **Manual deployment** via workflow dispatch
-- **Environment detection** based on branch
-- **Secrets management** through smart deployment system
 
 ## 🚀 **Quick Start**
 
-### **1. Deploy Infrastructure**
+### **Prerequisites**
+
+1. **AWS CLI** configured with appropriate permissions
+2. **Terraform** >= 1.0
+3. **kubectl** >= 1.28
+4. **Helm** >= 3.13
+5. **GitHub Actions** secrets configured
+
+### **Required AWS Permissions**
+
+Your AWS credentials need the following permissions:
+- EKS cluster management
+- EC2 instance management
+- IAM role creation and management
+- VPC and networking
+- SQS queue management
+- CloudWatch Events
+
+### **GitHub Secrets**
+
+Configure these secrets in your GitHub repository:
+
 ```bash
-# Deploy to development
-git push origin dev
-
-# Deploy to test
-git push origin test
-
-# Deploy to production
-git push origin prod
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
 ```
 
-### **2. Manual Deployment**
+### **Deployment**
+
+1. **Clone the repository**:
+   ```bash
+   git clone <your-repo-url>
+   cd msdp-devops-infrastructure
+   ```
+
+2. **Deploy via GitHub Actions**:
+   - Push to `dev` branch for development environment
+   - Push to `main` branch for production environment
+   - Use manual workflow dispatch for custom deployments
+
+3. **Or deploy locally**:
+   ```bash
+   cd infrastructure/terraform/environments/dev
+   terraform init
+   terraform plan
+   terraform apply
+   ```
+
+## 🔧 **Configuration**
+
+### **Environment Variables**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `cluster_name` | EKS cluster name | `msdp-eks-dev` |
+| `aws_region` | AWS region | `us-west-2` |
+| `kubernetes_version` | Kubernetes version | `1.28` |
+| `karpenter_version` | Karpenter version | `0.37.0` |
+| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
+
+### **Instance Types - ARM-Based (Graviton)**
+
+The configuration supports multiple ARM-based instance types for different workloads:
+
+- **General Purpose**: t4g.medium, t4g.large, t4g.xlarge, t4g.2xlarge
+- **Compute Optimized**: c6g.medium, c6g.large, c6g.xlarge, c6g.2xlarge, c6g.4xlarge
+- **Memory Optimized**: r6g.medium, r6g.large, r6g.xlarge, r6g.2xlarge, r6g.4xlarge
+
+## 📊 **NodePools Configuration**
+
+### **1. System NodePool**
+- **Purpose**: Critical system workloads (DNS, CNI, etc.)
+- **Instance Types**: t4g.medium, t4g.large, m6g.medium, m6g.large
+- **Capacity Type**: Spot (ARM-based for cost savings)
+- **Min/Max**: 2/4 nodes
+- **Taint**: `CriticalAddonsOnly=true:NoSchedule`
+
+### **2. Cost-Optimized NodePool**
+- **Purpose**: General application workloads
+- **Capacity Type**: Spot Only
+- **Instance Types**: t4g.*, m6g.*, c6g.* families (ARM-based)
+- **Taint**: `workload-type=user:NoSchedule`
+
+### **3. Memory-Optimized NodePool**
+- **Purpose**: Memory-intensive workloads
+- **Capacity Type**: Spot Only
+- **Instance Types**: r6g.* (ARM-based memory instances)
+- **Taint**: `workload-type=memory-intensive:NoSchedule`
+
+### **4. Minimum NodePool**
+- **Purpose**: Prevents 0 instance scaling
+- **Capacity Type**: Spot Only
+- **Instance Types**: t4g.medium, t4g.large, m6g.medium, m6g.large
+- **Limits**: 4 CPU, 8Gi memory
+
+## 🛡️ **Cost Optimization Features**
+
+### **Spot Instance Strategy**
+- **Primary**: Spot instances only for maximum cost savings (up to 90% reduction)
+- **ARM-Based**: AWS Graviton processors for up to 40% better price/performance
+- **No On-Demand**: All instances use spot pricing for maximum cost optimization
+- **Interruption Handling**: Graceful pod migration via SQS queue
+
+### **Node Consolidation**
+- **Consolidate After**: 30 seconds of underutilization
+- **Consolidation Policy**: WhenEmpty or WhenUnderutilized
+- **Expiration**: 90 days maximum node lifetime
+
+### **Resource Limits**
+- **CPU Limit**: 1000 cores per NodePool
+- **Memory Limit**: 1000Gi per NodePool
+- **Minimum Nodes**: Always maintain minimum capacity
+
+## 🔍 **Monitoring and Observability**
+
+### **CloudWatch Integration**
+- **Node Metrics**: CPU, memory, disk utilization
+- **Custom Metrics**: Karpenter-specific metrics
+- **Logs**: Centralized logging via CloudWatch
+
+### **Karpenter Metrics**
 ```bash
-# Deploy specific components
-helm upgrade --install backstage ./infrastructure/applications/backstage \
-  --namespace backstage-dev \
-  --values ./infrastructure/environments/dev/values.yaml
+# Check Karpenter status
+kubectl get pods -n karpenter
+
+# View NodePools
+kubectl get nodepools
+
+# View NodeClasses
+kubectl get nodeclasses
+
+# Check node utilization
+kubectl top nodes
 ```
 
-### **3. Platform Services**
+### **Cost Monitoring**
 ```bash
-# Deploy networking
-kubectl apply -f infrastructure/platforms/networking/
+# Check spot vs on-demand usage
+kubectl get nodes -l karpenter.sh/capacity-type=spot
+kubectl get nodes -l karpenter.sh/capacity-type=on-demand
 
-# Deploy security
-kubectl apply -f infrastructure/platforms/security/
-
-# Deploy monitoring
-kubectl apply -f infrastructure/platforms/monitoring/
+# View node types
+kubectl get nodes -o custom-columns=NAME:.metadata.name,INSTANCE-TYPE:.metadata.labels.node\\.kubernetes\\.io/instance-type,CAPACITY-TYPE:.metadata.labels.karpenter\\.sh/capacity-type
 ```
 
-## 📊 **Benefits of Consolidation**
+## 🚨 **Troubleshooting**
 
-### **✅ Eliminated Issues**
-- **No more duplications**: Single source of truth for each component
-- **Consistent naming**: All components use same conventions
-- **Aligned architecture**: Everything follows smart deployment system
-- **Clear structure**: Easy to understand and maintain
+### **Common Issues**
 
-### **🚀 Improved Efficiency**
-- **Faster deployments**: No conflicting configurations
-- **Easier maintenance**: Single location for each component
-- **Better testing**: Consistent environment configurations
-- **Reduced confusion**: Clear separation of concerns
+#### **1. No Spot Instances Available**
+```bash
+# Check spot instance availability
+aws ec2 describe-spot-price-history --instance-types t3.medium --max-items 1
 
-## 🛠️ **Migration Notes**
+# Verify Karpenter configuration
+kubectl describe nodepool cost-optimized
+```
 
-### **Archived Directories**
-- **`archive/infrastructure-old/devops-ci-cd/`**: Old DevOps configurations
-- **`archive/infrastructure-old/argocd/`**: Old ArgoCD configurations  
-- **`archive/infrastructure-old/crossplane/`**: Old Crossplane configurations
+#### **2. Nodes Not Scaling Down**
+```bash
+# Check node utilization
+kubectl top nodes
 
-### **Current Active Directories**
-- **`infrastructure/applications/`**: Active application deployments
-- **`infrastructure/platforms/`**: Active platform services
-- **`infrastructure/environments/`**: Active environment configurations
+# Check pod distribution
+kubectl get pods --all-namespaces -o wide
 
-## 🎉 **Summary**
+# Check Karpenter logs
+kubectl logs -n karpenter deployment/karpenter
+```
 
-This consolidated infrastructure provides:
+#### **3. System Pods Not Scheduling**
+```bash
+# Check system node taints
+kubectl describe nodes -l node-type=system
 
-- **🔄 Clean Architecture**: No duplications or conflicts
-- **🚀 Smart Deployment**: Fully integrated with branch-driven workflow
-- **💰 Cost Optimization**: Efficient resource management
-- **🔒 Enterprise Security**: Consistent security policies
-- **⚡ High Availability**: Reliable deployment system
+# Verify system node capacity
+kubectl get nodes -l node-type=system
+```
 
-**This represents a production-ready, maintainable infrastructure that eliminates confusion and provides maximum efficiency.** 🎉
+### **Debug Commands**
+
+```bash
+# Check cluster status
+kubectl get nodes
+kubectl get pods --all-namespaces
+
+# Check Karpenter components
+kubectl get pods -n karpenter
+kubectl logs -n karpenter deployment/karpenter
+
+# Check NodePools
+kubectl get nodepools -o yaml
+kubectl describe nodepool cost-optimized
+
+# Check events
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+## 🔄 **Maintenance**
+
+### **Updating Karpenter**
+```bash
+# Update Karpenter version in variables.tf
+# Then run terraform apply
+terraform apply
+```
+
+### **Scaling NodePools**
+```bash
+# Update NodePool limits
+kubectl patch nodepool cost-optimized --type merge -p '{"spec":{"limits":{"cpu":"2000"}}}'
+```
+
+### **Adding New Instance Types**
+```bash
+# Update karpenter_instance_types in variables.tf
+# Add new instance types to the list
+# Run terraform apply
+```
 
 ## 📚 **Additional Resources**
 
-- [Smart Deployment System](README-Smart-Deployment.md)
-- [Consolidated Architecture](README-Consolidated.md)
-- [Crossplane Documentation](https://crossplane.io/docs/)
-- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
+- [Karpenter Documentation](https://karpenter.sh/)
+- [EKS Blueprint](https://aws-ia.github.io/terraform-aws-eks-blueprints/)
+- [AWS Spot Instances](https://aws.amazon.com/ec2/spot/)
+- [EKS Best Practices](https://aws.github.io/aws-eks-best-practices/)
 
 ## 🤝 **Contributing**
 
-1. Make changes to the appropriate directory
-2. Test in development environment
-3. Create PR to promote to test/prod
-4. Follow the smart deployment workflow
+When making changes to the infrastructure:
+
+1. **Test in dev environment first**
+2. **Update documentation**
+3. **Follow Terraform best practices**
+4. **Use meaningful commit messages**
+5. **Update version numbers appropriately**
 
 ---
 
-**This infrastructure is now clean, consolidated, and fully aligned with the smart deployment system.** 🚀
+**Last Updated**: $(date)  
+**Version**: 1.0.0  
+**Maintainer**: DevOps Team

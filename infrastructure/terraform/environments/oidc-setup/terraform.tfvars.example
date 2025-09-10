@@ -1,0 +1,16 @@
+# Example Terraform variables for OIDC setup
+# Copy this file to terraform.tfvars and customize the values
+
+# AWS Configuration
+aws_region = "us-west-2"
+
+# GitHub Configuration
+github_org = "your-github-org"
+github_repo = "msdp-devops-infrastructure"
+
+# IAM Configuration
+role_name_prefix = "GitHubActions"
+
+# Terraform Backend Configuration
+create_terraform_backend = true
+terraform_bucket_name = "msdp-terraform-state"
