@@ -22,7 +22,7 @@ resource "helm_release" "karpenter" {
 
   set {
     name  = "settings.aws.interruptionQueue"
-    value = module.karpenter.queue_name
+    value = module.karpenter_sqs.queue_name
   }
 
   set {

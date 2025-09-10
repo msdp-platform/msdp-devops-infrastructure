@@ -300,7 +300,7 @@ resource "aws_iam_instance_profile" "karpenter" {
 }
 
 # Karpenter SQS Queue for Spot Interruption
-module "karpenter" {
+module "karpenter_sqs" {
   source  = "terraform-aws-modules/sqs/aws"
   version = "~> 4.0"
 
@@ -311,7 +311,7 @@ module "karpenter" {
 
 # SQS Queue Policy for Spot Interruption
 resource "aws_sqs_queue_policy" "karpenter" {
-  queue_url = module.karpenter.queue_id
+  queue_url = module.karpenter_sqs.queue_id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -323,7 +323,7 @@ resource "aws_sqs_queue_policy" "karpenter" {
           Service = ["events.amazonaws.com", "sqs.amazonaws.com"]
         }
         Action   = "sqs:SendMessage"
-        Resource = module.karpenter.queue_arn
+        Resource = module.karpenter_sqs.queue_arn
       }
     ]
   })
@@ -345,7 +345,7 @@ resource "aws_cloudwatch_event_rule" "karpenter" {
 resource "aws_cloudwatch_event_target" "karpenter" {
   rule      = aws_cloudwatch_event_rule.karpenter.name
   target_id = "KarpenterInterruptionQueueTarget"
-  arn       = module.karpenter.queue_arn
+  arn       = module.karpenter_sqs.queue_arn
 }
 
 # AWS Load Balancer Controller IAM Role
