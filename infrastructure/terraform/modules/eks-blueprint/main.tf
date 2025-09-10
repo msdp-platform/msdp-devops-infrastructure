@@ -188,6 +188,8 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           clusterName = module.eks.cluster_name
+          region      = var.aws_region
+          vpcId       = module.vpc.vpc_id
           serviceAccount = {
             create = true
             name   = "aws-load-balancer-controller"
@@ -346,6 +348,10 @@ module "eks_blueprints_addons" {
   }
 
   tags = local.tags
+
+  depends_on = [
+    null_resource.wait_for_cluster
+  ]
 }
 
 # Backstage - Developer Portal (not included in EKS Blueprints Addons)
