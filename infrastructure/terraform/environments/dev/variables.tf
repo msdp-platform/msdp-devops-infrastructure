@@ -24,11 +24,6 @@ variable "kubernetes_version" {
   default     = "1.28"
 }
 
-variable "karpenter_version" {
-  description = "Karpenter version"
-  type        = string
-  default     = "0.37.0"
-}
 
 variable "karpenter_instance_types" {
   description = "Instance types for Karpenter nodes - Cost-optimized mixed architecture (ARM + x86)"

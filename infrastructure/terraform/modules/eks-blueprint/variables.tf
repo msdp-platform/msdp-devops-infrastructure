@@ -24,83 +24,11 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-# Component Versions
-variable "karpenter_version" {
-  description = "Karpenter version"
+# EKS Blueprints Addons Configuration
+variable "eks_blueprints_addons_version" {
+  description = "EKS Blueprints Addons module version"
   type        = string
-  default     = "0.37.0"
-}
-
-variable "aws_load_balancer_controller_version" {
-  description = "AWS Load Balancer Controller version"
-  type        = string
-  default     = "1.6.2"
-}
-
-variable "external_dns_version" {
-  description = "External DNS version"
-  type        = string
-  default     = "1.13.1"
-}
-
-variable "cert_manager_version" {
-  description = "Cert-Manager version"
-  type        = string
-  default     = "v1.13.2"
-}
-
-variable "secrets_store_csi_version" {
-  description = "Secrets Store CSI Driver version"
-  type        = string
-  default     = "1.3.4"
-}
-
-variable "secrets_store_csi_aws_provider_version" {
-  description = "Secrets Store CSI AWS Provider version"
-  type        = string
-  default     = "0.3.4"
-}
-
-variable "nginx_ingress_version" {
-  description = "NGINX Ingress Controller version"
-  type        = string
-  default     = "4.8.3"
-}
-
-variable "prometheus_version" {
-  description = "Prometheus version"
-  type        = string
-  default     = "55.4.0"
-}
-
-variable "argocd_version" {
-  description = "ArgoCD version"
-  type        = string
-  default     = "5.51.6"
-}
-
-variable "crossplane_version" {
-  description = "Crossplane version"
-  type        = string
-  default     = "1.14.1"
-}
-
-variable "ack_s3_version" {
-  description = "ACK S3 Controller version"
-  type        = string
-  default     = "1.1.0"
-}
-
-variable "ack_rds_version" {
-  description = "ACK RDS Controller version"
-  type        = string
-  default     = "1.1.0"
-}
-
-variable "backstage_version" {
-  description = "Backstage version"
-  type        = string
-  default     = "0.1.0"
+  default     = "~> 1.22.0"
 }
 
 # Instance Types - Cost-optimized mixed architecture (ARM + x86)

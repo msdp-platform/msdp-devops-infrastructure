@@ -114,6 +114,23 @@ output "crossplane_role_arn" {
   value       = aws_iam_role.crossplane.arn
 }
 
+# EKS Blueprints Addons Outputs
+output "eks_blueprints_addons" {
+  description = "EKS Blueprints Addons module outputs"
+  value = {
+    karpenter                    = module.eks_blueprints_addons.karpenter
+    aws_load_balancer_controller = module.eks_blueprints_addons.aws_load_balancer_controller
+    external_dns                 = module.eks_blueprints_addons.external_dns
+    cert_manager                 = module.eks_blueprints_addons.cert_manager
+    secrets_store_csi_driver     = module.eks_blueprints_addons.secrets_store_csi_driver
+    ingress_nginx                = module.eks_blueprints_addons.ingress_nginx
+    kube_prometheus_stack        = module.eks_blueprints_addons.kube_prometheus_stack
+    argocd                       = module.eks_blueprints_addons.argocd
+    crossplane                   = module.eks_blueprints_addons.crossplane
+    eks_addons                   = module.eks_blueprints_addons.eks_addons
+  }
+}
+
 # Route53 Outputs
 output "route53_zone_id" {
   description = "Route53 hosted zone ID"

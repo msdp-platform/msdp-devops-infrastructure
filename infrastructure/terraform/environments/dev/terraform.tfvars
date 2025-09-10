@@ -7,21 +7,6 @@ vpc_cidr     = "10.0.0.0/16"
 
 # Kubernetes Configuration
 kubernetes_version = "1.28"
-karpenter_version  = "0.37.0"
-
-# Component Versions (compatible with Kubernetes 1.28)
-aws_load_balancer_controller_version   = "1.6.2"
-external_dns_version                   = "1.13.1"
-cert_manager_version                   = "v1.13.2"
-secrets_store_csi_version              = "1.3.4"
-secrets_store_csi_aws_provider_version = "0.3.4"
-nginx_ingress_version                  = "4.8.3"
-prometheus_version                     = "55.4.0"
-argocd_version                         = "5.51.6"
-crossplane_version                     = "1.14.1"
-ack_s3_version                         = "1.1.0"
-ack_rds_version                        = "1.1.0"
-backstage_version                      = "0.1.0"
 
 # Instance Types for Karpenter - Cost-optimized mixed architecture (ARM + x86)
 karpenter_instance_types = [

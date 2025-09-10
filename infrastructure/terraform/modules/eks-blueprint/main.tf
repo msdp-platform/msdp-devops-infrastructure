@@ -1,5 +1,5 @@
 # Comprehensive EKS Blueprint with All Platform Components
-# This module creates a complete EKS platform with all required components
+# This module creates a complete EKS platform with all required components using AWS EKS Blueprints Addons
 
 terraform {
   required_version = ">= 1.0"
@@ -17,28 +17,6 @@ terraform {
       version = "~> 1.14"
     }
   }
-}
-
-# Configure the Helm provider to use the EKS cluster
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-    token                  = data.aws_eks_cluster_auth.cluster.token
-  }
-}
-
-# Configure the kubectl provider to use the EKS cluster
-provider "kubectl" {
-  host                   = module.eks.cluster_endpoint
-  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
-  token                  = data.aws_eks_cluster_auth.cluster.token
-  load_config_file       = false
-}
-
-# Data source for EKS cluster auth
-data "aws_eks_cluster_auth" "cluster" {
-  name = module.eks.cluster_name
 }
 
 # Data sources
@@ -195,6 +173,214 @@ module "eks" {
 
   # Note: aws-auth configmap management is handled automatically in EKS module v20+
   # Karpenter node role is managed via EKS managed node groups and IRSA
+
+  tags = local.tags
+}
+
+# AWS EKS Blueprints Addons - All platform components managed by official AWS module
+module "eks_blueprints_addons" {
+  source  = "aws-ia/eks-blueprints-addons/aws"
+  version = "~> 1.22.0"
+
+  cluster_name      = module.eks.cluster_name
+  cluster_endpoint  = module.eks.cluster_endpoint
+  cluster_version   = module.eks.cluster_version
+  oidc_provider_arn = module.eks.oidc_provider_arn
+
+  # EKS Add-ons
+  eks_addons = {
+    aws-ebs-csi-driver = {
+      most_recent = true
+    }
+    coredns = {
+      most_recent = true
+    }
+    vpc-cni = {
+      most_recent = true
+    }
+    kube-proxy = {
+      most_recent = true
+    }
+  }
+
+  # Enable AWS Load Balancer Controller
+  enable_aws_load_balancer_controller = true
+  aws_load_balancer_controller = {
+    helm_config = {
+      values = [
+        yamlencode({
+          clusterName = module.eks.cluster_name
+          serviceAccount = {
+            create = false
+            name   = "aws-load-balancer-controller"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.aws_load_balancer_controller.arn
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable External DNS
+  enable_external_dns = true
+  external_dns = {
+    helm_config = {
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = false
+            name   = "external-dns"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.external_dns.arn
+            }
+          }
+          aws = {
+            zoneType = "public"
+            region   = var.aws_region
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable Cert-Manager
+  enable_cert_manager = true
+  cert_manager = {
+    helm_config = {
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = false
+            name   = "cert-manager"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.cert_manager.arn
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable Secrets Store CSI Driver
+  enable_secrets_store_csi_driver = true
+  secrets_store_csi_driver = {
+    helm_config = {
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = false
+            name   = "secrets-store-csi-driver"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.secrets_store_csi.arn
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable Karpenter
+  enable_karpenter = true
+  karpenter = {
+    helm_config = {
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = false
+            name   = "karpenter"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
+            }
+          }
+          settings = {
+            aws = {
+              clusterName = module.eks.cluster_name
+              defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
+              interruptionQueue = aws_sqs_queue.karpenter.name
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable NGINX Ingress Controller
+  enable_ingress_nginx = true
+  ingress_nginx = {
+    helm_config = {
+      values = [
+        yamlencode({
+          controller = {
+            service = {
+              type = "LoadBalancer"
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable Prometheus Stack
+  enable_kube_prometheus_stack = true
+  kube_prometheus_stack = {
+    helm_config = {
+      values = [
+        yamlencode({
+          grafana = {
+            enabled = true
+            service = {
+              type = "LoadBalancer"
+            }
+          }
+          prometheus = {
+            prometheusSpec = {
+              serviceMonitorSelectorNilUsesHelmValues = false
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable ArgoCD
+  enable_argocd = true
+  argocd = {
+    helm_config = {
+      values = [
+        yamlencode({
+          server = {
+            service = {
+              type = "LoadBalancer"
+            }
+          }
+          configs = {
+            params = {
+              "server.insecure" = true
+            }
+          }
+        })
+      ]
+    }
+  }
+
+  # Enable Crossplane
+  enable_crossplane = true
+  crossplane = {
+    helm_config = {
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = false
+            name   = "crossplane"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.crossplane.arn
+            }
+          }
+        })
+      ]
+    }
+  }
 
   tags = local.tags
 }
