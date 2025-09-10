@@ -45,13 +45,13 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 4.0"
 
-  vpc_name = "${local.name}-vpc"
-  vpc_cidr = local.vpc_cidr
+  name = "${local.name}-vpc"
+  cidr = local.vpc_cidr
 
-  availability_zones   = local.azs
-  private_subnet_cidrs = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
-  public_subnet_cidrs  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
-  intra_subnet_cidrs   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 52)]
+  azs             = local.azs
+  private_subnets = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
+  public_subnets  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
+  intra_subnets   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 52)]
 
   enable_nat_gateway   = true
   single_nat_gateway   = true
