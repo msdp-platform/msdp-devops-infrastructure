@@ -88,7 +88,7 @@ module "eks" {
     system = {
       name = "system"
 
-      instance_types = ["t4g.micro"]
+      instance_types = ["t4g.small"]
 
       min_size     = 1
       max_size     = 1
