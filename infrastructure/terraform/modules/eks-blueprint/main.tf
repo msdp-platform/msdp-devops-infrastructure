@@ -107,8 +107,8 @@ module "eks" {
       ]
 
       labels = {
-        "node-type"              = "system"
-        "karpenter.sh/discovery" = local.name
+        "node-type"               = "system"
+        "karpenter.sh/discovery"  = local.name
         "node.kubernetes.io/arch" = "arm64"
       }
 
