@@ -55,8 +55,6 @@ resource "helm_release" "karpenter" {
     name  = "controller.resources.limits.memory"
     value = "1Gi"
   }
-
-  depends_on = [module.eks]
 }
 
 # AWS Load Balancer Controller
