@@ -73,7 +73,6 @@ module "eks_blueprint" {
   vpc_cidr     = var.vpc_cidr
 
   kubernetes_version = var.kubernetes_version
-  karpenter_version  = var.karpenter_version
 
   karpenter_instance_types = var.karpenter_instance_types
 
