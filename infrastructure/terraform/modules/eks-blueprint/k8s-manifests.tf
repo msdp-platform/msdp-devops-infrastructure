@@ -368,7 +368,7 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Cert-Manager ClusterIssuer for Let's Encrypt
@@ -507,7 +507,7 @@ resource "kubectl_manifest" "argocd_platform_app" {
     }
   })
 
-  depends_on = [helm_release.argocd]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # ServiceMonitor for Karpenter
