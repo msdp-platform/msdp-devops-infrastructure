@@ -10,6 +10,8 @@ resource "helm_release" "karpenter" {
   chart      = "karpenter"
   version    = var.karpenter_version
 
+  timeout = 600
+
   depends_on = [
     null_resource.wait_for_cluster,
     aws_iam_instance_profile.karpenter,
@@ -67,6 +69,8 @@ resource "helm_release" "aws_load_balancer_controller" {
   chart      = "aws-load-balancer-controller"
   version    = var.aws_load_balancer_controller_version
 
+  timeout = 600
+
   set {
     name  = "clusterName"
     value = module.eks.cluster_name
@@ -109,6 +113,8 @@ resource "helm_release" "external_dns" {
   repository = "https://kubernetes-sigs.github.io/external-dns/"
   chart      = "external-dns"
   version    = var.external_dns_version
+
+  timeout = 600
 
   set {
     name  = "serviceAccount.create"
@@ -172,6 +178,8 @@ resource "helm_release" "cert_manager" {
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
   version    = var.cert_manager_version
+
+  timeout = 600
 
   set {
     name  = "installCRDs"
@@ -443,40 +451,40 @@ resource "helm_release" "crossplane" {
   depends_on = [null_resource.wait_for_cluster]
 }
 
-# AWS Controllers for Kubernetes (ACK)
-resource "helm_release" "ack_s3" {
-  namespace        = "ack-system"
-  create_namespace = true
-
-  name       = "ack-s3-controller"
-  repository = "oci://public.ecr.aws/aws-controllers-k8s"
-  chart      = "ack-s3-controller"
-  version    = var.ack_s3_version
-
-  set {
-    name  = "aws.region"
-    value = var.aws_region
-  }
-
-  depends_on = [null_resource.wait_for_cluster]
-}
-
-resource "helm_release" "ack_rds" {
-  namespace        = "ack-system"
-  create_namespace = true
-
-  name       = "ack-rds-controller"
-  repository = "oci://public.ecr.aws/aws-controllers-k8s"
-  chart      = "ack-rds-controller"
-  version    = var.ack_rds_version
-
-  set {
-    name  = "aws.region"
-    value = var.aws_region
-  }
-
-  depends_on = [null_resource.wait_for_cluster]
-}
+# AWS Controllers for Kubernetes (ACK) - Temporarily disabled due to chart availability issues
+# resource "helm_release" "ack_s3" {
+#   namespace        = "ack-system"
+#   create_namespace = true
+#
+#   name       = "ack-s3-controller"
+#   repository = "oci://public.ecr.aws/aws-controllers-k8s"
+#   chart      = "ack-s3-controller"
+#   version    = var.ack_s3_version
+#
+#   set {
+#     name  = "aws.region"
+#     value = var.aws_region
+#   }
+#
+#   depends_on = [null_resource.wait_for_cluster]
+# }
+#
+# resource "helm_release" "ack_rds" {
+#   namespace        = "ack-system"
+#   create_namespace = true
+#
+#   name       = "ack-rds-controller"
+#   repository = "oci://public.ecr.aws/aws-controllers-k8s"
+#   chart      = "ack-rds-controller"
+#   version    = var.ack_rds_version
+#
+#   set {
+#     name  = "aws.region"
+#     value = var.aws_region
+#   }
+#
+#   depends_on = [null_resource.wait_for_cluster]
+# }
 
 # Backstage
 resource "helm_release" "backstage" {

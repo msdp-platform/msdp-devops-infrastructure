@@ -460,7 +460,7 @@ resource "kubectl_manifest" "crossplane_aws_provider" {
 # Crossplane AWS Provider Config
 resource "kubectl_manifest" "crossplane_aws_provider_config" {
   yaml_body = yamlencode({
-    apiVersion = "aws.upbound.io/v1beta1"
+    apiVersion = "aws.crossplane.io/v1beta1"
     kind       = "ProviderConfig"
     metadata = {
       name = "default"
