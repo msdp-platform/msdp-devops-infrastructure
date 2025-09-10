@@ -131,6 +131,23 @@ output "eks_blueprints_addons" {
   }
 }
 
+# Backstage Outputs
+output "backstage_helm_release" {
+  description = "Backstage Helm release information"
+  value = {
+    name      = helm_release.backstage.name
+    namespace = helm_release.backstage.namespace
+    version   = helm_release.backstage.version
+    status    = helm_release.backstage.status
+  }
+}
+
+output "backstage_database_endpoint" {
+  description = "Backstage PostgreSQL database endpoint"
+  value       = aws_rds_cluster.backstage_postgres.endpoint
+  sensitive   = true
+}
+
 # Route53 Outputs
 output "route53_zone_id" {
   description = "Route53 hosted zone ID"

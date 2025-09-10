@@ -295,9 +295,9 @@ module "eks_blueprints_addons" {
           }
           settings = {
             aws = {
-              clusterName = module.eks.cluster_name
+              clusterName            = module.eks.cluster_name
               defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
-              interruptionQueue = aws_sqs_queue.karpenter.name
+              interruptionQueue      = aws_sqs_queue.karpenter.name
             }
           }
         })
@@ -383,6 +383,103 @@ module "eks_blueprints_addons" {
   }
 
   tags = local.tags
+}
+
+# Backstage - Developer Portal (not included in EKS Blueprints Addons)
+resource "helm_release" "backstage" {
+  name       = "backstage"
+  repository = "https://backstage.github.io/charts"
+  chart      = "backstage"
+  version    = "0.1.0"
+  namespace  = "backstage"
+
+  create_namespace = true
+
+  depends_on = [
+    module.eks_blueprints_addons,
+    aws_rds_cluster.backstage_postgres
+  ]
+
+  values = [
+    yamlencode({
+      backstage = {
+        appConfig = {
+          app = {
+            title = "MSDP Developer Portal"
+            baseUrl = "https://backstage.${var.domain_name}"
+          }
+          backend = {
+            baseUrl = "https://backstage.${var.domain_name}"
+            listen = {
+              port = 7007
+            }
+            csp = {
+              "connect-src" = ["'self'", "http:", "https:"]
+            }
+            cors = {
+              origin = "https://backstage.${var.domain_name}"
+              methods = ["GET", "HEAD", "PATCH", "POST", "PUT", "DELETE"]
+              credentials = true
+            }
+            database = {
+              client = "pg"
+              connection = {
+                host = aws_rds_cluster.backstage_postgres.endpoint
+                port = 5432
+                user = aws_rds_cluster.backstage_postgres.master_username
+                password = random_password.backstage_postgres_password.result
+                database = aws_rds_cluster.backstage_postgres.database_name
+                ssl = {
+                  rejectUnauthorized = false
+                }
+              }
+            }
+          }
+          integrations = {
+            github = [
+              {
+                host = "github.com"
+                token = var.github_token
+              }
+            ]
+          }
+        }
+      }
+      service = {
+        type = "LoadBalancer"
+        annotations = {
+          "service.beta.kubernetes.io/aws-load-balancer-type" = "nlb"
+        }
+      }
+      ingress = {
+        enabled = true
+        className = "nginx"
+        annotations = {
+          "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+          "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+        }
+        hosts = [
+          {
+            host = "backstage.${var.domain_name}"
+            paths = [
+              {
+                path = "/"
+                pathType = "Prefix"
+              }
+            ]
+          }
+        ]
+        tls = [
+          {
+            secretName = "backstage-tls"
+            hosts = ["backstage.${var.domain_name}"]
+          }
+        ]
+      }
+    })
+  ]
+
+  timeout = 600
 }
 
 # Wait for EKS cluster to be ready and update kubeconfig

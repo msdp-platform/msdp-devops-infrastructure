@@ -31,6 +31,14 @@ variable "eks_blueprints_addons_version" {
   default     = "~> 1.22.0"
 }
 
+# Backstage Configuration
+variable "github_token" {
+  description = "GitHub token for Backstage integration"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 # Instance Types - Cost-optimized mixed architecture (ARM + x86)
 variable "karpenter_instance_types" {
   description = "Instance types for Karpenter nodes - Cost-optimized mixed architecture (ARM + x86)"

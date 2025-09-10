@@ -9,6 +9,9 @@ vpc_cidr     = "10.0.0.0/16"
 # Kubernetes Configuration
 kubernetes_version = "1.28"
 
+# Backstage Configuration
+github_token = "your-github-token-here"  # GitHub token for Backstage integration
+
 # Instance Types for Karpenter - Cost-optimized mixed architecture (ARM + x86)
 karpenter_instance_types = [
   # ARM-based instances (Graviton) - Up to 40% better price/performance

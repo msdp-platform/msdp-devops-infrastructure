@@ -24,6 +24,13 @@ variable "kubernetes_version" {
   default     = "1.28"
 }
 
+variable "github_token" {
+  description = "GitHub token for Backstage integration"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 
 variable "karpenter_instance_types" {
   description = "Instance types for Karpenter nodes - Cost-optimized mixed architecture (ARM + x86)"
