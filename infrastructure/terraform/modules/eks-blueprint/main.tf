@@ -43,7 +43,7 @@ locals {
 # VPC
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 4.0"
+  version = "5.1.2"
 
   name = "${local.name}-vpc"
   cidr = local.vpc_cidr
@@ -98,13 +98,13 @@ module "eks" {
       capacity_type = "SPOT"
 
       # Taints to prevent user workloads
-      taints = [
-        {
+      taints = {
+        CriticalAddonsOnly = {
           key    = "CriticalAddonsOnly"
           value  = "true"
           effect = "NO_SCHEDULE"
         }
-      ]
+      }
 
       labels = {
         "node-type"               = "system"

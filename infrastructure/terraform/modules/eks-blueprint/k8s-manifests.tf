@@ -68,7 +68,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_arm" {
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Karpenter EC2NodeClass - x86-based
@@ -139,7 +139,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_x86" {
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Karpenter NodePool - Cost Optimized with Mixed Architecture
@@ -214,7 +214,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # GPU NodePool removed - not needed for this setup
@@ -297,7 +297,7 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
     }
   })
 
-  depends_on = [helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Karpenter NodePool - Minimum Nodes (prevents 0 scaling)
@@ -400,7 +400,7 @@ resource "kubectl_manifest" "cert_manager_cluster_issuer" {
     }
   })
 
-  depends_on = [helm_release.cert_manager]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Secrets Store CSI Driver SecretProviderClass
@@ -438,7 +438,7 @@ resource "kubectl_manifest" "secrets_store_csi_secret_provider_class" {
     }
   })
 
-  depends_on = [helm_release.secrets_store_csi_driver]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Crossplane AWS Provider
@@ -537,7 +537,7 @@ resource "kubectl_manifest" "karpenter_servicemonitor" {
     }
   })
 
-  depends_on = [helm_release.prometheus, helm_release.karpenter]
+  depends_on = [module.eks_blueprints_addons]
 }
 
 # Grafana Dashboard for Karpenter
@@ -572,5 +572,5 @@ resource "kubectl_manifest" "karpenter_grafana_dashboard" {
     }
   })
 
-  depends_on = [helm_release.prometheus]
+  depends_on = [module.eks_blueprints_addons]
 }
