@@ -344,7 +344,7 @@ resource "aws_sqs_queue_policy" "karpenter" {
           Service = ["events.amazonaws.com", "sqs.amazonaws.com"]
         }
         Action   = "sqs:SendMessage"
-        Resource = module.karpenter_sqs.queue_arn
+        Resource = aws_sqs_queue.karpenter.arn
       }
     ]
   })
@@ -366,7 +366,7 @@ resource "aws_cloudwatch_event_rule" "karpenter" {
 resource "aws_cloudwatch_event_target" "karpenter" {
   rule      = aws_cloudwatch_event_rule.karpenter.name
   target_id = "KarpenterInterruptionQueueTarget"
-  arn       = module.karpenter_sqs.queue_arn
+  arn       = aws_sqs_queue.karpenter.arn
 }
 
 # AWS Load Balancer Controller IAM Role

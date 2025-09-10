@@ -13,7 +13,7 @@ resource "helm_release" "karpenter" {
   depends_on = [
     null_resource.wait_for_cluster,
     aws_iam_instance_profile.karpenter,
-    module.karpenter_sqs
+    aws_sqs_queue.karpenter
   ]
 
   set {
@@ -28,7 +28,7 @@ resource "helm_release" "karpenter" {
 
   set {
     name  = "settings.aws.interruptionQueue"
-    value = module.karpenter_sqs.queue_name
+    value = aws_sqs_queue.karpenter.name
   }
 
   set {

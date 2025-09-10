@@ -60,12 +60,12 @@ output "public_subnets" {
 # Karpenter Outputs
 output "karpenter_queue_name" {
   description = "Name of the Karpenter SQS queue"
-  value       = module.karpenter_sqs.queue_name
+  value       = aws_sqs_queue.karpenter.name
 }
 
 output "karpenter_queue_arn" {
   description = "ARN of the Karpenter SQS queue"
-  value       = module.karpenter_sqs.queue_arn
+  value       = aws_sqs_queue.karpenter.arn
 }
 
 output "karpenter_node_instance_profile_arn" {
