@@ -97,15 +97,6 @@ module "eks" {
       # Use on-demand instances to ensure reliable creation
       capacity_type = "ON_DEMAND"
 
-      # Taints to prevent user workloads
-      taints = {
-        CriticalAddonsOnly = {
-          key    = "CriticalAddonsOnly"
-          value  = "true"
-          effect = "NO_SCHEDULE"
-        }
-      }
-
       labels = {
         "node-type"               = "system"
         "karpenter.sh/discovery"  = local.name
