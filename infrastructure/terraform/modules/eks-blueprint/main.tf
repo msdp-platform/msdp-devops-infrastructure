@@ -189,7 +189,7 @@ module "eks_blueprints_addons" {
         yamlencode({
           clusterName = module.eks.cluster_name
           serviceAccount = {
-            create = false
+            create = true
             name   = "aws-load-balancer-controller"
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.aws_load_balancer_controller.arn
@@ -207,7 +207,7 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           serviceAccount = {
-            create = false
+            create = true
             name   = "external-dns"
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.external_dns.arn
@@ -229,7 +229,7 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           serviceAccount = {
-            create = false
+            create = true
             name   = "cert-manager"
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.cert_manager.arn
@@ -247,7 +247,7 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           serviceAccount = {
-            create = false
+            create = true
             name   = "secrets-store-csi-driver"
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.secrets_store_csi.arn
@@ -265,7 +265,7 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           serviceAccount = {
-            create = false
+            create = true
             name   = "karpenter"
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
