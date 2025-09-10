@@ -155,7 +155,7 @@ module "eks" {
   }
 
   # Fargate Profiles for serverless workloads
-  fargate_profile = {
+  fargate_profiles = {
     default = {
       name = "default"
       selectors = [
