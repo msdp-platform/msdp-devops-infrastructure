@@ -28,7 +28,7 @@ aws configure sso --profile AWSAdministratorAccess-319422413814
 
 # Run OIDC setup script
 export AWS_PROFILE=AWSAdministratorAccess-319422413814
-export GITHUB_ORG=your-github-org
+export GITHUB_ORG=msdp-platform
 export GITHUB_REPO=msdp-devops-infrastructure
 ./scripts/setup-github-oidc.sh
 ```

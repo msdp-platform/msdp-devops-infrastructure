@@ -7,7 +7,7 @@ set -e
 # Configuration
 AWS_PROFILE="${AWS_PROFILE:-AWSAdministratorAccess-319422413814}"
 AWS_REGION="${AWS_REGION:-us-west-2}"
-GITHUB_ORG="${GITHUB_ORG:-your-github-org}"
+GITHUB_ORG="${GITHUB_ORG:-msdp-platform}"
 GITHUB_REPO="${GITHUB_REPO:-msdp-devops-infrastructure}"
 OIDC_PROVIDER_NAME="github-actions-oidc"
 ROLE_NAME_PREFIX="GitHubActions"
