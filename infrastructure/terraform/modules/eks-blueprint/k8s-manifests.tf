@@ -26,7 +26,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_arm" {
       role = aws_iam_role.karpenter_node_instance_profile.name
 
       # AMI family - ARM-based
-      amiFamily = "AL2023"
+      amiFamily = "AL2"
 
       # Instance store policy
       instanceStorePolicy = "RAID0"
@@ -97,7 +97,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_x86" {
       role = aws_iam_role.karpenter_node_instance_profile.name
 
       # AMI family - x86-based
-      amiFamily = "AL2023"
+      amiFamily = "AL2"
 
       # Instance store policy
       instanceStorePolicy = "RAID0"
@@ -165,7 +165,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_default" {
     }
     spec = {
       role                = aws_iam_role.karpenter_node_instance_profile.name
-      amiFamily           = "AL2023"
+      amiFamily           = "AL2"
       instanceStorePolicy = "RAID0"
       userData = base64encode(templatefile("${path.module}/userdata.sh", {
         cluster_name     = local.name

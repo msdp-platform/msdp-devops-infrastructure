@@ -104,7 +104,7 @@ module "eks" {
       }
 
       # ARM-based AMI
-      ami_type = "AL2023_ARM_64"
+      ami_type = "AL2_ARM_64"
       platform = "linux"
 
       block_device_mappings = {
