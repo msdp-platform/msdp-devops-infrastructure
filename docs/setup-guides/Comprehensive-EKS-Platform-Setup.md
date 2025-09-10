@@ -16,7 +16,7 @@ This guide walks you through setting up a comprehensive EKS platform with all th
 - **External DNS** (auto-manage Route 53 DNS records)
 - **Cert-Manager** (TLS cert automation with ACM)
 - **Secrets Store CSI Driver** (integrates with AWS Secrets Manager & SSM Parameter Store)
-- **Karpenter** (intelligent autoscaling, ARM-based spot instance optimization)
+- **Karpenter** (intelligent autoscaling, memory-optimized ARM-based spot instances with t4g preference)
 
 ### **Networking & Traffic Management**
 - **Amazon VPC CNI** (default networking)
@@ -556,6 +556,31 @@ kubectl get pv,pvc --all-namespaces
 # Update NodePool limits
 kubectl patch nodepool cost-optimized --type merge -p '{"spec":{"limits":{"cpu":"2000"}}}'
 ```
+
+### **Memory-Optimized Instance Configuration**
+
+The platform is configured with memory-optimized ARM-based instances with t4g preference:
+
+```hcl
+# Instance Types for Karpenter - Memory-optimized ARM-based with t4g preference
+karpenter_instance_types = [
+  # t4g instances (preferred) - General purpose with good memory
+  "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
+  
+  # r6g instances - Memory-optimized (high memory to CPU ratio)
+  "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
+  "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
+  
+  # m6g instances - Balanced memory and compute
+  "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
+  "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge"
+]
+```
+
+**Instance Type Priority:**
+1. **t4g instances** (preferred) - General purpose with good memory-to-CPU ratio
+2. **r6g instances** - Memory-optimized for high memory workloads
+3. **m6g instances** - Balanced memory and compute
 
 ### **Adding New Instance Types**
 

@@ -186,7 +186,16 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
             {
               key      = "node.kubernetes.io/instance-type"
               operator = "In"
-              values   = ["r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge"]
+              values   = [
+                # t4g instances (preferred) - General purpose with good memory
+                "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
+                # r6g instances - Memory-optimized (high memory to CPU ratio)
+                "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
+                "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
+                # m6g instances - Balanced memory and compute
+                "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
+                "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge"
+              ]
             }
           ]
 
@@ -253,7 +262,14 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
             {
               key      = "node.kubernetes.io/instance-type"
               operator = "In"
-              values   = ["t4g.medium", "t4g.large", "m6g.medium", "m6g.large"]
+              values   = [
+                # t4g instances (preferred) - General purpose with good memory
+                "t4g.medium", "t4g.large", "t4g.xlarge",
+                # r6g instances - Memory-optimized for minimum nodes
+                "r6g.medium", "r6g.large", "r6g.xlarge",
+                # m6g instances - Balanced memory and compute
+                "m6g.medium", "m6g.large", "m6g.xlarge"
+              ]
             }
           ]
 

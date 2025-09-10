@@ -10,28 +10,34 @@ vpc_cidr     = "10.0.0.0/16"
 kubernetes_version = "1.28"
 karpenter_version  = "0.37.0"
 
-# Instance Types for Karpenter - ARM-based for maximum cost savings
+# Instance Types for Karpenter - Memory-optimized ARM-based with t4g preference
 karpenter_instance_types = [
-  # ARM-based instances (Graviton) - up to 40% better price/performance
+  # t4g instances (preferred) - General purpose with good memory
   "t4g.medium",
-  "t4g.large",
+  "t4g.large", 
   "t4g.xlarge",
   "t4g.2xlarge",
+  "t4g.4xlarge",
+  
+  # r6g instances - Memory-optimized (high memory to CPU ratio)
+  "r6g.medium",
+  "r6g.large",
+  "r6g.xlarge", 
+  "r6g.2xlarge",
+  "r6g.4xlarge",
+  "r6g.8xlarge",
+  "r6g.12xlarge",
+  "r6g.16xlarge",
+  
+  # m6g instances - Balanced memory and compute
   "m6g.medium",
   "m6g.large",
   "m6g.xlarge",
   "m6g.2xlarge",
   "m6g.4xlarge",
-  "c6g.medium",
-  "c6g.large",
-  "c6g.xlarge",
-  "c6g.2xlarge",
-  "c6g.4xlarge",
-  "r6g.medium",
-  "r6g.large",
-  "r6g.xlarge",
-  "r6g.2xlarge",
-  "r6g.4xlarge"
+  "m6g.8xlarge",
+  "m6g.12xlarge",
+  "m6g.16xlarge"
 ]
 
 # AWS Auth Users (optional)

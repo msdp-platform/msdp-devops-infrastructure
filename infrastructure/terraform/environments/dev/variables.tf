@@ -31,29 +31,35 @@ variable "karpenter_version" {
 }
 
 variable "karpenter_instance_types" {
-  description = "Instance types for Karpenter nodes - ARM-based for cost optimization"
+  description = "Instance types for Karpenter nodes - Memory-optimized ARM-based with t4g preference"
   type        = list(string)
   default = [
-    # ARM-based instances (Graviton) - up to 40% better price/performance
+    # t4g instances (preferred) - General purpose with good memory
     "t4g.medium",
-    "t4g.large",
+    "t4g.large", 
     "t4g.xlarge",
     "t4g.2xlarge",
+    "t4g.4xlarge",
+    
+    # r6g instances - Memory-optimized (high memory to CPU ratio)
+    "r6g.medium",
+    "r6g.large",
+    "r6g.xlarge", 
+    "r6g.2xlarge",
+    "r6g.4xlarge",
+    "r6g.8xlarge",
+    "r6g.12xlarge",
+    "r6g.16xlarge",
+    
+    # m6g instances - Balanced memory and compute
     "m6g.medium",
     "m6g.large",
     "m6g.xlarge",
     "m6g.2xlarge",
     "m6g.4xlarge",
-    "c6g.medium",
-    "c6g.large",
-    "c6g.xlarge",
-    "c6g.2xlarge",
-    "c6g.4xlarge",
-    "r6g.medium",
-    "r6g.large",
-    "r6g.xlarge",
-    "r6g.2xlarge",
-    "r6g.4xlarge"
+    "m6g.8xlarge",
+    "m6g.12xlarge",
+    "m6g.16xlarge"
   ]
 }
 
