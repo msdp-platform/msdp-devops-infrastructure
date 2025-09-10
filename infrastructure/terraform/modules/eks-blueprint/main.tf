@@ -195,6 +195,9 @@ module "eks_blueprints_addons" {
               "eks.amazonaws.com/role-arn" = aws_iam_role.aws_load_balancer_controller.arn
             }
           }
+          admissionWebhooks = {
+            failurePolicy = "Ignore"
+          }
         })
       ]
     }
