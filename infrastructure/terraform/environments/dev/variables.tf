@@ -68,7 +68,7 @@ variable "karpenter_instance_types" {
 
 variable "aws_auth_users" {
   description = "List of AWS users to add to aws-auth configmap"
-  type        = list(object({
+  type = list(object({
     userarn  = string
     username = string
     groups   = list(string)
