@@ -19,6 +19,28 @@ terraform {
   }
 }
 
+# Configure the Helm provider to use the EKS cluster
+provider "helm" {
+  kubernetes {
+    host                   = module.eks.cluster_endpoint
+    cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+    token                  = data.aws_eks_cluster_auth.cluster.token
+  }
+}
+
+# Configure the kubectl provider to use the EKS cluster
+provider "kubectl" {
+  host                   = module.eks.cluster_endpoint
+  cluster_ca_certificate = base64decode(module.eks.cluster_certificate_authority_data)
+  token                  = data.aws_eks_cluster_auth.cluster.token
+  load_config_file       = false
+}
+
+# Data source for EKS cluster auth
+data "aws_eks_cluster_auth" "cluster" {
+  name = module.eks.cluster_name
+}
+
 # Data sources
 data "aws_availability_zones" "available" {
   state = "available"
@@ -185,6 +207,8 @@ resource "null_resource" "wait_for_cluster" {
     command = <<-EOT
       aws eks wait cluster-active --region ${var.aws_region} --name ${module.eks.cluster_name}
       aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}
+      # Wait for nodes to be ready
+      kubectl wait --for=condition=Ready nodes --all --timeout=300s
     EOT
   }
 
