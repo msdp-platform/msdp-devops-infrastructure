@@ -53,7 +53,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -78,16 +78,23 @@ jobs:
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
+        run: |
+          terraform plan -input=false -out=tfplan
+          terraform show -no-color tfplan | sed -n '1,200p'
+          terraform show -json tfplan > tfplan.json
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
         env:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
 
       - name: Upload Terraform Plan
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
-          path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+          name: tfplan-${{ github.run_id }}
+          path: |
+            infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
+            infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan.json
+          if-no-files-found: warn
 
   terraform-apply:
     name: Terraform Apply
@@ -107,7 +114,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -129,7 +136,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
+          name: tfplan-${{ github.run_id }}
           path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Clean Terraform cache (env)
@@ -144,9 +151,9 @@ jobs:
       - name: Terraform Apply (with plan if available)
         run: |
           if [ -f tfplan ]; then
-            terraform apply -auto-approve tfplan
+            terraform apply -input=false -auto-approve tfplan
           else
-            terraform apply -auto-approve
+            terraform apply -input=false -auto-approve
           fi
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
         env:
@@ -217,7 +224,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -256,7 +263,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Setup kubectl
         uses: azure/setup-kubectl@v3
