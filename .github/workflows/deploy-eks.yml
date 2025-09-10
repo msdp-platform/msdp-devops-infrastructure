@@ -79,7 +79,7 @@ jobs:
           TF_VAR_aws_region: ${{ env.AWS_REGION }}
 
       - name: Upload Terraform Plan
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
           path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}/tfplan
@@ -120,7 +120,7 @@ jobs:
           version: "v3.13.0"
 
       - name: Download Terraform Plan
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: terraform-plan-${{ github.event.inputs.environment || 'dev' }}
           path: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
