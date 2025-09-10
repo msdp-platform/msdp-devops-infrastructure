@@ -43,7 +43,7 @@ locals {
 # VPC
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "5.1.2"
 
   name = "${local.name}-vpc"
   cidr = local.vpc_cidr
@@ -73,7 +73,7 @@ module "vpc" {
 # EKS Cluster with Fargate Profiles
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 20.0"
 
   cluster_name    = local.name
   cluster_version = var.kubernetes_version
