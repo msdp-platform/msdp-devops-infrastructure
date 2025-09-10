@@ -70,7 +70,7 @@ module "vpc" {
   vpc_name = "${local.name}-vpc"
   vpc_cidr = local.vpc_cidr
 
-  availability_zones = local.azs
+  availability_zones   = local.azs
   private_subnet_cidrs = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 4, k)]
   public_subnet_cidrs  = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 48)]
   intra_subnet_cidrs   = [for k, v in local.azs : cidrsubnet(local.vpc_cidr, 8, k + 52)]
