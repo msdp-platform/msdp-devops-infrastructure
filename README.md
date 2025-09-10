@@ -16,9 +16,9 @@ This repository contains the **comprehensive AWS EKS platform** for the Multi-Se
 A **production-ready AWS EKS platform** with comprehensive DevOps tooling:
 
 - **☁️ AWS EKS Cluster**: Managed Kubernetes with ARM-based Graviton instances
-- **🚀 Karpenter**: Intelligent autoscaling with memory-optimized spot instances
+- **🚀 Karpenter**: Intelligent autoscaling with cost-optimized mixed architecture spot instances
 - **🔄 GitOps**: ArgoCD for automated deployments
-- **💰 Cost Optimization**: ARM-based spot instances with t4g preference, up to 40% cost savings
+- **💰 Cost Optimization**: Mixed ARM/x86 spot instances with automatic cost-based selection, up to 90% cost savings
 - **🔒 Enterprise Security**: OIDC authentication, IAM roles, secrets management
 - **⚡ High Availability**: Multi-AZ deployment with auto-scaling
 - **📊 Full Observability**: Prometheus, Grafana, and CloudWatch integration
@@ -136,8 +136,8 @@ Comprehensive documentation for the AWS EKS platform:
 ## 🏗️ **Platform Components**
 
 ### **Core EKS Cluster**
-- **EKS** - Managed Kubernetes service with ARM-based Graviton instances
-- **Karpenter** - Intelligent autoscaling with memory-optimized spot instances (t4g preferred)
+- **EKS** - Managed Kubernetes service with mixed architecture support
+- **Karpenter** - Intelligent autoscaling with cost-optimized mixed architecture spot instances
 - **Fargate Profiles** - Serverless compute for system workloads
 
 ### **Security & Governance**
@@ -174,7 +174,7 @@ When contributing to the AWS EKS platform:
 1. **Infrastructure as Code**: Use Terraform modules in `infrastructure/terraform/modules/`
 2. **GitOps**: All deployments through ArgoCD
 3. **Security First**: Use OIDC authentication and IAM roles
-4. **Cost Optimization**: Leverage ARM-based memory-optimized spot instances with t4g preference
+4. **Cost Optimization**: Leverage mixed architecture spot instances with automatic cost-based selection
 5. **Documentation**: Update setup guides and architecture docs
 6. **Testing**: Use GitHub Actions for automated testing
 

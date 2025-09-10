@@ -103,37 +103,40 @@ variable "backstage_version" {
   default     = "0.1.0"
 }
 
-# Instance Types - Memory-optimized ARM-based (Graviton) with t4g preference
+# Instance Types - Cost-optimized mixed architecture (ARM + x86)
 variable "karpenter_instance_types" {
-  description = "Instance types for Karpenter nodes - Memory-optimized ARM-based with t4g preference"
+  description = "Instance types for Karpenter nodes - Cost-optimized mixed architecture (ARM + x86)"
   type        = list(string)
   default = [
-    # t4g instances (preferred) - General purpose with good memory
-    "t4g.medium",
-    "t4g.large", 
-    "t4g.xlarge",
-    "t4g.2xlarge",
-    "t4g.4xlarge",
-    
+    # ARM-based instances (Graviton) - Up to 40% better price/performance
+    # t4g instances - General purpose with good memory
+    "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
     # r6g instances - Memory-optimized (high memory to CPU ratio)
-    "r6g.medium",
-    "r6g.large",
-    "r6g.xlarge", 
-    "r6g.2xlarge",
-    "r6g.4xlarge",
-    "r6g.8xlarge",
-    "r6g.12xlarge",
-    "r6g.16xlarge",
-    
+    "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
+    "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
     # m6g instances - Balanced memory and compute
-    "m6g.medium",
-    "m6g.large",
-    "m6g.xlarge",
-    "m6g.2xlarge",
-    "m6g.4xlarge",
-    "m6g.8xlarge",
-    "m6g.12xlarge",
-    "m6g.16xlarge"
+    "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
+    "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge",
+    # c6g instances - Compute-optimized
+    "c6g.medium", "c6g.large", "c6g.xlarge", "c6g.2xlarge", "c6g.4xlarge",
+    
+    # x86-based instances - For cost comparison and availability
+    # t3 instances - General purpose (often cheaper than t4g in some regions)
+    "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge",
+    # t3a instances - AMD-based, often cheapest
+    "t3a.medium", "t3a.large", "t3a.xlarge", "t3a.2xlarge",
+    # m5 instances - General purpose
+    "m5.medium", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge",
+    # m5a instances - AMD-based, often cheaper
+    "m5a.medium", "m5a.large", "m5a.xlarge", "m5a.2xlarge", "m5a.4xlarge",
+    # r5 instances - Memory-optimized
+    "r5.medium", "r5.large", "r5.xlarge", "r5.2xlarge", "r5.4xlarge",
+    # r5a instances - AMD-based memory-optimized
+    "r5a.medium", "r5a.large", "r5a.xlarge", "r5a.2xlarge", "r5a.4xlarge",
+    # c5 instances - Compute-optimized
+    "c5.medium", "c5.large", "c5.xlarge", "c5.2xlarge", "c5.4xlarge",
+    # c5a instances - AMD-based compute-optimized
+    "c5a.medium", "c5a.large", "c5a.xlarge", "c5a.2xlarge", "c5a.4xlarge"
   ]
 }
 

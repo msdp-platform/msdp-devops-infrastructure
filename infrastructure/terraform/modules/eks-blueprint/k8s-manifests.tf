@@ -1,12 +1,12 @@
 # Kubernetes Manifests for Platform Components
 
-# Karpenter EC2NodeClass
-resource "kubectl_manifest" "karpenter_nodeclass" {
+# Karpenter EC2NodeClass - ARM-based (Graviton)
+resource "kubectl_manifest" "karpenter_nodeclass_arm" {
   yaml_body = yamlencode({
     apiVersion = "karpenter.k8s.aws/v1beta1"
     kind       = "EC2NodeClass"
     metadata = {
-      name = "default"
+      name = "arm64"
     }
     spec = {
       # IAM role for nodes
@@ -71,7 +71,78 @@ resource "kubectl_manifest" "karpenter_nodeclass" {
   depends_on = [helm_release.karpenter]
 }
 
-# Karpenter NodePool - Cost Optimized with Spot Instances
+# Karpenter EC2NodeClass - x86-based
+resource "kubectl_manifest" "karpenter_nodeclass_x86" {
+  yaml_body = yamlencode({
+    apiVersion = "karpenter.k8s.aws/v1beta1"
+    kind       = "EC2NodeClass"
+    metadata = {
+      name = "amd64"
+    }
+    spec = {
+      # IAM role for nodes
+      role = aws_iam_role.karpenter_node_instance_profile.name
+
+      # AMI family - x86-based
+      amiFamily = "AL2"
+
+      # Instance store policy
+      instanceStorePolicy = "RAID0"
+
+      # User data for node initialization
+      userData = base64encode(templatefile("${path.module}/userdata.sh", {
+        cluster_name     = local.name
+        cluster_endpoint = module.eks.cluster_endpoint
+        cluster_ca       = module.eks.cluster_certificate_authority_data
+      }))
+
+      # Block device mappings
+      blockDeviceMappings = [
+        {
+          deviceName = "/dev/xvda"
+          ebs = {
+            volumeSize          = "50Gi"
+            volumeType          = "gp3"
+            iops                = 3000
+            throughput          = 125
+            encrypted           = true
+            deleteOnTermination = true
+          }
+        }
+      ]
+
+      # Subnet selector
+      subnetSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.name
+          }
+        }
+      ]
+
+      # Security group selector
+      securityGroupSelectorTerms = [
+        {
+          tags = {
+            "karpenter.sh/discovery" = local.name
+          }
+        }
+      ]
+
+      # Instance metadata options
+      metadataOptions = {
+        httpEndpoint            = "enabled"
+        httpProtocolIPv6        = "disabled"
+        httpPutResponseHopLimit = 2
+        httpTokens              = "required"
+      }
+    }
+  })
+
+  depends_on = [helm_release.karpenter]
+}
+
+# Karpenter NodePool - Cost Optimized with Mixed Architecture
 resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
   yaml_body = yamlencode({
     apiVersion = "karpenter.sh/v1beta1"
@@ -88,7 +159,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
           }
         }
         spec = {
-          # Node requirements
+          # Node requirements - Mixed architecture for cost optimization
           requirements = [
             {
               key      = "karpenter.sh/capacity-type"
@@ -98,7 +169,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
             {
               key      = "kubernetes.io/arch"
               operator = "In"
-              values   = ["arm64"]
+              values   = ["arm64", "amd64"]
             },
             {
               key      = "node.kubernetes.io/instance-type"
@@ -106,13 +177,6 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
               values   = var.karpenter_instance_types
             }
           ]
-
-          # Node configuration
-          nodeClassRef = {
-            apiVersion = "karpenter.k8s.aws/v1beta1"
-            kind       = "EC2NodeClass"
-            name       = "default"
-          }
 
           # Taints to prevent system workloads
           taints = [
@@ -181,20 +245,25 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
             {
               key      = "kubernetes.io/arch"
               operator = "In"
-              values   = ["arm64"]
+              values   = ["arm64", "amd64"]
             },
             {
               key      = "node.kubernetes.io/instance-type"
               operator = "In"
-              values   = [
-                # t4g instances (preferred) - General purpose with good memory
+              values = [
+                # ARM-based memory-optimized instances
                 "t4g.medium", "t4g.large", "t4g.xlarge", "t4g.2xlarge", "t4g.4xlarge",
-                # r6g instances - Memory-optimized (high memory to CPU ratio)
-                "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge", 
+                "r6g.medium", "r6g.large", "r6g.xlarge", "r6g.2xlarge", "r6g.4xlarge",
                 "r6g.8xlarge", "r6g.12xlarge", "r6g.16xlarge",
-                # m6g instances - Balanced memory and compute
                 "m6g.medium", "m6g.large", "m6g.xlarge", "m6g.2xlarge", "m6g.4xlarge",
-                "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge"
+                "m6g.8xlarge", "m6g.12xlarge", "m6g.16xlarge",
+                # x86-based memory-optimized instances
+                "t3.medium", "t3.large", "t3.xlarge", "t3.2xlarge",
+                "t3a.medium", "t3a.large", "t3a.xlarge", "t3a.2xlarge",
+                "r5.medium", "r5.large", "r5.xlarge", "r5.2xlarge", "r5.4xlarge",
+                "r5a.medium", "r5a.large", "r5a.xlarge", "r5a.2xlarge", "r5a.4xlarge",
+                "m5.medium", "m5.large", "m5.xlarge", "m5.2xlarge", "m5.4xlarge",
+                "m5a.medium", "m5a.large", "m5a.xlarge", "m5a.2xlarge", "m5a.4xlarge"
               ]
             }
           ]
@@ -257,18 +326,21 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
             {
               key      = "kubernetes.io/arch"
               operator = "In"
-              values   = ["arm64"]
+              values   = ["arm64", "amd64"]
             },
             {
               key      = "node.kubernetes.io/instance-type"
               operator = "In"
-              values   = [
-                # t4g instances (preferred) - General purpose with good memory
+              values = [
+                # ARM-based instances for minimum nodes
                 "t4g.medium", "t4g.large", "t4g.xlarge",
-                # r6g instances - Memory-optimized for minimum nodes
                 "r6g.medium", "r6g.large", "r6g.xlarge",
-                # m6g instances - Balanced memory and compute
-                "m6g.medium", "m6g.large", "m6g.xlarge"
+                "m6g.medium", "m6g.large", "m6g.xlarge",
+                # x86-based instances for minimum nodes
+                "t3.medium", "t3.large", "t3.xlarge",
+                "t3a.medium", "t3a.large", "t3a.xlarge",
+                "m5.medium", "m5.large", "m5.xlarge",
+                "m5a.medium", "m5a.large", "m5a.xlarge"
               ]
             }
           ]
