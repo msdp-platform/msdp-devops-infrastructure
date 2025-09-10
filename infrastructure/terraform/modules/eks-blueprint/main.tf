@@ -144,7 +144,7 @@ module "eks" {
 # AWS EKS Blueprints Addons - All platform components managed by official AWS module
 module "eks_blueprints_addons" {
   source  = "aws-ia/eks-blueprints-addons/aws"
-  version = "~> 1.29.0"
+  version = "~> 1.22.0"
 
   cluster_name      = module.eks.cluster_name
   cluster_endpoint  = module.eks.cluster_endpoint
