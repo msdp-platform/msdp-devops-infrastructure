@@ -398,6 +398,7 @@ module "eks_blueprints_addons" {
 
 # Backstage - Developer Portal (not included in EKS Blueprints Addons)
 resource "helm_release" "backstage" {
+  count      = 0
   name       = "backstage"
   repository = "https://backstage.github.io/charts"
   chart      = "backstage"
@@ -1297,7 +1298,7 @@ resource "aws_route53_record" "cert_validation" {
 #############################################
 resource "helm_release" "karpenter" {
   name       = "karpenter"
-  repository = "oci://public.ecr.aws/karpenter/karpenter"
+  repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter"
   version    = "v1.1.0"
   namespace  = "karpenter"

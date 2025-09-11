@@ -13,6 +13,18 @@ resource "kubectl_manifest" "jobs_namespace" {
   depends_on = [module.eks_blueprints_addons]
 }
 
+resource "kubectl_manifest" "monitoring_namespace" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "Namespace"
+    metadata = {
+      name = "monitoring"
+    }
+  })
+
+  depends_on = [module.eks_blueprints_addons]
+}
+
 # Karpenter EC2NodeClass - ARM-based (Graviton)
 resource "kubectl_manifest" "karpenter_nodeclass_arm" {
   yaml_body = yamlencode({
@@ -593,6 +605,7 @@ resource "kubectl_manifest" "crossplane_aws_provider" {
 
 # Crossplane AWS Provider Config
 resource "kubectl_manifest" "crossplane_aws_provider_config" {
+  count     = 0
   yaml_body = yamlencode({
     apiVersion = "aws.crossplane.io/v1beta1"
     kind       = "ProviderConfig"
@@ -671,7 +684,7 @@ resource "kubectl_manifest" "karpenter_servicemonitor" {
     }
   })
 
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [module.eks_blueprints_addons, kubectl_manifest.monitoring_namespace]
 }
 
 # Grafana Dashboard for Karpenter
@@ -706,5 +719,5 @@ resource "kubectl_manifest" "karpenter_grafana_dashboard" {
     }
   })
 
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [module.eks_blueprints_addons, kubectl_manifest.monitoring_namespace]
 }
