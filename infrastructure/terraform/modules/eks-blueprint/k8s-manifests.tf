@@ -373,7 +373,6 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
       }
 
       disruption = {
-        consolidateAfter  = "30s"
         consolidatePolicy = "WhenEmpty"
         expireAfter       = "2160h"
       }
