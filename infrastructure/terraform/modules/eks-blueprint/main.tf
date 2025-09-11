@@ -209,6 +209,8 @@ module "eks_blueprints_addons" {
   enable_external_dns = true
   external_dns = {
     helm_config = {
+      namespace        = "external-dns"
+      create_namespace = true
       values = [
         yamlencode({
           serviceAccount = {
@@ -917,7 +919,7 @@ resource "aws_iam_role" "external_dns" {
         }
         Condition = {
           StringEquals = {
-            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:kube-system:external-dns",
+            "${module.eks.oidc_provider}:sub" = "system:serviceaccount:external-dns:external-dns",
             "${module.eks.oidc_provider}:aud" = "sts.amazonaws.com"
           }
         }
