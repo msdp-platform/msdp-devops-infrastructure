@@ -382,11 +382,7 @@ module "eks_blueprints_addons" {
               "node-type" = "system"
             }
           }
-        configs = {
-          params = {
-            "server.insecure" = true
-          }
-        }
+        })
       ]
     }
   }
