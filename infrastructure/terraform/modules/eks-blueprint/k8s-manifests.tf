@@ -78,7 +78,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_arm" {
       securityGroupSelectorTerms = [
         {
           tags = {
-            "karpenter.sh/discovery" = local.name
+            "kubernetes.io/cluster/${module.eks.cluster_name}" = "owned"
           }
         }
       ]
@@ -149,7 +149,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_x86" {
       securityGroupSelectorTerms = [
         {
           tags = {
-            "karpenter.sh/discovery" = local.name
+            "kubernetes.io/cluster/${module.eks.cluster_name}" = "owned"
           }
         }
       ]
@@ -207,7 +207,7 @@ resource "kubectl_manifest" "karpenter_nodeclass_default" {
       securityGroupSelectorTerms = [
         {
           tags = {
-            "karpenter.sh/discovery" = local.name
+            "kubernetes.io/cluster/${module.eks.cluster_name}" = "owned"
           }
         }
       ]

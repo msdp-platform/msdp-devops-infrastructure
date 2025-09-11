@@ -679,7 +679,10 @@ resource "aws_iam_role_policy" "karpenter_controller" {
           "ec2:DescribeSpotPriceHistory",
           "pricing:GetProducts"
         ]
-        Resource = "*"
+        Resource = [
+          "*",
+          aws_iam_role.karpenter_node_instance_profile.arn
+        ]
       }
     ]
   })
