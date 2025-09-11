@@ -176,7 +176,7 @@ jobs:
         run: |
           kubectl get pods -n karpenter
           kubectl get nodepools
-          kubectl get nodeclasses
+          kubectl get ec2nodeclasses.karpenter.k8s.aws
 
       - name: Test Node Provisioning
         run: |
