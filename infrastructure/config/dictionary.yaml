@@ -1,0 +1,119 @@
+version: 1
+description: Canonical naming and variables dictionary for the MSDP platform
+
+variables:
+  core:
+    # Define these once per environment/app; everything else derives from them
+    - org # e.g., msdp
+    - env # dev|stg|prod
+    - cloud # aws|azure
+    - region # e.g., us-east-1|uksouth
+    - bu # e.g., food|grocery|cleaning|repair
+    - app # service/app name, e.g., order
+    - base_domain # e.g., example.com
+    - owner # team or owner handle
+    - cost_center # optional cost code
+
+naming:
+  style:
+    case: lower
+    separator: "-"
+    k8s: kebab # kebab-case for Kubernetes
+    cloud: kebab # kebab-case for cloud resources
+    dns: dot # dot-separated for DNS
+  label_key_prefix: platform.msdp.io/
+
+  uid:
+    # Use a short unique suffix to avoid collisions where required
+    length: 5
+    charset: lowerhex # intended for scripts to compute a short hash/suffix
+
+  templates:
+    cluster: "{org}-{env}-{cloud}-{region}"
+    namespace: "{env}-{bu}-{app}"
+    helm_release: "{app}-{env}"
+
+    argocd:
+      project: "{org}-{env}"
+      application: "{env}-{bu}-{app}"
+
+    dns:
+      host: "{app}.{env}.{base_domain}"
+      txt_owner_id: "{org}-{env}-{cloud}"
+
+    tls_secret: "{env}-{app}-tls"
+
+    azure:
+      resource_group: "{org}-{env}-{purpose}"
+      key_vault: "{org}-{env}-{region}-{uid}-kv"
+      acr_name: "{org}{env}{cloud}{region}{uid}"
+      acr_repo: "{acr_name}/{org}/{app}"
+
+    aws:
+      ecr_repo: "{org}/{app}"
+      s3_bucket: "{org}-{env}-{bu}-{app}-{region}-{uid}"
+
+    karpenter:
+      provisioner: "{env}-default"
+
+    keda:
+      scaled_object: "{app}-{env}-scaledobject"
+
+  defaults:
+    labels:
+      app.kubernetes.io/name: "{app}"
+      app.kubernetes.io/instance: "{app}-{env}"
+      app.kubernetes.io/part-of: "{bu}"
+      "{label_key_prefix}env": "{env}"
+      "{label_key_prefix}cloud": "{cloud}"
+      "{label_key_prefix}owner": "{owner}"
+
+    cloud_tags:
+      Environment: "{env}"
+      BusinessUnit: "{bu}"
+      Application: "{app}"
+      Owner: "{owner}"
+      CostCenter: "{cost_center}"
+      ManagedBy: "{org}"
+
+constraints:
+  # Common constraints to guide template usage and avoid naming errors
+  k8s:
+    name:
+      charset: "a-z0-9-"
+      max: 63
+  azure:
+    acr_name:
+      charset: "a-z0-9"
+      min: 5
+      max: 50
+    key_vault_name:
+      charset: "a-z0-9-"
+      min: 3
+      max: 24
+      must_start_with_letter: true
+    resource_group:
+      max: 90
+  aws:
+    s3_bucket:
+      charset: "a-z0-9.-"
+      min: 3
+      max: 63
+      must_start_end_alnum: true
+
+derived:
+  # Mapping of common derived fields to templates (for loaders/helpers)
+  cluster_name: "@templates.cluster"
+  namespace: "@templates.namespace"
+  helm_release: "@templates.helm_release"
+  argocd_project: "@templates.argocd.project"
+  argocd_application: "@templates.argocd.application"
+  dns_host: "@templates.dns.host"
+  tls_secret: "@templates.tls_secret"
+  karpenter_provisioner: "@templates.karpenter.provisioner"
+  keda_scaled_object: "@templates.keda.scaled_object"
+
+notes:
+  - Templates use Python-style placeholders {var} for easy format().
+  - Scripts should compute {uid} once per resource context when needed.
+  - Prefer derived fields over hardcoding names in scripts or manifests.

@@ -1,0 +1,57 @@
+org: msdp
+base_domain: aztech-msdp.com
+git_org: msdp-platform
+dictionary_ref: ./dictionary.yaml # canonical naming templates and constraints
+
+cloud_providers:
+  - aws
+  - azure
+
+default_regions:
+  aws: us-east-1
+  azure: uksouth
+
+accounts:
+  aws_account_id: "319422413814"
+  azure_subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+
+registries:
+  ghcr: ghcr.io/msdp-platform # GitHub Container Registry org scope
+  aws_ecr: public.ecr.aws/acme # optional, for future multi-cloud
+  azure_acr: acme.azurecr.io # optional, for future multi-cloud
+default_registry: ghcr # use GHCR by default
+
+oidc_validation:
+  dev:
+    aws_region: eu-west-1
+    artifacts_path: infrastructure/environment/dev/artifacts/oidc/github-oidc-out.json
+
+oidc:
+  github_org: acme-inc
+  audiences:
+    - sigstore
+    - api://AzureADTokenExchange
+
+k8s_defaults:
+  version: "1.29"
+  ingress_class: nginx
+  cert_issuer: letsencrypt-prod
+
+# Derived names (do not set manually; scripts compute using dictionary.yaml)
+# examples (computed):
+#   cluster_name: {org}-{env}-{cloud}-{region}
+#   namespace: {env}-{bu}-{app}
+#   helm_release: {app}-{env}
+
+autoscaling:
+  nodes: karpenter
+  pods: keda
+
+dns:
+  provider: route53
+  route53_zone_id: Z0581458B5QGVNLDPESN
+
+security_baseline:
+  sign_images: false
+  image_scan: true
+  branch_protection: true

@@ -1,0 +1,27 @@
+name: service-ci
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "**/*.ts"
+      - "**/package.json"
+      - "**/pnpm-lock.yaml"
+      - ".github/workflows/template-service-ci.yml"
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-publish:
+    uses: ./.github/workflows/reusable-build-test-publish.yml
+    with:
+      image_name: msdp/sample-service
+      dockerfile: docker/templates/Dockerfile.service
+      context: .
+      registry: ghcr.io/${{ github.repository_owner }}
+      tags: ${{ github.sha }} latest
+      platforms: linux/amd64,linux/arm64
+      enable_sbom: true
+      enable_signing: true
+    secrets:
+      REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
