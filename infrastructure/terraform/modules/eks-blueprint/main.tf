@@ -182,7 +182,7 @@ module "eks_blueprints_addons" {
   }
 
   # Enable AWS Load Balancer Controller
-  enable_aws_load_balancer_controller = true
+  enable_aws_load_balancer_controller = false
   aws_load_balancer_controller = {
     helm_config = {
       values = [
@@ -218,6 +218,7 @@ module "eks_blueprints_addons" {
               "eks.amazonaws.com/role-arn" = aws_iam_role.external_dns.arn
             }
           }
+          sources = ["ingress"]
           aws = {
             zoneType = "public"
             region   = var.aws_region
@@ -264,30 +265,7 @@ module "eks_blueprints_addons" {
   }
 
   # Enable Karpenter
-  enable_karpenter = true
-  karpenter = {
-    helm_config = {
-      values = [
-        yamlencode({
-          serviceAccount = {
-            create = true
-            name   = "karpenter"
-            annotations = {
-              "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
-            }
-          }
-          settings = {
-            aws = {
-              clusterName            = module.eks.cluster_name
-              defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
-              interruptionQueue      = aws_sqs_queue.karpenter.name
-            }
-          }
-        })
-      ]
-    }
-  }
-
+  enable_karpenter = false
   # Enable NGINX Ingress Controller
   enable_ingress_nginx = true
   ingress_nginx = {
@@ -297,6 +275,12 @@ module "eks_blueprints_addons" {
           controller = {
             service = {
               type = "LoadBalancer"
+              annotations = {
+                "service.beta.kubernetes.io/aws-load-balancer-type"                              = "nlb"
+                "service.beta.kubernetes.io/aws-load-balancer-scheme"                            = "internet-facing"
+                "service.beta.kubernetes.io/aws-load-balancer-nlb-target-type"                   = "ip"
+                "service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled" = "true"
+              }
             }
           }
         })
@@ -589,6 +573,13 @@ resource "aws_iam_role_policy" "karpenter_controller" {
         Action = [
           "ssm:GetParameter",
           "iam:PassRole",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:ListInstanceProfiles",
+          "iam:ListInstanceProfilesForRole",
           "ec2:DescribeImages",
           "ec2:RunInstances",
           "ec2:DescribeSubnets",
@@ -1241,4 +1232,134 @@ resource "aws_route53_record" "cert_validation" {
   ttl             = 60
   type            = each.value.type
   zone_id         = aws_route53_zone.main[0].zone_id
+}
+
+#############################################
+# Dedicated Helm release for Karpenter
+#############################################
+resource "helm_release" "karpenter" {
+  name       = "karpenter"
+  repository = "oci://public.ecr.aws/karpenter/karpenter"
+  chart      = "karpenter"
+  version    = "v1.1.0"
+  namespace  = "karpenter"
+
+  create_namespace = true
+
+  values = [
+    yamlencode({
+      serviceAccount = {
+        create = true
+        name   = "karpenter"
+        annotations = {
+          "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
+        }
+      }
+      settings = {
+        aws = {
+          clusterName            = module.eks.cluster_name
+          defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
+          interruptionQueue      = aws_sqs_queue.karpenter.name
+        }
+      }
+    })
+  ]
+
+  depends_on = [
+    module.eks_blueprints_addons
+  ]
+}
+
+#############################################
+# Dedicated Helm release to install EC2NodeClass and NodePool (raw chart)
+#############################################
+resource "helm_release" "karpenter_config" {
+  name       = "karpenter-config"
+  repository = "https://stevehipwell.github.io/helm-charts/"
+  chart      = "raw"
+  version    = "2.0.0"
+  namespace  = "karpenter"
+
+  values = [
+    yamlencode({
+      resources = [
+        # EC2NodeClass default
+        {
+          apiVersion = "karpenter.k8s.aws/v1beta1"
+          kind       = "EC2NodeClass"
+          metadata = {
+            name = "default"
+          }
+          spec = {
+            role      = aws_iam_role.karpenter_node_instance_profile.name
+            amiFamily = "AL2"
+            blockDeviceMappings = [
+              {
+                deviceName = "/dev/xvda"
+                ebs = {
+                  volumeSize          = "50Gi"
+                  volumeType          = "gp3"
+                  iops                = 3000
+                  throughput          = 125
+                  encrypted           = true
+                  deleteOnTermination = true
+                }
+              }
+            ]
+            subnetSelectorTerms = [
+              { tags = { "karpenter.sh/discovery" = local.name } }
+            ]
+            securityGroupSelectorTerms = [
+              { tags = { "kubernetes.io/cluster/${module.eks.cluster_name}" = "owned" } }
+            ]
+            metadataOptions = {
+              httpEndpoint            = "enabled"
+              httpProtocolIPv6        = "disabled"
+              httpPutResponseHopLimit = 2
+              httpTokens              = "required"
+            }
+          }
+        },
+
+        # NodePool cost-optimized (spot)
+        {
+          apiVersion = "karpenter.sh/v1beta1"
+          kind       = "NodePool"
+          metadata = {
+            name = "cost-optimized"
+          }
+          spec = {
+            template = {
+              metadata = {
+                labels = {
+                  "node-type" = "cost-optimized"
+                }
+              }
+              spec = {
+                requirements = [
+                  { key = "karpenter.sh/capacity-type", operator = "In", values = ["spot"] },
+                  { key = "kubernetes.io/arch", operator = "In", values = ["arm64", "amd64"] },
+                  { key = "node.kubernetes.io/instance-type", operator = "In", values = var.karpenter_instance_types }
+                ]
+                nodeClassRef = {
+                  apiVersion = "karpenter.k8s.aws/v1beta1"
+                  kind       = "EC2NodeClass"
+                  name       = "default"
+                }
+              }
+            }
+            limits = { cpu = "1000", memory = "1000Gi" }
+            disruption = {
+              consolidationPolicy = "WhenEmpty"
+              consolidateAfter    = "30s"
+            }
+          }
+        }
+      ]
+    })
+  ]
+
+  depends_on = [
+    helm_release.karpenter
+  ]
 }
