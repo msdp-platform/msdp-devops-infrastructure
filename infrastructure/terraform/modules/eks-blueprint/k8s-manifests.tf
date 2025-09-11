@@ -289,7 +289,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
     }
   })
 
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [null_resource.wait_for_karpenter_ready]
 }
 
 # GPU NodePool removed - not needed for this setup
@@ -372,7 +372,7 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
     }
   })
 
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [null_resource.wait_for_karpenter_ready]
 }
 
 # Karpenter NodePool - Minimum Nodes (prevents 0 scaling)
@@ -443,7 +443,66 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
     }
   })
 
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [null_resource.wait_for_karpenter_ready]
+}
+
+# Karpenter NodePool - General On-Demand (ensures immediate capacity for core workloads)
+resource "kubectl_manifest" "karpenter_nodepool_on_demand_general" {
+  count = 0
+  yaml_body = yamlencode({
+    apiVersion = "karpenter.sh/v1beta1"
+    kind       = "NodePool"
+    metadata = {
+      name = "on-demand-general"
+    }
+    spec = {
+      template = {
+        metadata = {
+          labels = {
+            "node-type"              = "on-demand-general"
+            "karpenter.sh/discovery" = local.name
+          }
+        }
+        spec = {
+          requirements = [
+            {
+              key      = "karpenter.sh/capacity-type"
+              operator = "In"
+              values   = ["on-demand"]
+            },
+            {
+              key      = "kubernetes.io/arch"
+              operator = "In"
+              values   = ["arm64"]
+            },
+            {
+              key      = "node.kubernetes.io/instance-type"
+              operator = "In"
+              values   = ["t4g.small", "t4g.medium", "m6g.large"]
+            }
+          ]
+
+          nodeClassRef = {
+            apiVersion = "karpenter.k8s.aws/v1beta1"
+            kind       = "EC2NodeClass"
+            name       = "default"
+          }
+        }
+      }
+
+      limits = {
+        cpu    = "100"
+        memory = "500Gi"
+      }
+
+      disruption = {
+        consolidateAfter  = "60s"
+        consolidatePolicy = "WhenUnderutilized"
+      }
+    }
+  })
+
+  depends_on = [null_resource.wait_for_karpenter_ready]
 }
 
 # Cert-Manager ClusterIssuer for Let's Encrypt

@@ -499,6 +499,23 @@ resource "null_resource" "wait_for_cluster" {
   }
 }
 
+# Wait until Karpenter controller is ready before creating NodePools
+resource "null_resource" "wait_for_karpenter_ready" {
+  depends_on = [module.eks_blueprints_addons]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      # Wait for Karpenter namespace and deployment to become available
+      kubectl get ns karpenter >/dev/null 2>&1 || true
+      kubectl -n karpenter rollout status deploy/karpenter --timeout=600s || exit 1
+    EOT
+  }
+
+  triggers = {
+    cluster_name = module.eks.cluster_name
+  }
+}
+
 # Karpenter Node IAM Role
 resource "aws_iam_role" "karpenter_node_instance_profile" {
   name = "${local.name}-karpenter-node"
