@@ -654,8 +654,19 @@ resource "aws_iam_role_policy" "karpenter_controller" {
       {
         Effect = "Allow"
         Action = [
+          "iam:PassRole"
+        ]
+        Resource = aws_iam_role.karpenter_node_instance_profile.arn
+        Condition = {
+          StringEquals = {
+            "iam:PassedToService" = "ec2.amazonaws.com"
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
-          "iam:PassRole",
           "iam:CreateInstanceProfile",
           "iam:DeleteInstanceProfile",
           "iam:AddRoleToInstanceProfile",
@@ -663,6 +674,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
           "iam:GetInstanceProfile",
           "iam:ListInstanceProfiles",
           "iam:ListInstanceProfilesForRole",
+          "iam:GetRole",
           "ec2:DescribeImages",
           "ec2:RunInstances",
           "ec2:DescribeSubnets",
@@ -679,10 +691,7 @@ resource "aws_iam_role_policy" "karpenter_controller" {
           "ec2:DescribeSpotPriceHistory",
           "pricing:GetProducts"
         ]
-        Resource = [
-          "*",
-          aws_iam_role.karpenter_node_instance_profile.arn
-        ]
+        Resource = "*"
       }
     ]
   })
