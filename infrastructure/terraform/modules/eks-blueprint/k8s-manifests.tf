@@ -235,8 +235,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
       template = {
         metadata = {
           labels = {
-            "node-type"              = "cost-optimized"
-            "karpenter.sh/discovery" = local.name
+            "node-type" = "cost-optimized"
           }
         }
         spec = {
@@ -264,7 +263,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
             {
               key    = "workload-type"
               value  = "user"
-              effect = "NO_SCHEDULE"
+              effect = "NoSchedule"
             }
           ]
 
@@ -273,7 +272,7 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
             {
               key    = "karpenter.sh/startup"
               value  = "true"
-              effect = "NO_SCHEDULE"
+              effect = "NoSchedule"
             }
           ]
 
@@ -318,8 +317,7 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
       template = {
         metadata = {
           labels = {
-            "node-type"              = "memory-optimized"
-            "karpenter.sh/discovery" = local.name
+            "node-type" = "memory-optimized"
           }
         }
         spec = {
@@ -399,8 +397,7 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
       template = {
         metadata = {
           labels = {
-            "node-type"              = "minimum"
-            "karpenter.sh/discovery" = local.name
+            "node-type" = "minimum"
           }
         }
         spec = {
@@ -448,7 +445,6 @@ resource "kubectl_manifest" "karpenter_nodepool_minimum" {
 
       # Disruption settings to prevent 0 scaling
       disruption = {
-        consolidateAfter  = "60s"
         consolidatePolicy = "WhenUnderutilized"
         expireAfter       = "2160h"
       }

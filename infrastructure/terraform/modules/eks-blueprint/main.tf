@@ -1329,7 +1329,7 @@ resource "helm_release" "karpenter_config" {
   name       = "karpenter-config"
   repository = "https://stevehipwell.github.io/helm-charts/"
   chart      = "raw"
-  version    = "2.0.0"
+  version    = "0.3.0"
   namespace  = "karpenter"
 
   values = [
