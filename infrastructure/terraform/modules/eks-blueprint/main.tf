@@ -275,8 +275,31 @@ module "eks_blueprints_addons" {
     }
   }
 
-  # Enable Karpenter
-  enable_karpenter = false
+  # Enable Karpenter via Blueprints
+  enable_karpenter = true
+  karpenter = {
+    helm_config = {
+      version = "v1.1.0"
+      values = [
+        yamlencode({
+          serviceAccount = {
+            create = true
+            name   = "karpenter"
+            annotations = {
+              "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
+            }
+          }
+          settings = {
+            aws = {
+              clusterName            = module.eks.cluster_name
+              defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
+              interruptionQueue      = aws_sqs_queue.karpenter.name
+            }
+          }
+        })
+      ]
+    }
+  }
   # Enable NGINX Ingress Controller
   enable_ingress_nginx = true
   ingress_nginx = {
@@ -544,10 +567,11 @@ resource "null_resource" "wait_for_cluster" {
 
 # Wait until Karpenter controller is ready before creating NodePools
 resource "null_resource" "wait_for_karpenter_ready" {
-  depends_on = [module.eks_blueprints_addons]
+  depends_on = [module.eks_blueprints_addons, null_resource.wait_for_cluster]
 
   provisioner "local-exec" {
     command = <<-EOT
+      aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}
       # Wait for Karpenter namespace and deployment to become available
       kubectl get ns karpenter >/dev/null 2>&1 || true
       kubectl -n karpenter rollout status deploy/karpenter --timeout=600s || exit 1
@@ -1296,38 +1320,7 @@ resource "aws_route53_record" "cert_validation" {
 #############################################
 # Dedicated Helm release for Karpenter
 #############################################
-resource "helm_release" "karpenter" {
-  name       = "karpenter"
-  repository = "oci://public.ecr.aws/karpenter"
-  chart      = "karpenter"
-  version    = "v1.1.0"
-  namespace  = "karpenter"
-
-  create_namespace = true
-
-  values = [
-    yamlencode({
-      serviceAccount = {
-        create = true
-        name   = "karpenter"
-        annotations = {
-          "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
-        }
-      }
-      settings = {
-        aws = {
-          clusterName            = module.eks.cluster_name
-          defaultInstanceProfile = aws_iam_instance_profile.karpenter.name
-          interruptionQueue      = aws_sqs_queue.karpenter.name
-        }
-      }
-    })
-  ]
-
-  depends_on = [
-    module.eks_blueprints_addons
-  ]
-}
+## Karpenter standalone Helm release removed; managed via Blueprints
 
 #############################################
 # Dedicated Helm release to install EC2NodeClass and NodePool (raw chart)
@@ -1419,6 +1412,6 @@ resource "helm_release" "karpenter_config" {
   ]
 
   depends_on = [
-    helm_release.karpenter
+    module.eks_blueprints_addons
   ]
 }
