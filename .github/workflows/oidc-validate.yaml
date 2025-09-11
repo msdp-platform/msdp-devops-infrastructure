@@ -1,0 +1,53 @@
+name: OIDC Validate
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Parse OIDC artifacts (dev)
+        id: parse
+        run: |
+          ART=./infrastructure/environment/dev/artifacts/oidc/github-oidc-out.json
+          if [ ! -f "$ART" ]; then echo "Artifacts JSON not found: $ART"; exit 1; fi
+          AWS_ROLE_ARN=$(jq -r '.aws.role_arn // empty' "$ART")
+          AZ_CLIENT_ID=$(jq -r '.azure.uami.client_id // empty' "$ART")
+          AZ_TENANT_ID=$(jq -r '.azure.tenant_id // empty' "$ART")
+          AZ_SUB_ID=$(jq -r '.azure.subscription_id // empty' "$ART")
+          echo "aws_role_arn=$AWS_ROLE_ARN" >> "$GITHUB_OUTPUT"
+          echo "azure_client_id=$AZ_CLIENT_ID" >> "$GITHUB_OUTPUT"
+          echo "azure_tenant_id=$AZ_TENANT_ID" >> "$GITHUB_OUTPUT"
+          echo "azure_subscription_id=$AZ_SUB_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ steps.parse.outputs.aws_role_arn != '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.parse.outputs.aws_role_arn }}
+          aws-region: eu-west-1
+
+      - name: Verify AWS caller identity
+        if: ${{ steps.parse.outputs.aws_role_arn != '' }}
+        run: aws sts get-caller-identity
+
+      - name: Azure login (OIDC)
+        if: ${{ steps.parse.outputs.azure_client_id != '' && steps.parse.outputs.azure_tenant_id != '' && steps.parse.outputs.azure_subscription_id != '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_ID || steps.parse.outputs.azure_client_id }}
+          tenant-id: ${{ steps.parse.outputs.azure_tenant_id }}
+          subscription-id: ${{ steps.parse.outputs.azure_subscription_id }}
+
+      - name: Verify Azure account
+        if: ${{ steps.parse.outputs.azure_client_id != '' }}
+        run: az account show
