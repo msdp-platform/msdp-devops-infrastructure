@@ -70,7 +70,11 @@ jobs:
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Init (upgrade)
-        run: terraform init -upgrade
+        run: |
+          terraform init -upgrade \
+            -backend-config="bucket=${{ secrets.TERRAFORM_BUCKET_NAME }}" \
+            -backend-config="key=${{ github.event.inputs.environment || 'dev' }}/eks-blueprint/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Validate
@@ -145,7 +149,11 @@ jobs:
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Init (upgrade)
-        run: terraform init -upgrade
+        run: |
+          terraform init -upgrade \
+            -backend-config="bucket=${{ secrets.TERRAFORM_BUCKET_NAME }}" \
+            -backend-config="key=${{ github.event.inputs.environment || 'dev' }}/eks-blueprint/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Apply (with plan if available)
@@ -237,7 +245,11 @@ jobs:
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Init (upgrade)
-        run: terraform init -upgrade
+        run: |
+          terraform init -upgrade \
+            -backend-config="bucket=${{ secrets.TERRAFORM_BUCKET_NAME }}" \
+            -backend-config="key=${{ github.event.inputs.environment || 'dev' }}/eks-blueprint/terraform.tfstate" \
+            -backend-config="region=${{ env.AWS_REGION }}"
         working-directory: infrastructure/terraform/environments/${{ github.event.inputs.environment || 'dev' }}
 
       - name: Terraform Destroy

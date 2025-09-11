@@ -17,12 +17,7 @@ terraform {
     }
   }
 
-  backend "s3" {
-    # Terraform state bucket created by OIDC setup
-    bucket = "msdp-terraform-state-1757477736"
-    key    = "dev/eks-blueprint/terraform.tfstate"
-    region = "us-west-2"
-  }
+  backend "s3" {}
 }
 
 # Configure the AWS Provider
