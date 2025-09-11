@@ -102,7 +102,7 @@ module "eks" {
     system = {
       name = "system"
 
-      instance_types = ["t4g.small"]
+      instance_types = ["t4g.medium"]
 
       min_size     = 1
       max_size     = 3
