@@ -1326,6 +1326,7 @@ resource "aws_route53_record" "cert_validation" {
 # Dedicated Helm release to install EC2NodeClass and NodePool (raw chart)
 #############################################
 resource "helm_release" "karpenter_config" {
+  count      = 0
   name       = "karpenter-config"
   repository = "https://stevehipwell.github.io/helm-charts/"
   chart      = "raw"

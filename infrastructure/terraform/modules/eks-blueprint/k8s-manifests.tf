@@ -292,8 +292,6 @@ resource "kubectl_manifest" "karpenter_nodepool_cost_optimized" {
 
       # Disruption settings
       disruption = {
-        # Ensure minimum nodes are always available
-        consolidateAfter  = "30s"
         consolidatePolicy = "WhenEmpty"
         expireAfter       = "2160h" # 90 days
       }
@@ -363,7 +361,7 @@ resource "kubectl_manifest" "karpenter_nodepool_memory" {
             {
               key    = "workload-type"
               value  = "memory-intensive"
-              effect = "NO_SCHEDULE"
+              effect = "NoSchedule"
             }
           ]
         }
