@@ -13,6 +13,23 @@ resource "kubectl_manifest" "jobs_namespace" {
   depends_on = [module.eks_blueprints_addons]
 }
 
+## Ensure Karpenter ServiceAccount uses our IRSA role (automated patch)
+resource "kubectl_manifest" "karpenter_service_account_irsa" {
+  yaml_body = yamlencode({
+    apiVersion = "v1"
+    kind       = "ServiceAccount"
+    metadata = {
+      name      = "karpenter"
+      namespace = "karpenter"
+      annotations = {
+        "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
+      }
+    }
+  })
+
+  depends_on = [module.eks_blueprints_addons]
+}
+
 resource "kubectl_manifest" "monitoring_namespace" {
   yaml_body = yamlencode({
     apiVersion = "v1"
