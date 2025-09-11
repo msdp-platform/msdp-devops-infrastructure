@@ -29,3 +29,6 @@ jobs:
 
       - name: Verify Azure account
         run: az account show
+
+      - name: Confirm reusable action executed
+        run: echo "Reusable cloud-login action executed successfully!"
