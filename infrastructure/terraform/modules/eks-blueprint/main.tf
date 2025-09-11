@@ -223,6 +223,9 @@ module "eks_blueprints_addons" {
             zoneType = "public"
             region   = var.aws_region
           }
+          nodeSelector = {
+            "node-type" = "system"
+          }
         })
       ]
     }
@@ -240,6 +243,9 @@ module "eks_blueprints_addons" {
             annotations = {
               "eks.amazonaws.com/role-arn" = aws_iam_role.cert_manager.arn
             }
+          }
+          nodeSelector = {
+            "node-type" = "system"
           }
         })
       ]
@@ -259,6 +265,9 @@ module "eks_blueprints_addons" {
               "eks.amazonaws.com/role-arn" = aws_iam_role.secrets_store_csi.arn
             }
           }
+          nodeSelector = {
+            "node-type" = "system"
+          }
         })
       ]
     }
@@ -273,6 +282,9 @@ module "eks_blueprints_addons" {
       values = [
         yamlencode({
           controller = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
             service = {
               type = "LoadBalancer"
               annotations = {
@@ -294,15 +306,36 @@ module "eks_blueprints_addons" {
     helm_config = {
       values = [
         yamlencode({
+          prometheusOperator = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
           grafana = {
             enabled = true
             service = {
               type = "LoadBalancer"
             }
+            nodeSelector = {
+              "node-type" = "system"
+            }
           }
           prometheus = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
             prometheusSpec = {
               serviceMonitorSelectorNilUsesHelmValues = false
+            }
+          }
+          alertmanager = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
+          kube-state-metrics = {
+            nodeSelector = {
+              "node-type" = "system"
             }
           }
         })
@@ -316,17 +349,44 @@ module "eks_blueprints_addons" {
     helm_config = {
       values = [
         yamlencode({
+          controller = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
           server = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
             service = {
               type = "LoadBalancer"
             }
           }
-          configs = {
-            params = {
-              "server.insecure" = true
+          repoServer = {
+            nodeSelector = {
+              "node-type" = "system"
             }
           }
-        })
+          applicationSet = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
+          dex = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
+          notifications = {
+            nodeSelector = {
+              "node-type" = "system"
+            }
+          }
+        configs = {
+          params = {
+            "server.insecure" = true
+          }
+        }
       ]
     }
   }
