@@ -134,10 +134,10 @@ output "eks_blueprints_addons" {
 output "backstage_helm_release" {
   description = "Backstage Helm release information"
   value = {
-    name      = helm_release.backstage.name
-    namespace = helm_release.backstage.namespace
-    version   = helm_release.backstage.version
-    status    = helm_release.backstage.status
+    name      = try(helm_release.backstage[0].name, null)
+    namespace = try(helm_release.backstage[0].namespace, null)
+    version   = try(helm_release.backstage[0].version, null)
+    status    = try(helm_release.backstage[0].status, null)
   }
 }
 
