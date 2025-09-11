@@ -605,7 +605,7 @@ resource "kubectl_manifest" "crossplane_aws_provider" {
 
 # Crossplane AWS Provider Config
 resource "kubectl_manifest" "crossplane_aws_provider_config" {
-  count     = 0
+  count = 0
   yaml_body = yamlencode({
     apiVersion = "aws.crossplane.io/v1beta1"
     kind       = "ProviderConfig"
