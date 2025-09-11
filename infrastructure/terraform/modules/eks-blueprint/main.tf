@@ -275,7 +275,7 @@ module "eks_blueprints_addons" {
     }
   }
 
-  # Enable Karpenter via Blueprints
+  # Enable Karpenter in Blueprints with IRSA and settings
   enable_karpenter = true
   karpenter = {
     helm_config = {
