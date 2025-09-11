@@ -279,15 +279,12 @@ module "eks_blueprints_addons" {
   enable_karpenter = true
   karpenter = {
     helm_config = {
-      version = "v1.1.0"
+      chart_version = "v1.1.0"
       values = [
         yamlencode({
           serviceAccount = {
-            create = true
+            create = false
             name   = "karpenter"
-            annotations = {
-              "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
-            }
           }
           settings = {
             aws = {
