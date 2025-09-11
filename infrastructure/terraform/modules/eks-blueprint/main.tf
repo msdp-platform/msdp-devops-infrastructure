@@ -105,8 +105,8 @@ module "eks" {
       instance_types = ["t4g.small"]
 
       min_size     = 1
-      max_size     = 1
-      desired_size = 1
+      max_size     = 3
+      desired_size = 2
 
       # Use on-demand instances to ensure reliable creation
       capacity_type = "ON_DEMAND"
