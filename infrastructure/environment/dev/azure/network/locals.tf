@@ -10,6 +10,9 @@ variable "subscription_id" {
 }
 
 locals {
+  # Load config paths
+  config_paths = yamldecode(file("${path.module}/../../../../config/local.yaml")).paths
+
   envs = {
     dev = {
       subscription_id = "<REPLACE-SUBSCRIPTION-ID>"

@@ -26,6 +26,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Load config paths
+      - name: Load config paths
+        id: config
+        run: |
+          AKS_PATH=$(yq '.paths.aks' infrastructure/config/local.yaml)
+          PREFLIGHT_SCRIPTS_PATH=$(yq '.paths.preflight_scripts' infrastructure/config/local.yaml)
+          echo "aks_path=$AKS_PATH" >> $GITHUB_OUTPUT
+          echo "preflight_scripts_path=$PREFLIGHT_SCRIPTS_PATH" >> $GITHUB_OUTPUT
+
       # Azure OIDC
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -56,10 +65,10 @@ jobs:
           TFSTATE_CONTAINER: ${{ env.TFSTATE_CONTAINER }}
           TFSTATE_SA: ${{ env.TFSTATE_SA }}
           NETWORK_STATE_KEY: ${{ env.NETWORK_STATE_KEY }}
-        run: bash scripts/preflight-aks.sh
+        run: bash ${{ steps.config.outputs.preflight_scripts_path }}/preflight-aks.sh
 
       - name: Terraform init (S3 backend)
-        working-directory: infrastructure/environment/dev/azure/aks
+        working-directory: ${{ steps.config.outputs.aks_path }}
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
@@ -69,10 +78,10 @@ jobs:
             -backend-config="encrypt=true"
 
       - name: Terraform plan
-        working-directory: infrastructure/environment/dev/azure/aks
+        working-directory: ${{ steps.config.outputs.aks_path }}
         run: terraform plan -var="env=dev" -out=tfplan
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        working-directory: infrastructure/environment/dev/azure/aks
+        working-directory: ${{ steps.config.outputs.aks_path }}
         run: terraform apply -auto-approve tfplan

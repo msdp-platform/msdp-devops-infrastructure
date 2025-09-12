@@ -19,6 +19,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Load config paths
+      - name: Load config paths
+        id: config
+        run: |
+          NETWORK_PATH=$(yq '.paths.network' infrastructure/config/local.yaml)
+          PREFLIGHT_SCRIPTS_PATH=$(yq '.paths.preflight_scripts' infrastructure/config/local.yaml)
+          echo "network_path=$NETWORK_PATH" >> $GITHUB_OUTPUT
+          echo "preflight_scripts_path=$PREFLIGHT_SCRIPTS_PATH" >> $GITHUB_OUTPUT
+
       # Azure OIDC for azurerm
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -45,10 +54,10 @@ jobs:
           terraform_version: 1.9.5
 
       - name: Preflight
-        run: bash scripts/preflight-network.sh
+        run: bash ${{ steps.config.outputs.preflight_scripts_path }}/preflight-network.sh
 
       - name: Terraform init (S3 backend)
-        working-directory: infrastructure/environment/dev/azure/network
+        working-directory: ${{ steps.config.outputs.network_path }}
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
@@ -58,10 +67,10 @@ jobs:
             -backend-config="encrypt=true"
 
       - name: Terraform plan
-        working-directory: infrastructure/environment/dev/azure/network
+        working-directory: ${{ steps.config.outputs.network_path }}
         run: terraform plan -var="env=dev" -out=tfplan
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main'
-        working-directory: infrastructure/environment/dev/azure/network
+        working-directory: ${{ steps.config.outputs.network_path }}
         run: terraform apply -auto-approve tfplan

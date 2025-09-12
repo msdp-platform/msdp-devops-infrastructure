@@ -61,3 +61,17 @@ security_baseline:
   sign_images: false
   image_scan: true
   branch_protection: true
+
+paths:
+  infrastructure:
+    base: infrastructure/environment
+    network: infrastructure/environment/{env}/azure/network
+    aks: infrastructure/environment/{env}/azure/aks
+    artifacts: infrastructure/environment/{env}/artifacts
+  scripts:
+    preflight: scripts
+    bootstrap: scripts/bootstrap
+  workflows:
+    base: .github/workflows
+    network: .github/workflows/network.yml
+    aks: .github/workflows/aks.yml

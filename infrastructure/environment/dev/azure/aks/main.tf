@@ -42,7 +42,7 @@ data "azurerm_resources" "subnets_by_tag" {
   count               = (local.rs_subnet_id == "" && local.name_subnet_id == "" && !local.have_names) ? 1 : 0
   type                = "Microsoft.Network/virtualNetworks/subnets"
   resource_group_name = var.resource_group != "" ? var.resource_group : null
-  
+
   required_tags = var.subnet_tags
 }
 

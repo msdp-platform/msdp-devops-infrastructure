@@ -41,6 +41,9 @@ variable "use_remote_state" {
 }
 
 locals {
+  # Load config paths
+  config_paths = yamldecode(file("${path.module}/../../../../config/local.yaml")).paths
+
   envs = {
     dev = {
       subscription_id = "<REPLACE-SUBSCRIPTION-ID>"

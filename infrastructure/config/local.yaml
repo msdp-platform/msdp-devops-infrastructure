@@ -63,3 +63,9 @@ cloud_tags:
   Owner: team-core
   CostCenter: CC1001
   ManagedBy: msdp
+
+paths:
+  network: infrastructure/environment/dev/azure/network
+  aks: infrastructure/environment/dev/azure/aks
+  artifacts: infrastructure/environment/dev/artifacts
+  preflight_scripts: scripts
