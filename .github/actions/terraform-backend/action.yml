@@ -79,7 +79,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        
+
         # Check if aws-account-id was provided as input
         if [[ -n "${{ inputs.aws-account-id }}" && "${{ inputs.aws-account-id }}" != "null" ]]; then
           AWS_ACCOUNT_ID="${{ inputs.aws-account-id }}"
@@ -161,14 +161,14 @@ runs:
             exit 1
           fi
         fi
-        
+
         # Validate AWS account ID format (12 digits)
         if [[ ! "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
           echo "ERROR: Invalid AWS account ID format: $AWS_ACCOUNT_ID" >&2
           echo "AWS account ID must be exactly 12 digits." >&2
           exit 1
         fi
-        
+
         echo "Resolved AWS account ID: $AWS_ACCOUNT_ID"
         echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> "$GITHUB_ENV"
 

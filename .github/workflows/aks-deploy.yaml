@@ -38,6 +38,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify S3 backend is declared
+        run: bash scripts/ci/verify_s3_backend.sh
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
