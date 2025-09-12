@@ -42,7 +42,7 @@ jobs:
           function: tfstate
           pipeline-name: provisioner
           aws-region: eu-west-1
-          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+          aws-account-id: 319422413814
 
       - name: Debug backend config
         run: |
