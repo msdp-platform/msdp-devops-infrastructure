@@ -101,7 +101,7 @@ runs:
         set -euo pipefail
         : "${CFG:?CFG not set}"
         : "${BUCKET:?BUCKET not set}"
-        
+
         # DynamoDB table name
         TABLE="${BUCKET}-locks"
 
