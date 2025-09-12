@@ -30,49 +30,37 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Ensure Terraform backend (AWS dev)
-        if: ${{ matrix.cloud == 'aws' }}
+      - name: Ensure Terraform backend (per cloud/app/pipeline)
         uses: ./.github/actions/terraform-backend
         with:
           repo-shortname: infra
           project: msdp
           env: dev
-          app: eks
-          function: tfstate
-          pipeline-name: provisioner
-          cloud-segment: ${{ matrix.cloud }}
           cloud: aws
+          cloud-segment: ${{ matrix.cloud }}
+          app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
+          pipeline-name: provisioner
+          aws-region: eu-west-1
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
 
-      - name: Terraform Init (AWS with backend config)
+      - name: Terraform Init (AWS)
         if: ${{ matrix.cloud == 'aws' }}
         uses: ./.github/actions/terraform-init
         with:
           working-directory: infrastructure/environment/dev/aws/eks
           backend-config-file: infrastructure/environment/dev/backend/backend-config.json
 
-      - name: Verify backend (AWS)
-        if: ${{ matrix.cloud == 'aws' }}
-        run: |
-          CFG=infrastructure/environment/dev/backend/backend-config.json
-          test -f "$CFG" || { echo "Missing $CFG"; exit 1; }
-          echo "Backend config:"
-          cat "$CFG"
-          echo "S3/DDB sanity check:"
-          BUCKET=$(jq -r '.bucket' "$CFG")
-          TABLE=$(jq -r '.dynamodb_table' "$CFG")
-          aws s3api head-bucket --bucket "$BUCKET"
-          aws dynamodb describe-table --table-name "$TABLE" --query '{Status:Table.TableStatus,Key:Table.KeySchema}'
+      - name: Terraform Init (Azure)
+        if: ${{ matrix.cloud == 'azure' }}
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/dev/azure/aks
+          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
 
       - name: Terraform validate (AWS)
         if: ${{ matrix.cloud == 'aws' }}
         run: terraform validate
         working-directory: infrastructure/environment/dev/aws/eks
-
-      - name: Terraform Init (Azure with local backend)
-        if: ${{ matrix.cloud == 'azure' }}
-        uses: ./.github/actions/terraform-init
-        with:
-          working-directory: infrastructure/environment/dev/azure/aks
 
       - name: Terraform validate (Azure)
         if: ${{ matrix.cloud == 'azure' }}

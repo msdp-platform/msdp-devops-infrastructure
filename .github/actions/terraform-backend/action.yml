@@ -26,6 +26,9 @@ inputs:
   cloud:
     description: "Target cloud; only 'aws' is supported for now"
     required: true
+  aws-account-id:
+    description: "AWS account ID for backend uniqueness"
+    required: true
   aws-region:
     description: "AWS region for the backend"
     required: false
@@ -55,8 +58,9 @@ runs:
         echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
         echo "CFG=$BACKEND_DIR/backend-config.json" >> "$GITHUB_ENV"
 
-        # Stable bucket naming: <repo_shortname>-<project>-<env>-<function>
-        BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}"
+        # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
+        REGION_SHORT="$(echo "${{ inputs.aws-region }}" | sed 's/eu-west-/euw/;s/us-east-/use/;s/us-west-/usw/')"
+        BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${{ inputs.aws-account-id }}-${REGION_SHORT}"
         # Normalize to lowercase and safe chars
         BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
 
