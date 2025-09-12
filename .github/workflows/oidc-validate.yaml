@@ -21,6 +21,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Terraform fmt check
+        run: |
+          set -euo pipefail
+          echo "Checking Terraform formatting..."
+          if ! terraform fmt -recursive -check; then
+            echo "ERROR: Terraform files are not properly formatted"
+            echo "Run 'terraform fmt -recursive' to fix formatting issues"
+            terraform fmt -recursive -diff
+            exit 1
+          fi
+          echo "Terraform formatting check passed"
+
       - name: AWS + Azure OIDC Login (local)
         uses: ./.github/actions/cloud-login
         with:
