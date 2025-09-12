@@ -103,24 +103,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from env config file
-          ENV_CONFIG="config/envs/dev.yaml"
-          # Make path relative to repository root if it's not absolute
-          if [[ "$ENV_CONFIG" != /* ]]; then
-            ENV_CONFIG="$GITHUB_WORKSPACE/$ENV_CONFIG"
-          fi
-          [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
+          # Load backend config from generated backend config file
+          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
-          BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
-          REGION=$(yq eval '.state.region' "$ENV_CONFIG")
-          DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
-          KEY="eks/dev.tfstate"
+          BUCKET=$(jq -r '.bucket' "$CFG")
+          REGION=$(jq -r '.region' "$CFG")
+          DDB=$(jq -r '.dynamodb_table' "$CFG")
+          KEY=$(jq -r '.key' "$CFG")
 
           # Validate backend config values
-          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
-          [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
-          [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
-          [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in backend config"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty in backend config"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in backend config"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb_table is empty in backend config"; exit 1; }
 
           echo "🔧 Using backend: bucket=${BUCKET} key=${KEY} region=${REGION} ddb=${DDB}"
 
@@ -155,24 +151,20 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from env config file
-          ENV_CONFIG="config/envs/dev.yaml"
-          # Make path relative to repository root if it's not absolute
-          if [[ "$ENV_CONFIG" != /* ]]; then
-            ENV_CONFIG="$GITHUB_WORKSPACE/$ENV_CONFIG"
-          fi
-          [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
+          # Load backend config from generated backend config file
+          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
-          BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
-          REGION=$(yq eval '.state.region' "$ENV_CONFIG")
-          DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
-          KEY="aks/dev.tfstate"
+          BUCKET=$(jq -r '.bucket' "$CFG")
+          REGION=$(jq -r '.region' "$CFG")
+          DDB=$(jq -r '.dynamodb_table' "$CFG")
+          KEY=$(jq -r '.key' "$CFG")
 
           # Validate backend config values
-          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
-          [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
-          [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
-          [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in backend config"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty in backend config"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in backend config"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb_table is empty in backend config"; exit 1; }
 
           echo "🔧 Using backend: bucket=${BUCKET} key=${KEY} region=${REGION} ddb=${DDB}"
 
