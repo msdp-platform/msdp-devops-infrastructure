@@ -16,6 +16,18 @@ variable "vnet_name" {
   default     = "vnet-shared-dev"
 }
 
+variable "manage_resource_group" {
+  type        = bool
+  description = "When true, create/manage the Resource Group. When false, use existing RG by name."
+  default     = true
+}
+
+variable "manage_vnet" {
+  type        = bool
+  description = "When true, create/manage the VNet. When false, use existing VNet by name in the given RG."
+  default     = true
+}
+
 variable "address_space" {
   type        = list(string)
   description = "Explicit VNet CIDRs (explicit mode). If empty, base_cidr mode is used."
@@ -64,7 +76,7 @@ variable "subnet_count" {
   description = "Number of subnets to derive (computed mode)"
   default     = 0
   validation {
-    condition     = var.base_cidr == "" || var.subnet_count > 0
+    condition     = var.base_cidr == "" || var.subnet_count >= 0
     error_message = "subnet_count must be > 0 when base_cidr is provided."
   }
 }

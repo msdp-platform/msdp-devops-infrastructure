@@ -8,6 +8,12 @@ on:
       - "infrastructure/config/**" # include if globals live here
   workflow_dispatch:
     inputs:
+      provision_type:
+        description: What to manage
+        required: true
+        default: new_rg_and_vnet
+        type: choice
+        options: [new_rg_and_vnet, existing_rg_new_vnet, existing_rg_and_vnet]
       action:
         description: plan | apply | destroy
         required: true
@@ -33,9 +39,6 @@ on:
       base_cidr:
         required: false
         default: ""
-      subnet_count:
-        required: false
-        default: "0"
       subnet_names:
         description: CSV (e.g. app,db,ops)
         required: false
@@ -117,6 +120,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # derive management flags from provision_type
+          case "${{ github.event.inputs.provision_type }}" in
+            new_rg_and_vnet)
+              manage_rg=true; manage_vnet=true ;;
+            existing_rg_new_vnet)
+              manage_rg=false; manage_vnet=true ;;
+            existing_rg_and_vnet)
+              manage_rg=false; manage_vnet=false ;;
+            *) echo "Invalid provision_type" >&2; exit 1 ;;
+          esac
           addr_csv="${{ github.event.inputs.address_space || '' }}"
           if [ -n "$addr_csv" ]; then
             # explicit mode
@@ -132,9 +145,11 @@ jobs:
               --arg rg "${{ github.event.inputs.resource_group || '' }}" \
               --arg loc "${{ github.event.inputs.location || '' }}" \
               --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
+              --argjson manage_rg "$manage_rg" \
+              --argjson manage_vnet "$manage_vnet" \
               --argjson address_space "$addrs" \
               --argjson subnets "$subnets" \
-              '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
+              '{resource_group:$rg, location:$loc, vnet_name:$vnet, manage_resource_group:$manage_rg, manage_vnet:$manage_vnet, address_space:$address_space, subnets:$subnets}' \
               > network.auto.tfvars.json
           else
             # computed mode
@@ -144,19 +159,22 @@ jobs:
             else
               names='[]'
             fi
-            count="${{ github.event.inputs.subnet_count || '0' }}"
+            # derive subnet count from names length if provided, else default 0
+            count=$(jq -r 'length' <<< "$names")
             newbits=8
             nsg_prefix="${{ github.event.inputs.nsg_prefix || '' }}"
             jq -n \
               --arg rg "${{ github.event.inputs.resource_group || '' }}" \
               --arg loc "${{ github.event.inputs.location || '' }}" \
               --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
+              --argjson manage_rg "$manage_rg" \
+              --argjson manage_vnet "$manage_vnet" \
               --arg base "${{ github.event.inputs.base_cidr || '' }}" \
               --argjson count "$count" \
               --argjson newbits "$newbits" \
               --argjson names "$names" \
               --arg nsg_prefix "$nsg_prefix" \
-              '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_prefix:$nsg_prefix}' \
+              '{resource_group:$rg, location:$loc, vnet_name:$vnet, manage_resource_group:$manage_rg, manage_vnet:$manage_vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_prefix:$nsg_prefix}' \
               > network.auto.tfvars.json
           fi
           echo "Wrote $(pwd)/network.auto.tfvars.json"

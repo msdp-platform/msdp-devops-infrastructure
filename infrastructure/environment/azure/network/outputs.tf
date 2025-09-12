@@ -1,9 +1,9 @@
 output "vnet_name" {
-  value = azurerm_virtual_network.vnet.name
+  value = coalesce(try(azurerm_virtual_network.vnet[0].name, null), try(data.azurerm_virtual_network.vnet[0].name, null))
 }
 
 output "address_space" {
-  value = azurerm_virtual_network.vnet.address_space
+  value = coalesce(try(azurerm_virtual_network.vnet[0].address_space, null), try(data.azurerm_virtual_network.vnet[0].address_space, null))
 }
 
 output "subnets" {
