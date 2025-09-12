@@ -10,5 +10,18 @@ variable "node_instance_type" { type = string }
 variable "node_desired" { type = number }
 variable "node_min" { type = number }
 variable "node_max" { type = number }
-variable "tags" { type = map(string) default = {} }
+variable "tags" {
+  type = map(string)
+  default = {}
+}
 
+  
+variable "global_config_path" {
+  type = string
+  description = "Path to the global configuration YAML"
+}
+
+variable "env_config_path" {
+  type = string
+  description = "Path to the environment specific configuration YAML"
+}
