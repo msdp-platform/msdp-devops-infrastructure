@@ -1,10 +1,50 @@
-# Local values for baseline tagging
+# Local values for baseline tagging and subnet validation
 locals {
   baseline_tags = {
     Org       = var.org
     Env       = var.env
     ManagedBy = "Terraform"
     Component = "AKS"
+  }
+
+  # Subnet input validation
+  have_subnet_id  = length(trim(var.subnet_id)) > 0
+  have_name_tuple = length(trim(var.network_rg)) > 0 && length(trim(var.vnet_name)) > 0 && length(trim(var.subnet_name)) > 0
+}
+
+# Validation: At least subnet_id OR (network_rg + vnet_name + subnet_name) must be provided
+resource "null_resource" "validate_subnet_inputs" {
+  lifecycle {
+    precondition {
+      condition     = local.have_subnet_id || local.have_name_tuple
+      error_message = "Provide subnet_id or (network_rg + vnet_name + subnet_name)."
+    }
+  }
+}
+
+# Data lookup for subnet when subnet_id is not provided
+data "azurerm_subnet" "aks" {
+  count                = local.have_subnet_id ? 0 : 1
+  name                 = var.subnet_name
+  virtual_network_name = var.vnet_name
+  resource_group_name  = var.network_rg
+
+  depends_on = [null_resource.validate_subnet_inputs]
+}
+
+# Derive effective subnet ID and validate it exists
+locals {
+  effective_subnet_id = local.have_subnet_id ? var.subnet_id : (length(data.azurerm_subnet.aks) == 1 ? data.azurerm_subnet.aks[0].id : "")
+}
+
+# Validation: Subnet must exist
+resource "null_resource" "validate_subnet_exists" {
+  depends_on = [null_resource.validate_subnet_inputs]
+  lifecycle {
+    precondition {
+      condition     = length(trim(local.effective_subnet_id)) > 0
+      error_message = "AKS pre-req missing: subnet not found. Create the subnet in the networking pipeline before deploying AKS."
+    }
   }
 }
 
@@ -17,7 +57,7 @@ module "aks" {
   region              = var.region
   resource_group_name = var.resource_group_name
   cluster_name        = var.cluster_name
-  subnet_id           = var.subnet_id
+  subnet_id           = local.effective_subnet_id
 
   # Cost-effective defaults for dev environment
   network_plugin  = "azureoverlay" # Reduce IP consumption

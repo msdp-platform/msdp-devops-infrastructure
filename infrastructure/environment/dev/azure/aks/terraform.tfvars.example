@@ -10,9 +10,15 @@ region = "uksouth"
 resource_group_name = "rg-aks-dev"
 cluster_name = "aks-dev"
 
-# Subnet ID - Replace with your actual subnet ID
-# This should be the subnet where AKS nodes will be deployed
-subnet_id = "/subscriptions/your-subscription-id/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
+# Subnet configuration - Choose ONE of the following options:
+
+# Option 1: Direct subnet ID (recommended for production)
+# subnet_id = "/subscriptions/your-subscription-id/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
+
+# Option 2: Network lookup by name (alternative approach)
+network_rg   = "rg-networking-dev"
+vnet_name    = "vnet-dev"
+subnet_name  = "aks-subnet"
 
 # Additional tags
 tags = {

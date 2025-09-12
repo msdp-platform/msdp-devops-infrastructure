@@ -29,10 +29,28 @@ variable "cluster_name" {
 }
 
 variable "subnet_id" {
-  description = "ID of the subnet for the AKS cluster"
+  description = "ID of the subnet for the AKS cluster (alternative to network lookup)"
   type        = string
-  # This should be provided via terraform.tfvars or environment variables
+  default     = ""
   # Example: "/subscriptions/xxx/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
+}
+
+variable "network_rg" {
+  description = "Resource group name containing the VNet (alternative to subnet_id)"
+  type        = string
+  default     = ""
+}
+
+variable "vnet_name" {
+  description = "Virtual network name (alternative to subnet_id)"
+  type        = string
+  default     = ""
+}
+
+variable "subnet_name" {
+  description = "Subnet name within the VNet (alternative to subnet_id)"
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

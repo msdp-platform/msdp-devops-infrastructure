@@ -55,6 +55,28 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Preflight: verify subnet exists (CLI)
+        if: ${{ vars.NETWORK_RG != '' && vars.VNET_NAME != '' && vars.SUBNET_NAME != '' && vars.SUBNET_ID == '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Checking if subnet exists: $NETWORK_RG/$VNET_NAME/$SUBNET_NAME"
+          id=$(az network vnet subnet show \
+            --resource-group "$NETWORK_RG" \
+            --vnet-name "$VNET_NAME" \
+            --name "$SUBNET_NAME" \
+            --query id -o tsv 2>/dev/null || true)
+          if [[ -z "$id" ]]; then
+            echo "ERROR: Subnet $NETWORK_RG/$VNET_NAME/$SUBNET_NAME not found. Networking must be created by its own pipeline." >&2
+            exit 1
+          fi
+          echo "Resolved subnet id: $id"
+        env:
+          NETWORK_RG: ${{ vars.NETWORK_RG || '' }}
+          VNET_NAME: ${{ vars.VNET_NAME || '' }}
+          SUBNET_NAME: ${{ vars.SUBNET_NAME || '' }}
+          SUBNET_ID: ${{ vars.SUBNET_ID || '' }}
+
       - name: Ensure Terraform backend
         uses: ./.github/actions/terraform-backend
         with:
