@@ -2,7 +2,10 @@ name: azure-network
 on:
   push:
     branches: [main]
-    paths: ["infrastructure/environment/azure/network/**", "config/**"]
+    paths:
+      - "infrastructure/environment/azure/network/**"
+      - "config/**"
+      - "infrastructure/config/**" # include if globals live here
   workflow_dispatch:
 
 permissions:
@@ -19,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Azure OIDC for azurerm provider
+      # Azure OIDC (for azurerm provider)
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -33,30 +36,43 @@ jobs:
           echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
           echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
 
-      # AWS OIDC for S3/Dynamo backend
+      # AWS OIDC (for S3/DynamoDB backend)
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - uses: hashicorp/setup-terraform@v3
+      # --- BACKEND: create/ensure S3+DDB and write backend-config.json ---
+      - name: Terraform Backend (AWS)
+        uses: ./.github/actions/terraform-backend
         with:
-          terraform_version: 1.9.5
+          repo-shortname: infra
+          project: msdp
+          env: dev
+          cloud: aws
+          cloud-segment: azure # key path segment; keeps state per cloud segment
+          app: network # stack name
+          function: tfstate
+          key-salt: infrastructure/environment/azure/network
+          aws-region: ${{ secrets.AWS_REGION }}
+          # optional: pipeline-name: custom-name-here
+          # optional: allow-key-mutation: "false"
+          use-shared-lock-table: "true"
+          # optional: lock-table-name:
 
-      - name: Terraform init (S3 backend)
-        working-directory: infrastructure/environment/azure/network
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=network/dev.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
-            -backend-config="encrypt=true"
+      # --- INIT using the generated backend-config.json (safe) ---
+      - name: Terraform Init (Reusable)
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/network
+          terraform-version: 1.13.2
+          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
 
+      # Plan / Apply (use your config files; fix path if it's 'globals.yaml' not 'global.yaml')
       - name: Terraform plan
         working-directory: infrastructure/environment/azure/network
-        run: terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
+        run: terraform plan -var="global_config_path=infrastructure/config/globals.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
