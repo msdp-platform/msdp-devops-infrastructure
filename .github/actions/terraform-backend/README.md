@@ -55,7 +55,7 @@ steps:
       function: tfstate
       cloud: aws
       cloud-segment: aws
-      aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+      # aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}  # Optional: auto-resolved from config files
       aws-region: eu-west-1
       use-shared-lock-table: "true"
       # lock-table-name: "custom-locks"  # Optional: custom table name
@@ -65,6 +65,46 @@ steps:
     with:
       working-directory: infrastructure/environment/dev/aws/eks
       backend-config-file: infrastructure/environment/dev/backend/backend-config.json
+```
+
+## AWS Account ID Auto-Resolution
+
+The action can automatically resolve the AWS account ID from your configuration files, eliminating the need for hardcoded secrets or manual input.
+
+### Auto-Resolution Order
+1. **Input Parameter**: If `aws-account-id` is provided, it takes precedence
+2. **local.yaml**: Environment-specific overrides
+3. **globals.yaml**: Global configuration (default location)
+4. **dictionary.yaml**: Fallback configuration
+
+### Supported Keys
+The action searches for these keys in order:
+- `aws_account_id`
+- `account_id` 
+- `aws.account_id`
+- `accounts.aws_account_id` (for nested structures)
+
+### Example Configuration
+```yaml
+# globals.yaml
+accounts:
+  aws_account_id: "319422413814"
+
+# local.yaml (overrides globals.yaml)
+aws_account_id: "123456789012"
+```
+
+### Usage
+```yaml
+# Auto-resolve from config files (recommended)
+- uses: ./.github/actions/terraform-backend
+  with:
+    # aws-account-id: # Omit to auto-resolve
+
+# Explicit override
+- uses: ./.github/actions/terraform-backend
+  with:
+    aws-account-id: "123456789012"  # Overrides config files
 ```
 
 ## Shared Lock Table Configuration

@@ -60,9 +60,10 @@ jobs:
           key-salt: infrastructure/environment/dev/${{ matrix.cloud }}/${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
           # pipeline-name: provisioner            # OPTIONAL — omit to use stable computed name
           aws-region: eu-west-1
-          aws-account-id: 319422413814
           use-shared-lock-table: "true"
-          lock-table-name: tfstate-locks-319422413814-euw1
+
+      - name: Show resolved AWS account id
+        run: echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
 
       - name: Debug backend config
         run: |

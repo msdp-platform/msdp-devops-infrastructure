@@ -34,8 +34,8 @@ inputs:
     description: "Target cloud; only 'aws' is supported for now"
     required: true
   aws-account-id:
-    description: "AWS account ID for backend uniqueness"
-    required: true
+    description: "AWS account ID for backend uniqueness. If not provided, will be auto-resolved from config files"
+    required: false
   aws-region:
     description: "AWS region for the backend"
     required: false
@@ -63,10 +63,7 @@ runs:
           echo "ERROR: function input is required and cannot be empty." >&2
           exit 1
         fi
-        if [[ -z "${{ inputs.aws-account-id }}" ]]; then
-          echo "ERROR: aws-account-id input is required and cannot be empty." >&2
-          exit 1
-        fi
+        # aws-account-id is now optional - will be auto-resolved if not provided
 
     - name: Prepare paths and env
       shell: bash
@@ -77,6 +74,103 @@ runs:
         CFG="$BACKEND_DIR/backend-config.json"
         echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
         echo "CFG=$CFG" >> "$GITHUB_ENV"
+
+    - name: Resolve AWS Account ID
+      shell: bash
+      run: |
+        set -euo pipefail
+        
+        # Check if aws-account-id was provided as input
+        if [[ -n "${{ inputs.aws-account-id }}" && "${{ inputs.aws-account-id }}" != "null" ]]; then
+          AWS_ACCOUNT_ID="${{ inputs.aws-account-id }}"
+          echo "Using provided AWS account ID: $AWS_ACCOUNT_ID"
+        else
+          echo "AWS account ID not provided, resolving from config files..."
+          
+          # Try to resolve from config files in order: local.yaml, globals.yaml, dictionary.yaml
+          AWS_ACCOUNT_ID=""
+          
+          # Check local.yaml first
+          if [[ -f "infrastructure/config/local.yaml" ]]; then
+            echo "Checking local.yaml for AWS account ID..."
+            # Try different key patterns
+            for key in "aws_account_id" "account_id" "aws.account_id"; do
+              if command -v yq >/dev/null 2>&1; then
+                # Use yq if available
+                value=$(yq eval ".$key" infrastructure/config/local.yaml 2>/dev/null || echo "")
+              else
+                # Fallback to grep/jq
+                value=$(grep -E "^\s*$key\s*:" infrastructure/config/local.yaml | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || echo "")
+              fi
+              if [[ -n "$value" && "$value" != "null" ]]; then
+                AWS_ACCOUNT_ID="$value"
+                echo "Found AWS account ID in local.yaml: $AWS_ACCOUNT_ID"
+                break
+              fi
+            done
+          fi
+          
+          # Check globals.yaml if not found in local.yaml
+          if [[ -z "$AWS_ACCOUNT_ID" && -f "infrastructure/config/globals.yaml" ]]; then
+            echo "Checking globals.yaml for AWS account ID..."
+            # Try different key patterns
+            for key in "accounts.aws_account_id" "aws_account_id" "account_id" "aws.account_id"; do
+              if command -v yq >/dev/null 2>&1; then
+                # Use yq if available
+                value=$(yq eval ".$key" infrastructure/config/globals.yaml 2>/dev/null || echo "")
+              else
+                # Fallback to grep/jq
+                value=$(grep -E "^\s*$key\s*:" infrastructure/config/globals.yaml | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || echo "")
+              fi
+              if [[ -n "$value" && "$value" != "null" ]]; then
+                AWS_ACCOUNT_ID="$value"
+                echo "Found AWS account ID in globals.yaml: $AWS_ACCOUNT_ID"
+                break
+              fi
+            done
+          fi
+          
+          # Check dictionary.yaml if still not found
+          if [[ -z "$AWS_ACCOUNT_ID" && -f "infrastructure/config/dictionary.yaml" ]]; then
+            echo "Checking dictionary.yaml for AWS account ID..."
+            # Try different key patterns
+            for key in "aws_account_id" "account_id" "aws.account_id"; do
+              if command -v yq >/dev/null 2>&1; then
+                # Use yq if available
+                value=$(yq eval ".$key" infrastructure/config/dictionary.yaml 2>/dev/null || echo "")
+              else
+                # Fallback to grep/jq
+                value=$(grep -E "^\s*$key\s*:" infrastructure/config/dictionary.yaml | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || echo "")
+              fi
+              if [[ -n "$value" && "$value" != "null" ]]; then
+                AWS_ACCOUNT_ID="$value"
+                echo "Found AWS account ID in dictionary.yaml: $AWS_ACCOUNT_ID"
+                break
+              fi
+            done
+          fi
+          
+          # Validate that we found an account ID
+          if [[ -z "$AWS_ACCOUNT_ID" ]]; then
+            echo "ERROR: Could not resolve AWS account ID from config files." >&2
+            echo "Please provide aws-account-id input or ensure it's set in one of:" >&2
+            echo "  - infrastructure/config/local.yaml" >&2
+            echo "  - infrastructure/config/globals.yaml" >&2
+            echo "  - infrastructure/config/dictionary.yaml" >&2
+            echo "Supported keys: aws_account_id, account_id, aws.account_id" >&2
+            exit 1
+          fi
+        fi
+        
+        # Validate AWS account ID format (12 digits)
+        if [[ ! "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]; then
+          echo "ERROR: Invalid AWS account ID format: $AWS_ACCOUNT_ID" >&2
+          echo "AWS account ID must be exactly 12 digits." >&2
+          exit 1
+        fi
+        
+        echo "Resolved AWS account ID: $AWS_ACCOUNT_ID"
+        echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> "$GITHUB_ENV"
 
     - name: Determine or generate bucket name
       shell: bash
@@ -90,7 +184,7 @@ runs:
         if [[ -z "$BUCKET" ]]; then
           # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
           REGION_SHORT="$(echo "${{ inputs.aws-region }}" | sed 's/eu-west-/euw/;s/us-east-/use/;s/us-west-/usw/')"
-          BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${{ inputs.aws-account-id }}-${REGION_SHORT}"
+          BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${AWS_ACCOUNT_ID}-${REGION_SHORT}"
           # Normalize to lowercase and safe chars
           BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
           
@@ -129,7 +223,7 @@ runs:
               us-west-2) aws_region_short="usw2" ;;
               *) aws_region_short="$aws_region" ;;
             esac
-            TABLE="tfstate-locks-${{ inputs.aws-account-id }}-${aws_region_short}"
+            TABLE="tfstate-locks-${AWS_ACCOUNT_ID}-${aws_region_short}"
             echo "Using derived shared lock table: $TABLE"
           fi
         else

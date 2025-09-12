@@ -64,9 +64,10 @@ jobs:
           function: tfstate
           key-salt: infrastructure/environment/${{ inputs.environment }}/azure/aks
           aws-region: eu-west-1
-          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
           use-shared-lock-table: "true"
-          lock-table-name: tfstate-locks-${{ secrets.AWS_ACCOUNT_ID }}-euw1
+
+      - name: Show resolved AWS account id
+        run: echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
 
       - name: Terraform Init
         uses: ./.github/actions/terraform-init
