@@ -51,6 +51,7 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure Terraform backend (per cloud/app/pipeline)
+        id: backend-setup
         uses: ./.github/actions/terraform-backend
         with:
           repo-shortname: infra
@@ -70,6 +71,7 @@ jobs:
 
       - name: Debug backend config
         run: |
+          CFG="${{ steps.backend-setup.outputs.config-file }}"
           echo "Checking backend config file: $CFG"
           test -f "$CFG" || { echo "ERROR: Backend config not found at $CFG"; exit 1; }
           echo "Backend config contents:"
@@ -81,7 +83,8 @@ jobs:
           set -euo pipefail
           echo "Verifying shared DynamoDB lock table..."
 
-          # Read table name from backend config using environment variable
+          # Read table name from backend config using step output
+          CFG="${{ steps.backend-setup.outputs.config-file }}"
           TABLE_NAME=$(jq -r '.dynamodb_table' "$CFG")
           echo "Checking table: $TABLE_NAME (from $CFG)"
 
@@ -101,7 +104,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file using environment variable
+          # Load backend config from generated backend config file using step output
+          CFG="${{ steps.backend-setup.outputs.config-file }}"
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
@@ -148,7 +152,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file using environment variable
+          # Load backend config from generated backend config file using step output
+          CFG="${{ steps.backend-setup.outputs.config-file }}"
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
@@ -199,6 +204,7 @@ jobs:
       - name: Echo backend summary (AWS)
         if: ${{ matrix.cloud == 'aws' }}
         run: |
+          CFG="${{ steps.backend-setup.outputs.config-file }}"
           echo "Backend provisioned for ${{ matrix.cloud }}:"
           cat "$CFG"
 

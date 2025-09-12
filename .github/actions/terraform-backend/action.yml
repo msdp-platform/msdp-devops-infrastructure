@@ -48,6 +48,20 @@ inputs:
     description: "Custom lock table name (if not provided, derived from account/region)"
     required: false
 
+outputs:
+  config-file:
+    description: "Path to the generated backend-config.json file"
+    value: ${{ steps.prepare-paths.outputs.cfg }}
+  bucket:
+    description: "S3 bucket name for terraform state"
+    value: ${{ steps.determine-bucket.outputs.bucket }}
+  dynamodb-table:
+    description: "DynamoDB table name for terraform locks"
+    value: ${{ steps.determine-pipeline.outputs.table }}
+  key:
+    description: "Terraform state file key"
+    value: ${{ steps.determine-pipeline.outputs.key }}
+
 runs:
   using: "composite"
   steps:
@@ -66,6 +80,7 @@ runs:
         # aws-account-id is now optional - will be auto-resolved if not provided
 
     - name: Prepare paths and env
+      id: prepare-paths
       shell: bash
       run: |
         set -euo pipefail
@@ -74,6 +89,7 @@ runs:
         CFG="$BACKEND_DIR/backend-config.json"
         echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
         echo "CFG=$CFG" >> "$GITHUB_ENV"
+        echo "cfg=$CFG" >> "$GITHUB_OUTPUT"
 
     - name: Resolve AWS Account ID
       shell: bash
@@ -173,6 +189,7 @@ runs:
         echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID" >> "$GITHUB_ENV"
 
     - name: Determine or generate bucket name
+      id: determine-bucket
       shell: bash
       run: |
         set -euo pipefail
@@ -213,8 +230,10 @@ runs:
           fi
         fi
         echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
+        echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
 
     - name: Determine pipeline name and build key
+      id: determine-pipeline
       shell: bash
       run: |
         set -euo pipefail
@@ -313,6 +332,8 @@ runs:
         echo "TABLE=$TABLE" >> "$GITHUB_ENV"
         echo "KEY=$KEY" >> "$GITHUB_ENV"
         echo "PIPELINE_NAME=$pipeline_name" >> "$GITHUB_ENV"
+        echo "table=$TABLE" >> "$GITHUB_OUTPUT"
+        echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
     - name: Ensure S3 bucket exists
       shell: bash
