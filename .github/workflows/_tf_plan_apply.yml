@@ -95,22 +95,22 @@ jobs:
         working-directory: ${{ inputs.working_directory }}
         run: |
           set -euo pipefail
-          
+
           # Load backend config from env config file
           ENV_CONFIG="${{ inputs.env_config_path }}"
           [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
-          
+
           BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
           REGION=$(yq eval '.state.region' "$ENV_CONFIG")
           DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
           KEY="${{ inputs.backend_key }}"
-          
+
           # Validate backend config values
           [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
           [ -n "${KEY}" ] || { echo "ERROR: backend_key is empty"; exit 1; }
           [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
           [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
-          
+
           echo "🔧 Initializing Terraform with backend config from config file"
           echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \

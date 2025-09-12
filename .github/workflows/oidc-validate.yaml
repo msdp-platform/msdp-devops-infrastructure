@@ -102,22 +102,22 @@ jobs:
         if: ${{ matrix.cloud == 'aws' }}
         run: |
           set -euo pipefail
-          
+
           # Load backend config from env config file
           ENV_CONFIG="config/envs/dev.yaml"
           [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
-          
+
           BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
           REGION=$(yq eval '.state.region' "$ENV_CONFIG")
           DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
           KEY="eks/dev.tfstate"
-          
+
           # Validate backend config values
           [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
           [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
           [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
           [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
-          
+
           echo "🔧 Initializing Terraform with backend config for AWS"
           echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
@@ -134,22 +134,22 @@ jobs:
         if: ${{ matrix.cloud == 'azure' }}
         run: |
           set -euo pipefail
-          
+
           # Load backend config from env config file
           ENV_CONFIG="config/envs/dev.yaml"
           [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
-          
+
           BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
           REGION=$(yq eval '.state.region' "$ENV_CONFIG")
           DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
           KEY="aks/dev.tfstate"
-          
+
           # Validate backend config values
           [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
           [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
           [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
           [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
-          
+
           echo "🔧 Initializing Terraform with backend config for Azure"
           echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
