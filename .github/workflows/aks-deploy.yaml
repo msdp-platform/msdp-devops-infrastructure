@@ -4,24 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to deploy'
+        description: "Environment to deploy"
         required: true
-        default: 'dev'
+        default: "dev"
         type: choice
         options:
           - dev
           - stg
           - prod
       action:
-        description: 'Action to perform'
+        description: "Action to perform"
         required: true
-        default: 'plan'
+        default: "plan"
         type: choice
         options:
           - plan
           - apply
       kubernetes_version:
-        description: 'Kubernetes version (leave empty for latest stable)'
+        description: "Kubernetes version (leave empty for latest stable)"
         required: false
         type: string
 
@@ -33,7 +33,7 @@ jobs:
   aks:
     name: "Deploy AKS — ${{ inputs.environment }}"
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -95,10 +95,10 @@ jobs:
       - name: Terraform Plan
         run: |
           cd infrastructure/environment/${{ inputs.environment }}/azure/aks
-          
+
           # Build terraform plan command
           PLAN_CMD="terraform plan -no-color -out=tfplan"
-          
+
           # Add kubernetes version if provided
           if [ -n "${{ inputs.kubernetes_version }}" ]; then
             PLAN_CMD="$PLAN_CMD -var='k8s_version=${{ inputs.kubernetes_version }}'"
@@ -106,11 +106,11 @@ jobs:
           else
             echo "🔄 Using latest stable Kubernetes version (auto-detected)"
           fi
-          
+
           # Execute plan
           echo "📋 Running Terraform plan..."
           eval $PLAN_CMD
-          
+
           # Show plan summary
           echo "📊 Plan Summary:"
           terraform show -no-color tfplan | grep -E "(Plan:|No changes|will be created|will be updated|will be destroyed)" || true
@@ -119,10 +119,10 @@ jobs:
         if: ${{ inputs.action == 'apply' }}
         run: |
           cd infrastructure/environment/${{ inputs.environment }}/azure/aks
-          
+
           # Build terraform apply command
           APPLY_CMD="terraform apply -no-color tfplan"
-          
+
           # Add kubernetes version if provided
           if [ -n "${{ inputs.kubernetes_version }}" ]; then
             APPLY_CMD="terraform apply -no-color -var='k8s_version=${{ inputs.kubernetes_version }}' -auto-approve"
@@ -130,11 +130,11 @@ jobs:
           else
             echo "🔄 Using latest stable Kubernetes version (auto-detected)"
           fi
-          
+
           # Execute apply
           echo "🚀 Running Terraform apply..."
           eval $APPLY_CMD
-          
+
           # Show outputs
           echo "📤 AKS Cluster Outputs:"
           terraform output -json | jq -r 'to_entries[] | "\(.key): \(.value.value)"' || true
@@ -143,26 +143,26 @@ jobs:
         if: ${{ inputs.action == 'apply' }}
         run: |
           cd infrastructure/environment/${{ inputs.environment }}/azure/aks
-          
+
           # Get cluster info from Terraform outputs
           CLUSTER_NAME=$(terraform output -raw cluster_name)
           RESOURCE_GROUP=$(terraform output -raw resource_group_name || echo "rg-aks-${{ inputs.environment }}")
           K8S_VERSION=$(terraform output -raw kubernetes_version)
           OIDC_ISSUER=$(terraform output -raw oidc_issuer_url)
-          
+
           echo "🔍 Verifying AKS cluster deployment..."
           echo "Cluster Name: $CLUSTER_NAME"
           echo "Resource Group: $RESOURCE_GROUP"
           echo "Kubernetes Version: $K8S_VERSION"
           echo "OIDC Issuer: $OIDC_ISSUER"
-          
+
           # Verify cluster exists and is running
           az aks show --resource-group "$RESOURCE_GROUP" --name "$CLUSTER_NAME" --query '{name:name,provisioningState:provisioningState,kubernetesVersion:kubernetesVersion,powerState:powerState.code}' --output table
-          
+
           # Check node pools
           echo "📊 Node Pools:"
           az aks nodepool list --resource-group "$RESOURCE_GROUP" --cluster-name "$CLUSTER_NAME" --query '[].{name:name,count:count,vmSize:vmSize,provisioningState:provisioningState}' --output table
-          
+
           echo "✅ AKS cluster verification completed"
 
       - name: Upload Terraform Plan
