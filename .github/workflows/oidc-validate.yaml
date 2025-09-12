@@ -70,9 +70,8 @@ jobs:
 
       - name: Debug backend config
         run: |
-          CFG=infrastructure/environment/dev/backend/backend-config.json
           echo "Checking backend config file: $CFG"
-          test -f "$CFG" || { echo "ERROR: Backend config not found"; exit 1; }
+          test -f "$CFG" || { echo "ERROR: Backend config not found at $CFG"; exit 1; }
           echo "Backend config contents:"
           cat "$CFG"
 
@@ -82,10 +81,9 @@ jobs:
           set -euo pipefail
           echo "Verifying shared DynamoDB lock table..."
 
-          # Read table name from backend config
-          CFG=infrastructure/environment/dev/backend/backend-config.json
+          # Read table name from backend config using environment variable
           TABLE_NAME=$(jq -r '.dynamodb_table' "$CFG")
-          echo "Checking table: $TABLE_NAME"
+          echo "Checking table: $TABLE_NAME (from $CFG)"
 
           # Verify table exists and is accessible
           aws dynamodb describe-table --table-name "$TABLE_NAME" --query 'Table.{TableName:TableName,TableStatus:TableStatus,KeySchema:KeySchema}' --output table
@@ -103,8 +101,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file (relative to repo root)
-          CFG="../../../backend/backend-config.json"
+          # Load backend config from generated backend config file using environment variable
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
@@ -151,8 +148,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file (relative to repo root)
-          CFG="../../../backend/backend-config.json"
+          # Load backend config from generated backend config file using environment variable
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
@@ -204,7 +200,7 @@ jobs:
         if: ${{ matrix.cloud == 'aws' }}
         run: |
           echo "Backend provisioned for ${{ matrix.cloud }}:"
-          cat infrastructure/environment/dev/backend/backend-config.json
+          cat "$CFG"
 
       - name: Confirm cloud tested
         run: echo "Reusable actions validated for ${{ matrix.cloud }}"
