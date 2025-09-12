@@ -8,33 +8,24 @@ This Terraform stack deploys an Azure Kubernetes Service (AKS) cluster for the d
 
 **⚠️ IMPORTANT**: This stack does **NOT** create networking resources. The VNet and subnet must be created by a separate networking pipeline before deploying AKS.
 
-### Subnet Configuration
+### Subnet Resolution
 
-You must provide subnet information using **one** of the following approaches:
+The AKS stack automatically resolves the subnet ID using the following priority order:
 
-#### Option 1: Direct Subnet ID (Recommended)
-```hcl
-subnet_id = "/subscriptions/your-subscription-id/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
-```
-
-#### Option 2: Network Lookup by Name
-```hcl
-network_rg   = "rg-networking-dev"
-vnet_name    = "vnet-dev"
-subnet_name  = "aks-subnet"
-```
+1. **Remote State Output** (Preferred): Reads `subnet_id_aks` from the Network stack's remote state
+2. **Name-based Lookup** (Fallback): Looks up subnet by name pattern `snet-aks-{env}`
+3. **Tag-based Lookup** (Fallback): Finds subnet with tag `role=aks`
 
 ### Validation
 
 The stack includes fail-fast validation:
 
-1. **Input Validation**: At least one subnet configuration method must be provided
+1. **Subnet Resolution**: Exactly one subnet must be resolved
 2. **Existence Validation**: The target subnet must exist in Azure
-3. **CLI Preflight**: GitHub Actions workflow includes a preflight check that verifies subnet existence before Terraform runs
+3. **Clear Error Messages**: If resolution fails, you'll see specific error messages
 
-If the subnet doesn't exist, you'll see clear error messages:
-- `Provide subnet_id or (network_rg + vnet_name + subnet_name).`
-- `AKS pre-req missing: subnet not found. Create the subnet in the networking pipeline before deploying AKS.`
+If subnet resolution fails, you'll see:
+- `Subnet resolution failed: found X subnets. Expected exactly 1. Check network stack deployment or subnet configuration.`
 
 ## Usage
 

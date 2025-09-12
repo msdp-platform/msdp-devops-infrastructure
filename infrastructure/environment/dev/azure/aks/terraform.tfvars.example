@@ -1,29 +1,8 @@
 # Example terraform.tfvars for AKS dev environment
 # Copy this file to terraform.tfvars and update the values
 
-# Organization and environment
-org = "msdp"
+# Environment
 env = "dev"
-region = "uksouth"
 
-# Resource group and cluster naming
-resource_group_name = "rg-aks-dev"
-cluster_name = "aks-dev"
-
-# Subnet configuration - Choose ONE of the following options:
-
-# Option 1: Direct subnet ID (recommended for production)
-# subnet_id = "/subscriptions/your-subscription-id/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
-
-# Option 2: Network lookup by name (alternative approach)
-network_rg   = "rg-networking-dev"
-vnet_name    = "vnet-dev"
-subnet_name  = "aks-subnet"
-
-# Additional tags
-tags = {
-  Project     = "platform"
-  CostCenter  = "engineering"
-  Owner       = "platform-team"
-  Environment = "development"
-}
+# Azure subscription ID (optional - can be set via environment variable)
+# subscription_id = "your-subscription-id-here"

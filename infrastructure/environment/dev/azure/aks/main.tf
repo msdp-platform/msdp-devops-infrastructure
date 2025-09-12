@@ -1,49 +1,73 @@
-# Local values for baseline tagging and subnet validation
-locals {
-  baseline_tags = {
-    Org       = var.org
-    Env       = var.env
-    ManagedBy = "Terraform"
-    Component = "AKS"
-  }
-
-  # Subnet input validation
-  have_subnet_id  = length(trimspace(var.subnet_id)) > 0
-  have_name_tuple = length(trimspace(var.network_rg)) > 0 && length(trimspace(var.vnet_name)) > 0 && length(trimspace(var.subnet_name)) > 0
-}
-
-# Validation: At least subnet_id OR (network_rg + vnet_name + subnet_name) must be provided
-resource "null_resource" "validate_subnet_inputs" {
-  lifecycle {
-    precondition {
-      condition     = local.have_subnet_id || local.have_name_tuple
-      error_message = "Provide subnet_id or (network_rg + vnet_name + subnet_name)."
-    }
+# Data source for remote state from Network stack
+data "terraform_remote_state" "network" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = local.resolved.tfstate_rg
+    storage_account_name = local.resolved.tfstate_sa
+    container_name       = local.resolved.tfstate_container
+    key                  = local.resolved.network_state_key
   }
 }
 
-# Data lookup for subnet when subnet_id is not provided
-data "azurerm_subnet" "aks" {
-  count                = local.have_subnet_id ? 0 : 1
-  name                 = var.subnet_name
-  virtual_network_name = var.vnet_name
-  resource_group_name  = var.network_rg
-
-  depends_on = [null_resource.validate_subnet_inputs]
+# Data source for name-based subnet lookup (fallback)
+data "azurerm_subnet" "by_name" {
+  count                = data.terraform_remote_state.network.outputs.subnet_id_aks == null ? 1 : 0
+  name                 = "snet-aks-${var.env}"
+  virtual_network_name = "vnet-shared-${var.env}"
+  resource_group_name  = "rg-shared-${var.env}"
 }
 
-# Derive effective subnet ID and validate it exists
+# Data source for tag-based subnet lookup (fallback)
+data "azurerm_resources" "subnets_by_tag" {
+  count               = data.terraform_remote_state.network.outputs.subnet_id_aks == null && length(data.azurerm_subnet.by_name) == 0 ? 1 : 0
+  type                = "Microsoft.Network/virtualNetworks/subnets"
+  resource_group_name = "rg-shared-${var.env}"
+
+  required_tags = {
+    role = "aks"
+  }
+}
+
+# Data source to get subnet details for tag-based lookup
+data "azurerm_subnet" "by_tag" {
+  count                = length(data.azurerm_resources.subnets_by_tag) > 0 ? 1 : 0
+  name                 = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[10]
+  virtual_network_name = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[8]
+  resource_group_name  = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[4]
+}
+
+# Resolve effective subnet ID with priority order
 locals {
-  effective_subnet_id = local.have_subnet_id ? var.subnet_id : (length(data.azurerm_subnet.aks) == 1 ? data.azurerm_subnet.aks[0].id : "")
+  # Priority 1: Remote state output
+  remote_state_subnet_id = try(data.terraform_remote_state.network.outputs.subnet_id_aks, null)
+
+  # Priority 2: Name-based lookup
+  name_based_subnet_id = length(data.azurerm_subnet.by_name) > 0 ? data.azurerm_subnet.by_name[0].id : null
+
+  # Priority 3: Tag-based lookup
+  tag_based_subnet_id = length(data.azurerm_subnet.by_tag) > 0 ? data.azurerm_subnet.by_tag[0].id : null
+
+  # Select effective subnet ID
+  effective_subnet_id = coalesce(
+    local.remote_state_subnet_id,
+    local.name_based_subnet_id,
+    local.tag_based_subnet_id
+  )
+
+  # Count resolved subnets for validation
+  resolved_subnet_count = (
+    (local.remote_state_subnet_id != null ? 1 : 0) +
+    (local.name_based_subnet_id != null ? 1 : 0) +
+    (local.tag_based_subnet_id != null ? 1 : 0)
+  )
 }
 
-# Validation: Subnet must exist
-resource "null_resource" "validate_subnet_exists" {
-  depends_on = [null_resource.validate_subnet_inputs]
+# Validation: Exactly one subnet must be resolved
+resource "null_resource" "validate_subnet_resolution" {
   lifecycle {
     precondition {
-      condition     = length(trimspace(local.effective_subnet_id)) > 0
-      error_message = "AKS pre-req missing: subnet not found. Create the subnet in the networking pipeline before deploying AKS."
+      condition     = local.resolved_subnet_count == 1
+      error_message = "Subnet resolution failed: found ${local.resolved_subnet_count} subnets. Expected exactly 1. Check network stack deployment or subnet configuration."
     }
   }
 }
@@ -52,11 +76,11 @@ resource "null_resource" "validate_subnet_exists" {
 module "aks" {
   source = "../../../../terraform/modules/azure/aks"
 
-  org                 = var.org
+  org                 = "msdp"
   env                 = var.env
-  region              = var.region
-  resource_group_name = var.resource_group_name
-  cluster_name        = var.cluster_name
+  region              = local.resolved.location
+  resource_group_name = local.resolved.resource_group
+  cluster_name        = local.resolved.aks_name
   subnet_id           = local.effective_subnet_id
 
   # Cost-effective defaults for dev environment
@@ -66,22 +90,22 @@ module "aks" {
   private_cluster = false          # Public for easier access in dev
 
   # Use latest stable Kubernetes version
-  k8s_version = null
+  k8s_version = local.resolved.kubernetes_version
 
   # System node pool (small for dev)
   system_node = {
-    vm_size   = "Standard_D2as_v5"
-    min_count = 1
-    max_count = 2
+    vm_size   = local.resolved.system_vm
+    min_count = local.resolved.system_count
+    max_count = local.resolved.system_count + 1
     os_sku    = "AzureLinux"
   }
 
   # Spot node pool (enabled for cost savings)
   spot_node = {
-    enabled         = true
-    vm_size         = "Standard_D4as_v5"
-    min_count       = 0
-    max_count       = 5
+    enabled         = local.resolved.user_spot
+    vm_size         = local.resolved.user_vm
+    min_count       = local.resolved.min_count
+    max_count       = local.resolved.max_count
     max_price       = -1 # Current market price
     eviction_policy = "Delete"
     taints          = ["spot=true:NoSchedule"]
@@ -93,6 +117,12 @@ module "aks" {
     retention_days = 30
   }
 
-  # Merge baseline tags with additional tags
-  tags = merge(local.baseline_tags, var.tags)
+  # Baseline tags
+  tags = {
+    Environment = var.env
+    ManagedBy   = "Terraform"
+    Component   = "AKS"
+  }
+
+  depends_on = [null_resource.validate_subnet_resolution]
 }
