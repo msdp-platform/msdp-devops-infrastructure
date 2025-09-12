@@ -37,8 +37,9 @@ jobs:
           repo-shortname: infra
           project: msdp
           env: dev
-          app: crossplane
+          app: eks
           function: tfstate
+          cloud-segment: ${{ matrix.cloud }}
           cloud: aws
 
       - name: Terraform Init (AWS with backend config)

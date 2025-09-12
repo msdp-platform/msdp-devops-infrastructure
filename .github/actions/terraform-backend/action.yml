@@ -17,6 +17,9 @@ inputs:
   function:
     description: "Function for bucket grouping (e.g., tfstate)"
     required: true
+  cloud-segment:
+    description: "Cloud segment for key path (e.g., aws, azure)"
+    required: true
   cloud:
     description: "Target cloud; only 'aws' is supported for now"
     required: true
@@ -49,34 +52,26 @@ runs:
         echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
         echo "CFG=$BACKEND_DIR/backend-config.json" >> "$GITHUB_ENV"
 
-        # Compose key path (logical hierarchy)
-        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${{ inputs.app }}/terraform.tfstate"
-        echo "KEY=$KEY" >> "$GITHUB_ENV"
-
-    - name: Determine or generate bucket name
-      shell: bash
-      run: |
-        set -euo pipefail
-        if [[ -f "$CFG" ]]; then
-          BUCKET="$(jq -r '.bucket // empty' "$CFG" || true)"
-        else
-          BUCKET=""
-        fi
-
-        if [[ -z "${BUCKET:-}" || "${BUCKET}" == "null" ]]; then
-          RAND=$(printf "%04d" $((RANDOM % 10000)))
-          # normalize function to lowercase and safe chars
-          FN="$(echo "${{ inputs.function }}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
-          BUCKET="${FN}-${RAND}"
-        fi
-
+        # Stable bucket naming: <repo_shortname>-<project>-<env>-<function>
+        BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}"
+        # Normalize to lowercase and safe chars
+        BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
+        
         # Basic length/syntax guard
         if [[ ${#BUCKET} -gt 63 ]]; then
           echo "ERROR: Bucket name too long: $BUCKET" >&2
           exit 1
         fi
+        
+        # DynamoDB table name
+        TABLE="${BUCKET}-locks"
+        
+        # Compose key path with cloud segment
+        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${{ inputs.cloud-segment }}/${{ inputs.app }}/terraform.tfstate"
+        
         echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
-        echo "TABLE=${BUCKET}-locks" >> "$GITHUB_ENV"
+        echo "TABLE=$TABLE" >> "$GITHUB_ENV"
+        echo "KEY=$KEY" >> "$GITHUB_ENV"
 
     - name: Ensure S3 bucket exists
       shell: bash
