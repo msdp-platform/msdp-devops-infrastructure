@@ -1,10 +1,11 @@
-name: "AKS Deploy"
+name: AKS Deploy
+run-name: AKS Deploy — env=${{ inputs.env || 'dev' }}
 
 on:
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Environment to deploy"
+      env:
+        description: "Environment (dev/sit/prod)"
         required: true
         default: "dev"
         type: choice
@@ -31,7 +32,7 @@ permissions:
 
 jobs:
   aks:
-    name: "Deploy AKS — ${{ inputs.environment }}"
+    name: "Deploy AKS — ${{ inputs.env }}"
     runs-on: ubuntu-latest
 
     steps:
@@ -82,12 +83,12 @@ jobs:
         with:
           repo-shortname: infra
           project: msdp
-          env: ${{ inputs.environment }}
+          env: ${{ inputs.env }}
           cloud: aws
           cloud-segment: azure
           app: aks
           function: tfstate
-          key-salt: infrastructure/environment/${{ inputs.environment }}/azure/aks
+          key-salt: infrastructure/environment/${{ inputs.env }}/azure/aks
           aws-region: eu-west-1
           use-shared-lock-table: "true"
 
@@ -97,12 +98,12 @@ jobs:
       - name: Terraform Init
         uses: ./.github/actions/terraform-init
         with:
-          working-directory: infrastructure/environment/${{ inputs.environment }}/azure/aks
-          backend-config-file: infrastructure/environment/${{ inputs.environment }}/backend/backend-config.json
+          working-directory: infrastructure/environment/${{ inputs.env }}/azure/aks
+          backend-config-file: infrastructure/environment/${{ inputs.env }}/backend/backend-config.json
 
       - name: Terraform Format Check
         run: |
-          cd infrastructure/environment/${{ inputs.environment }}/azure/aks
+          cd infrastructure/environment/${{ inputs.env }}/azure/aks
           terraform fmt -check -recursive
           if [ $? -ne 0 ]; then
             echo "❌ Terraform files are not properly formatted"
@@ -114,13 +115,13 @@ jobs:
 
       - name: Terraform Validate
         run: |
-          cd infrastructure/environment/${{ inputs.environment }}/azure/aks
+          cd infrastructure/environment/${{ inputs.env }}/azure/aks
           terraform validate
           echo "✅ Terraform validation passed"
 
       - name: Terraform Plan
         run: |
-          cd infrastructure/environment/${{ inputs.environment }}/azure/aks
+          cd infrastructure/environment/${{ inputs.env }}/azure/aks
 
           # Build terraform plan command
           PLAN_CMD="terraform plan -no-color -out=tfplan"
@@ -144,7 +145,7 @@ jobs:
       - name: Terraform Apply
         if: ${{ inputs.action == 'apply' }}
         run: |
-          cd infrastructure/environment/${{ inputs.environment }}/azure/aks
+          cd infrastructure/environment/${{ inputs.env }}/azure/aks
 
           # Build terraform apply command
           APPLY_CMD="terraform apply -no-color tfplan"
@@ -168,11 +169,11 @@ jobs:
       - name: Verify AKS Cluster
         if: ${{ inputs.action == 'apply' }}
         run: |
-          cd infrastructure/environment/${{ inputs.environment }}/azure/aks
+          cd infrastructure/environment/${{ inputs.env }}/azure/aks
 
           # Get cluster info from Terraform outputs
           CLUSTER_NAME=$(terraform output -raw cluster_name)
-          RESOURCE_GROUP=$(terraform output -raw resource_group_name || echo "rg-aks-${{ inputs.environment }}")
+          RESOURCE_GROUP=$(terraform output -raw resource_group_name || echo "rg-aks-${{ inputs.env }}")
           K8S_VERSION=$(terraform output -raw kubernetes_version)
           OIDC_ISSUER=$(terraform output -raw oidc_issuer_url)
 
@@ -195,15 +196,15 @@ jobs:
         if: ${{ inputs.action == 'plan' }}
         uses: actions/upload-artifact@v4
         with:
-          name: terraform-plan-${{ inputs.environment }}
-          path: infrastructure/environment/${{ inputs.environment }}/azure/aks/tfplan
+          name: terraform-plan-${{ inputs.env }}
+          path: infrastructure/environment/${{ inputs.env }}/azure/aks/tfplan
           retention-days: 7
 
       - name: Summary
         run: |
           echo "## 🎯 AKS Deployment Summary"
           echo ""
-          echo "**Environment:** ${{ inputs.environment }}"
+          echo "**Environment:** ${{ inputs.env }}"
           echo "**Action:** ${{ inputs.action }}"
           if [ -n "${{ inputs.kubernetes_version }}" ]; then
             echo "**Kubernetes Version:** ${{ inputs.kubernetes_version }}"
