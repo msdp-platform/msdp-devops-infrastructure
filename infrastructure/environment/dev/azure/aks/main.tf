@@ -8,8 +8,8 @@ locals {
   }
 
   # Subnet input validation
-  have_subnet_id  = length(trim(var.subnet_id)) > 0
-  have_name_tuple = length(trim(var.network_rg)) > 0 && length(trim(var.vnet_name)) > 0 && length(trim(var.subnet_name)) > 0
+  have_subnet_id  = length(trimspace(var.subnet_id)) > 0
+  have_name_tuple = length(trimspace(var.network_rg)) > 0 && length(trimspace(var.vnet_name)) > 0 && length(trimspace(var.subnet_name)) > 0
 }
 
 # Validation: At least subnet_id OR (network_rg + vnet_name + subnet_name) must be provided
@@ -42,7 +42,7 @@ resource "null_resource" "validate_subnet_exists" {
   depends_on = [null_resource.validate_subnet_inputs]
   lifecycle {
     precondition {
-      condition     = length(trim(local.effective_subnet_id)) > 0
+      condition     = length(trimspace(local.effective_subnet_id)) > 0
       error_message = "AKS pre-req missing: subnet not found. Create the subnet in the networking pipeline before deploying AKS."
     }
   }
