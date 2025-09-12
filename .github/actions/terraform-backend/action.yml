@@ -79,7 +79,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-git status
+
         # Check if aws-account-id was provided as input
         if [[ -n "${{ inputs.aws-account-id }}" && "${{ inputs.aws-account-id }}" != "null" ]]; then
           AWS_ACCOUNT_ID="${{ inputs.aws-account-id }}"
