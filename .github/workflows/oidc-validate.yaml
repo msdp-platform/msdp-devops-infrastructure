@@ -103,17 +103,28 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Load backend config from env config file
+          ENV_CONFIG="config/envs/dev.yaml"
+          [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
+          
+          BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
+          REGION=$(yq eval '.state.region' "$ENV_CONFIG")
+          DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
+          KEY="eks/dev.tfstate"
+          
           # Validate backend config values
-          [ -n "${{ secrets.TF_BACKEND_BUCKET }}" ] || { echo "ERROR: TF_BACKEND_BUCKET is empty"; exit 1; }
-          [ -n "${{ secrets.AWS_REGION }}" ] || { echo "ERROR: AWS_REGION is empty"; exit 1; }
-          [ -n "${{ secrets.TF_BACKEND_DDB }}" ] || { echo "ERROR: TF_BACKEND_DDB is empty"; exit 1; }
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
           
           echo "🔧 Initializing Terraform with backend config for AWS"
+          echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=eks/dev.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
+            -backend-config="bucket=${BUCKET}" \
+            -backend-config="key=${KEY}" \
+            -backend-config="region=${REGION}" \
+            -backend-config="dynamodb_table=${DDB}" \
             -backend-config="encrypt=true"
           echo "📋 Running Terraform plan for AWS"
           terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
@@ -124,17 +135,28 @@ jobs:
         run: |
           set -euo pipefail
           
+          # Load backend config from env config file
+          ENV_CONFIG="config/envs/dev.yaml"
+          [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
+          
+          BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
+          REGION=$(yq eval '.state.region' "$ENV_CONFIG")
+          DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
+          KEY="aks/dev.tfstate"
+          
           # Validate backend config values
-          [ -n "${{ secrets.TF_BACKEND_BUCKET }}" ] || { echo "ERROR: TF_BACKEND_BUCKET is empty"; exit 1; }
-          [ -n "${{ secrets.AWS_REGION }}" ] || { echo "ERROR: AWS_REGION is empty"; exit 1; }
-          [ -n "${{ secrets.TF_BACKEND_DDB }}" ] || { echo "ERROR: TF_BACKEND_DDB is empty"; exit 1; }
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
           
           echo "🔧 Initializing Terraform with backend config for Azure"
+          echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=aks/dev.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
+            -backend-config="bucket=${BUCKET}" \
+            -backend-config="key=${KEY}" \
+            -backend-config="region=${REGION}" \
+            -backend-config="dynamodb_table=${DDB}" \
             -backend-config="encrypt=true"
           echo "📋 Running Terraform plan for Azure"
           terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
