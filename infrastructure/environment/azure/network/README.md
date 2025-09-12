@@ -47,7 +47,6 @@ Derive subnets deterministically with `cidrsubnet()`:
   "subnet_count": 3,
   "subnet_newbits": 8,
   "subnet_names": ["app", "db", "ops"],
-  "nsg_enabled": true,
   "nsg_prefix": "nsg-prod"
 }
 ```

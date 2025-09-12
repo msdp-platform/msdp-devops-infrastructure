@@ -81,15 +81,9 @@ variable "subnet_names" {
   default     = []
 }
 
-variable "nsg_enabled" {
-  type        = bool
-  description = "When true (computed mode), generate NSG names using nsg_prefix"
-  default     = false
-}
-
 variable "nsg_prefix" {
   type        = string
-  description = "Prefix for NSG names in computed mode (e.g., nsg-prd). Ignored if nsg_enabled=false."
+  description = "Prefix for NSG names in computed mode (e.g., nsg-prd). If empty, NSGs are not created."
   default     = ""
 }
 
@@ -98,4 +92,3 @@ variable "tags" {
   description = "Resource tags"
   default     = {}
 }
-

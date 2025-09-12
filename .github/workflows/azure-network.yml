@@ -36,17 +36,10 @@ on:
       subnet_count:
         required: false
         default: "0"
-      subnet_newbits:
-        required: false
-        default: "8"
       subnet_names:
         description: CSV (e.g. app,db,ops)
         required: false
         default: ""
-      nsg_enabled:
-        description: Whether to create NSGs per subnet (computed mode)
-        required: false
-        default: "false"
       nsg_prefix:
         description: NSG name prefix (computed mode)
         required: false
@@ -119,6 +112,7 @@ jobs:
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
       - name: Build network.auto.tfvars.json
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         working-directory: infrastructure/environment/azure/network
         shell: bash
         run: |
@@ -151,8 +145,7 @@ jobs:
               names='[]'
             fi
             count="${{ github.event.inputs.subnet_count || '0' }}"
-            newbits="${{ github.event.inputs.subnet_newbits || '8' }}"
-            nsg_enabled="${{ github.event.inputs.nsg_enabled || 'false' }}"
+            newbits=8
             nsg_prefix="${{ github.event.inputs.nsg_prefix || '' }}"
             jq -n \
               --arg rg "${{ github.event.inputs.resource_group || '' }}" \
@@ -162,9 +155,8 @@ jobs:
               --argjson count "$count" \
               --argjson newbits "$newbits" \
               --argjson names "$names" \
-              --argjson nsg_enabled "$nsg_enabled" \
               --arg nsg_prefix "$nsg_prefix" \
-              '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_enabled:$nsg_enabled, nsg_prefix:$nsg_prefix}' \
+              '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_prefix:$nsg_prefix}' \
               > network.auto.tfvars.json
           fi
           echo "Wrote $(pwd)/network.auto.tfvars.json"
