@@ -1,52 +1,42 @@
 variable "org" {
-  type = string
+  description = "Organization name for resource naming and tagging"
+  type        = string
+  default     = "msdp"
 }
 
 variable "env" {
-  type = string
+  description = "Environment name"
+  type        = string
+  default     = "dev"
 }
 
 variable "region" {
-  type = string
+  description = "Azure region for the AKS cluster"
+  type        = string
+  default     = "uksouth"
 }
 
 variable "resource_group_name" {
-  type = string
+  description = "Name of the Azure resource group"
+  type        = string
+  default     = "rg-aks-dev"
 }
 
 variable "cluster_name" {
-  type = string
+  description = "Name of the AKS cluster"
+  type        = string
+  default     = "aks-dev"
 }
 
 variable "subnet_id" {
-  type = string
-}
-
-variable "k8s_version" {
-  type = string
-}
-
-variable "node_pool_name" {
-  type = string
-}
-
-variable "node_vm_size" {
-  type = string
-}
-
-variable "node_count" {
-  type = number
-}
-
-variable "node_min" {
-  type = number
-}
-
-variable "node_max" {
-  type = number
+  description = "ID of the subnet for the AKS cluster"
+  type        = string
+  # This should be provided via terraform.tfvars or environment variables
+  # Example: "/subscriptions/xxx/resourceGroups/rg-networking-dev/providers/Microsoft.Network/virtualNetworks/vnet-dev/subnets/aks-subnet"
 }
 
 variable "tags" {
-  type    = map(string)
-  default = {}
+  description = "Additional tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }
