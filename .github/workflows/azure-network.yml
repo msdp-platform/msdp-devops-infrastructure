@@ -41,7 +41,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: eu-west-1
 
       # --- BACKEND: create/ensure S3+DDB and write backend-config.json ---
       - name: Terraform Backend (AWS)
@@ -55,7 +55,7 @@ jobs:
           app: network # stack name
           function: tfstate
           key-salt: infrastructure/environment/azure/network
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: eu-west-1
           # optional: pipeline-name: custom-name-here
           # optional: allow-key-mutation: "false"
           use-shared-lock-table: "true"
