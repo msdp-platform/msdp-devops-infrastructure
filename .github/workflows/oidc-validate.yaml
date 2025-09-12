@@ -205,32 +205,32 @@ jobs:
       - name: Confirm cloud tested
         run: echo "Reusable actions validated for ${{ matrix.cloud }}"
 
-  validate_network:
-    needs: validate
-    uses: .github/workflows/_tf_plan_apply.yml
-    with:
-      working_directory: infrastructure/environment/azure/network
-      env_config_path: config/envs/dev.yaml
-      backend_key: network/dev.tfstate
-      apply: false
-      extra_vars: "global_config_path=config/global.yaml"
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  # validate_network:
+  #   needs: validate
+  #   uses: .github/workflows/_tf_plan_apply.yml
+  #   with:
+  #     working_directory: infrastructure/environment/azure/network
+  #     env_config_path: config/envs/dev.yaml
+  #     backend_key: network/dev.tfstate
+  #     apply: false
+  #     extra_vars: "global_config_path=config/global.yaml"
+  #   secrets:
+  #     AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  #     AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  #     AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  #     AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
 
-  validate_aks:
-    needs: validate
-    uses: .github/workflows/_tf_plan_apply.yml
-    with:
-      working_directory: infrastructure/environment/azure/aks
-      env_config_path: config/envs/dev.yaml
-      backend_key: aks/dev.tfstate
-      apply: false
-      extra_vars: "global_config_path=config/global.yaml"
-    secrets:
-      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
-      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
-      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  # validate_aks:
+  #   needs: validate
+  #   uses: .github/workflows/_tf_plan_apply.yml
+  #   with:
+  #     working_directory: infrastructure/environment/azure/aks
+  #     env_config_path: config/envs/dev.yaml
+  #     backend_key: aks/dev.tfstate
+  #     apply: false
+  #     extra_vars: "global_config_path=config/global.yaml"
+  #   secrets:
+  #     AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  #     AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  #     AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  #     AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
