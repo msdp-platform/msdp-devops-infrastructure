@@ -4,7 +4,7 @@ provider "aws" {
 
 resource "aws_eks_cluster" "this" {
   name     = var.cluster_name
-  role_arn = null # Expect IRSA/IAM role to be attached externally
+  role_arn = "arn:aws:iam::123456789012:role/dummy-eks-cluster-role" # TODO: Replace with actual IAM role ARN
 
   vpc_config {
     subnet_ids = var.private_subnet_ids
@@ -22,7 +22,7 @@ resource "aws_eks_cluster" "this" {
 resource "aws_eks_node_group" "default" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = var.node_group.name
-  node_role_arn   = null # external IAM role expected
+  node_role_arn   = "arn:aws:iam::123456789012:role/dummy-eks-node-role" # TODO: Replace with actual IAM role ARN
   subnet_ids      = var.private_subnet_ids
 
   scaling_config {
