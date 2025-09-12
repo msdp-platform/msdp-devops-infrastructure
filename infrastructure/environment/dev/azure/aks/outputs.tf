@@ -1,65 +1,65 @@
 output "cluster_id" {
   description = "The ID of the AKS cluster"
-  value       = module.aks.cluster_id
+  value       = azurerm_kubernetes_cluster.this.id
 }
 
 output "cluster_name" {
   description = "The name of the AKS cluster"
-  value       = module.aks.cluster_name
+  value       = azurerm_kubernetes_cluster.this.name
 }
 
 output "cluster_fqdn" {
   description = "The FQDN of the AKS cluster"
-  value       = module.aks.cluster_fqdn
+  value       = azurerm_kubernetes_cluster.this.fqdn
 }
 
 output "kube_config_raw" {
   description = "Raw Kubernetes config to be used by kubectl and other compatible tools"
-  value       = module.aks.kube_config_raw
+  value       = azurerm_kubernetes_cluster.this.kube_config_raw
   sensitive   = true
 }
 
 output "kubelet_identity_object_id" {
   description = "The object ID of the kubelet identity"
-  value       = module.aks.kubelet_identity_object_id
+  value       = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
 }
 
 output "kubelet_identity_client_id" {
   description = "The client ID of the kubelet identity"
-  value       = module.aks.kubelet_identity_client_id
+  value       = azurerm_kubernetes_cluster.this.kubelet_identity[0].client_id
 }
 
 output "oidc_issuer_url" {
   description = "The OIDC issuer URL for the cluster"
-  value       = module.aks.oidc_issuer_url
+  value       = azurerm_kubernetes_cluster.this.oidc_issuer_url
 }
 
 output "node_resource_group" {
   description = "The name of the resource group containing the cluster's nodes"
-  value       = module.aks.node_resource_group
+  value       = azurerm_kubernetes_cluster.this.node_resource_group
 }
 
 output "principal_id" {
   description = "The principal ID of the system-assigned managed identity"
-  value       = module.aks.principal_id
+  value       = azurerm_kubernetes_cluster.this.identity[0].principal_id
 }
 
 output "kubernetes_version" {
   description = "The Kubernetes version of the cluster"
-  value       = module.aks.kubernetes_version
-}
-
-output "log_analytics_workspace_id" {
-  description = "The ID of the Log Analytics workspace"
-  value       = module.aks.log_analytics_workspace_id
+  value       = azurerm_kubernetes_cluster.this.kubernetes_version
 }
 
 output "system_node_pool_name" {
   description = "The name of the system node pool"
-  value       = module.aks.system_node_pool_name
+  value       = azurerm_kubernetes_cluster.this.default_node_pool[0].name
 }
 
-output "spot_node_pool_name" {
-  description = "The name of the spot node pool"
-  value       = module.aks.spot_node_pool_name
+output "apps_node_pool_name" {
+  description = "The name of the apps node pool"
+  value       = azurerm_kubernetes_cluster_node_pool.apps.name
+}
+
+output "resolved_subnet_id" {
+  description = "The resolved subnet ID used by the cluster"
+  value       = local.effective_subnet_id
 }

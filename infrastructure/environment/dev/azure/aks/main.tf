@@ -21,7 +21,9 @@ locals {
 # 2) Name-based subnet lookup
 #################################
 locals {
-  have_names = trim(var.resource_group) != "" && trim(var.vnet_name) != "" && trim(var.subnet_name) != ""
+  have_names = length(trimspace(var.resource_group)) > 0
+               && length(trimspace(var.vnet_name)) > 0
+               && length(trimspace(var.subnet_name)) > 0
 }
 
 data "azurerm_subnet" "by_name" {
@@ -56,9 +58,9 @@ locals {
 #################################
 locals {
   effective_subnet_id = coalesce(
-    trim(local.rs_subnet_id),
-    trim(local.name_subnet_id),
-    trim(local.tag_subnet_id),
+    local.rs_subnet_id,
+    local.name_subnet_id,
+    local.tag_subnet_id,
     ""
   )
 }
