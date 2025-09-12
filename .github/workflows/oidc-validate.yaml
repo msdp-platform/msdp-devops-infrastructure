@@ -39,6 +39,7 @@ jobs:
           env: dev
           app: eks
           function: tfstate
+          pipeline-name: provisioner
           cloud-segment: ${{ matrix.cloud }}
           cloud: aws
 

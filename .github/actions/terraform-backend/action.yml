@@ -17,6 +17,9 @@ inputs:
   function:
     description: "Function for bucket grouping (e.g., tfstate)"
     required: true
+  pipeline-name:
+    description: "Logical name for the pipeline or workflow using this backend (e.g., provisioner, addons, bootstrap)"
+    required: true
   cloud-segment:
     description: "Cloud segment for key path (e.g., aws, azure)"
     required: true
@@ -66,8 +69,8 @@ runs:
         # DynamoDB table name
         TABLE="${BUCKET}-locks"
 
-        # Compose key path with cloud segment
-        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${{ inputs.cloud-segment }}/${{ inputs.app }}/terraform.tfstate"
+        # Compose key path with cloud segment and pipeline name
+        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${{ inputs.cloud-segment }}/${{ inputs.app }}/${{ inputs.pipeline-name }}.tfstate"
 
         echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
         echo "TABLE=$TABLE" >> "$GITHUB_ENV"
