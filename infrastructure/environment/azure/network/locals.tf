@@ -14,6 +14,6 @@ locals {
   effective_subnets = local.use_explicit ? var.subnets : local.computed_subnets
 
   # Effective RG/VNet helpers
-  rg_name      = var.resource_group
-  vnet_name    = var.vnet_name
+  rg_name   = var.resource_group
+  vnet_name = var.vnet_name
 }
