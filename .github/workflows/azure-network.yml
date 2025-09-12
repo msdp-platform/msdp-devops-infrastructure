@@ -1,8 +1,8 @@
-name: network
+name: azure-network
 on:
   push:
-    branches: [main]
-    paths: ["infrastructure/environment/**/azure/network/**"]
+    branches: [ main ]
+    paths: [ "infrastructure/environment/azure/network/**", "config/**" ]
   workflow_dispatch:
 
 permissions:
@@ -19,16 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Load config paths
-      - name: Load config paths
-        id: config
-        run: |
-          NETWORK_PATH=$(yq '.paths.network' infrastructure/config/local.yaml)
-          PREFLIGHT_SCRIPTS_PATH=$(yq '.paths.preflight_scripts' infrastructure/config/local.yaml)
-          echo "network_path=$NETWORK_PATH" >> $GITHUB_OUTPUT
-          echo "preflight_scripts_path=$PREFLIGHT_SCRIPTS_PATH" >> $GITHUB_OUTPUT
-
-      # Azure OIDC for azurerm
+      # Azure OIDC for azurerm provider
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
@@ -36,7 +27,7 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Export ARM env for Terraform
+      - name: Export ARM env
         run: |
           echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
           echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
@@ -46,18 +37,15 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region:     ${{ secrets.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      - name: Preflight
-        run: bash ${{ steps.config.outputs.preflight_scripts_path }}/preflight-network.sh
-
       - name: Terraform init (S3 backend)
-        working-directory: ${{ steps.config.outputs.network_path }}
+        working-directory: infrastructure/environment/azure/network
         run: |
           terraform init \
             -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
@@ -67,10 +55,10 @@ jobs:
             -backend-config="encrypt=true"
 
       - name: Terraform plan
-        working-directory: ${{ steps.config.outputs.network_path }}
-        run: terraform plan -var="env=dev" -out=tfplan
+        working-directory: infrastructure/environment/azure/network
+        run: terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
 
       - name: Terraform apply
-        if: github.ref == 'refs/heads/main'
-        working-directory: ${{ steps.config.outputs.network_path }}
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        working-directory: infrastructure/environment/azure/network
         run: terraform apply -auto-approve tfplan

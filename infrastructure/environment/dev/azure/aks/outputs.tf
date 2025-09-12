@@ -60,6 +60,6 @@ output "apps_node_pool_name" {
 }
 
 output "resolved_subnet_id" {
-  description = "The resolved subnet ID used by the cluster"
   value       = local.effective_subnet_id
+  description = "Subnet used by AKS (resolved dynamically)"
 }

@@ -62,16 +62,18 @@ security_baseline:
   image_scan: true
   branch_protection: true
 
+azure:
+  kubernetesVersion: "1.29.7"
+  location: "uksouth"
+  subnetDiscoveryTags: { role: "aks" }
+  networkProfile:
+    plugin: "azure"
+    policy: "azure"
+    lbSku: "standard"
+    outboundType: "loadBalancer"
+  # defaults that env can override
+  vnetCidrDefault: "10.50.0.0/16"
+  subnetCidrDefault: "10.50.1.0/24"
 paths:
-  infrastructure:
-    base: infrastructure/environment
-    network: infrastructure/environment/{env}/azure/network
-    aks: infrastructure/environment/{env}/azure/aks
-    artifacts: infrastructure/environment/{env}/artifacts
-  scripts:
-    preflight: scripts
-    bootstrap: scripts/bootstrap
-  workflows:
-    base: .github/workflows
-    network: .github/workflows/network.yml
-    aks: .github/workflows/aks.yml
+  network: "infrastructure/environment/azure/network"
+  aks:     "infrastructure/environment/azure/aks"

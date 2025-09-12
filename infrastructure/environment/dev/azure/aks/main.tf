@@ -21,9 +21,11 @@ locals {
 # 2) Name-based subnet lookup
 #################################
 locals {
-  have_names = length(trimspace(var.resource_group)) > 0
-               && length(trimspace(var.vnet_name)) > 0
-               && length(trimspace(var.subnet_name)) > 0
+  have_names = (
+    length(trimspace(var.resource_group)) > 0
+    && length(trimspace(var.vnet_name)) > 0
+    && length(trimspace(var.subnet_name)) > 0
+  )
 }
 
 data "azurerm_subnet" "by_name" {
@@ -131,7 +133,3 @@ resource "azurerm_kubernetes_cluster_node_pool" "apps" {
   eviction_policy       = local.resolved.user_spot ? "Delete" : null
 }
 
-# Debug output to show which subnet was used
-output "resolved_subnet_id" {
-  value = local.effective_subnet_id
-}

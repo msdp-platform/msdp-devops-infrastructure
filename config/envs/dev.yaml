@@ -1,0 +1,14 @@
+state:
+  bucket: "<S3_BUCKET>"
+  region: "<AWS_REGION>"
+  dynamodb: "<DDB_TABLE>"
+  networkKey: "network/dev.tfstate"
+  aksKey:     "aks/dev.tfstate"
+azure:
+  subscriptionId: "<SUBSCRIPTION_ID_DEV>"
+  resourceGroup:  "rg-shared-dev"
+  aksName:        "aks-dev-01"
+  vnetName:       "vnet-shared-dev"
+  subnetName:     "snet-aks-dev"
+  vnetCidr:       "10.60.0.0/16"      # REQUIRED
+  subnetCidr:     "10.60.1.0/24"      # REQUIRED
