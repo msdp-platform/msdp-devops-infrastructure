@@ -1,4 +1,4 @@
-name: AKS Deploy
+name: AKS Manual Deploy
 run-name: "AKS Deploy — env=${{ inputs.env || 'dev' }}"
 
 on:

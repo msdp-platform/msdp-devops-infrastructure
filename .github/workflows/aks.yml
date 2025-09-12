@@ -1,4 +1,4 @@
-name: aks
+name: AKS CI/CD
 on:
   push:
     branches: [main]
