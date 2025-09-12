@@ -83,7 +83,15 @@ jobs:
           CFG="${{ inputs.backend_config_file }}"
           BUCKET=$(jq -r .bucket "$CFG") ; KEY="${{ inputs.backend_key }}" ; REGION=$(jq -r .region "$CFG")
           DDB=$(jq -r .dynamodb_table "$CFG")
+
+          # Validate backend config values
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb_table is empty"; exit 1; }
+
           echo "🔧 Initializing Terraform with backend config from file"
+          echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
             -backend-config="bucket=${BUCKET}" \
             -backend-config="key=${KEY}" \
@@ -100,7 +108,15 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
+
+          # Validate backend config values
+          [ -n "${TF_BACKEND_BUCKET}" ] || { echo "ERROR: TF_BACKEND_BUCKET is empty"; exit 1; }
+          [ -n "${{ inputs.backend_key }}" ] || { echo "ERROR: backend_key is empty"; exit 1; }
+          [ -n "${AWS_REGION}" ] || { echo "ERROR: AWS_REGION is empty"; exit 1; }
+          [ -n "${TF_BACKEND_DDB}" ] || { echo "ERROR: TF_BACKEND_DDB is empty"; exit 1; }
+
           echo "🔧 Initializing Terraform with backend config from secrets"
+          echo "Backend config: bucket=${TF_BACKEND_BUCKET}, key=${{ inputs.backend_key }}, region=${AWS_REGION}, dynamodb_table=${TF_BACKEND_DDB}"
           terraform init -reconfigure \
             -backend-config="bucket=${TF_BACKEND_BUCKET}" \
             -backend-config="key=${{ inputs.backend_key }}" \
