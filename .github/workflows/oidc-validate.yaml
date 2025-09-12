@@ -57,7 +57,7 @@ jobs:
           cloud-segment: ${{ matrix.cloud }}
           app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
           function: tfstate
-          pipeline-name: provisioner
+          # pipeline-name: provisioner            # OPTIONAL — omit to use workflow name
           aws-region: eu-west-1
           aws-account-id: 319422413814
 

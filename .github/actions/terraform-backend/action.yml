@@ -18,8 +18,8 @@ inputs:
     description: "Function for bucket grouping (e.g., tfstate)"
     required: true
   pipeline-name:
-    description: "Logical name for the pipeline or workflow using this backend (e.g., provisioner, addons, bootstrap)"
-    required: true
+    description: "Logical name for the pipeline or workflow using this backend (e.g., provisioner, addons, bootstrap). If empty, defaults to GITHUB_WORKFLOW or GITHUB_JOB"
+    required: false
   cloud-segment:
     description: "Cloud segment for key path (e.g., aws, azure)"
     required: true
@@ -78,12 +78,25 @@ runs:
         # DynamoDB table name
         TABLE="${BUCKET}-locks"
 
-        # Compose key path with cloud segment and pipeline name
-        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${{ inputs.cloud-segment }}/${{ inputs.app }}/${{ inputs.pipeline-name }}.tfstate"
+        # Derive pipeline name with fallback logic
+        PIPELINE_NAME_INPUT="${{ inputs.pipeline-name }}"
+        if [[ -z "${PIPELINE_NAME_INPUT}" || "${PIPELINE_NAME_INPUT}" == "null" ]]; then
+          CANDIDATE="${GITHUB_WORKFLOW:-${GITHUB_JOB:-default}}"
+        else
+          CANDIDATE="$PIPELINE_NAME_INPUT"
+        fi
+        pipeline_name="$(echo "$CANDIDATE" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-|-$//g')"
+        if [[ -z "$pipeline_name" ]]; then pipeline_name="default"; fi
+
+        # Build KEY using derived pipeline_name
+        cloud_segment="${{ inputs.cloud-segment }}"
+        if [[ -z "$cloud_segment" || "$cloud_segment" == "null" ]]; then cloud_segment="${{ inputs.cloud }}"; fi
+        KEY="${{ inputs.repo-shortname }}/${{ inputs.project }}/${{ inputs.env }}/${cloud_segment}/${{ inputs.app }}/$pipeline_name.tfstate"
 
         echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
         echo "TABLE=$TABLE" >> "$GITHUB_ENV"
         echo "KEY=$KEY" >> "$GITHUB_ENV"
+        echo "PIPELINE_NAME=$pipeline_name" >> "$GITHUB_ENV"
 
     - name: Ensure S3 bucket exists
       shell: bash
@@ -157,9 +170,11 @@ runs:
       run: |
         set -euo pipefail
         echo "Backend summary:"
-        echo "  Bucket: $BUCKET"
+        echo "BUCKET=$BUCKET"
+        echo "TABLE=$TABLE"
+        echo "KEY=$KEY"
+        echo "PIPELINE_NAME=$PIPELINE_NAME"
         aws s3api get-bucket-versioning --bucket "$BUCKET" --query 'Status'
         aws s3api get-bucket-encryption --bucket "$BUCKET" \
           --query 'ServerSideEncryptionConfiguration.Rules[*].ApplyServerSideEncryptionByDefault.SSEAlgorithm'
-        echo "  Lock Table: $TABLE"
         aws dynamodb describe-table --table-name "$TABLE" --query '{Status:Table.TableStatus,Key:Table.KeySchema}'
