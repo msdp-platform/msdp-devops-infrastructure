@@ -32,7 +32,7 @@ variable "network_plugin" {
   description = "Network plugin for AKS cluster (azure or azureoverlay)"
   type        = string
   default     = "azure"
-  
+
   validation {
     condition     = contains(["azure", "azureoverlay"], var.network_plugin)
     error_message = "Network plugin must be either 'azure' or 'azureoverlay'."
@@ -49,7 +49,7 @@ variable "sku_tier" {
   description = "SKU tier for the AKS cluster (Free or Standard)"
   type        = string
   default     = "Free"
-  
+
   validation {
     condition     = contains(["Free", "Standard"], var.sku_tier)
     error_message = "SKU tier must be either 'Free' or 'Standard'."
@@ -71,38 +71,38 @@ variable "k8s_version" {
 variable "system_node" {
   description = "Configuration for the system node pool"
   type = object({
-    vm_size    = string
-    min_count  = number
-    max_count  = number
-    os_sku     = string
+    vm_size   = string
+    min_count = number
+    max_count = number
+    os_sku    = string
   })
   default = {
-    vm_size    = "Standard_D2as_v5"
-    min_count  = 1
-    max_count  = 2
-    os_sku     = "AzureLinux"
+    vm_size   = "Standard_D2as_v5"
+    min_count = 1
+    max_count = 2
+    os_sku    = "AzureLinux"
   }
 }
 
 variable "spot_node" {
   description = "Configuration for the spot node pool"
   type = object({
-    enabled        = bool
-    vm_size        = string
-    min_count      = number
-    max_count      = number
-    max_price      = number
+    enabled         = bool
+    vm_size         = string
+    min_count       = number
+    max_count       = number
+    max_price       = number
     eviction_policy = string
-    taints         = list(string)
+    taints          = list(string)
   })
   default = {
-    enabled        = true
-    vm_size        = "Standard_D4as_v5"
-    min_count      = 0
-    max_count      = 5
-    max_price      = -1
+    enabled         = true
+    vm_size         = "Standard_D4as_v5"
+    min_count       = 0
+    max_count       = 5
+    max_price       = -1
     eviction_policy = "Delete"
-    taints         = ["spot=true:NoSchedule"]
+    taints          = ["spot=true:NoSchedule"]
   }
 }
 
