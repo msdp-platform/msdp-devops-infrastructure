@@ -20,8 +20,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: AWS + Azure OIDC Login (org-wide)
-        uses: msdp-platform/actions/cloud-login@v1
+      - name: AWS + Azure OIDC Login (local)
+        uses: ./.github/actions/cloud-login
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
