@@ -1,4 +1,4 @@
-env: dev # dev|stg|prod
+environment: dev # dev|stg|prod
 cloud: azure # aws|azure
 region: uksouth # e.g., us-east-1, uksouth
 bu: food
