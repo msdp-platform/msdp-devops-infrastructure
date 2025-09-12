@@ -1,87 +1,27 @@
-name: AKS CI/CD
+name: aks
 on:
   push:
-    branches: [main]
-    paths: ["infrastructure/environment/**/azure/aks/**"]
+    branches: [ main ]
+    paths: [ "config/**", "infrastructure/environment/azure/aks/**" ]
   workflow_dispatch:
   workflow_run:
-    workflows: ["azure-network"]
-    types: [completed]
-
-permissions:
-  id-token: write
-  contents: read
-
-env:
-  TF_INPUT: "false"
-  ARM_USE_OIDC: "true"
-  TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
-  TFSTATE_SA: ${{ secrets.TFSTATE_SA }}
-  TFSTATE_CONTAINER: ${{ secrets.TFSTATE_CONTAINER }}
-  NETWORK_STATE_KEY: network/dev.tfstate
+    workflows: [ "azure-network" ]
+    types: [ completed ]
 
 jobs:
-  plan-apply:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # Load config paths
-      - name: Load config paths
-        id: config
-        run: |
-          AKS_PATH=$(yq '.paths.aks' infrastructure/config/local.yaml)
-          PREFLIGHT_SCRIPTS_PATH=$(yq '.paths.preflight_scripts' infrastructure/config/local.yaml)
-          echo "aks_path=$AKS_PATH" >> $GITHUB_OUTPUT
-          echo "preflight_scripts_path=$PREFLIGHT_SCRIPTS_PATH" >> $GITHUB_OUTPUT
-
-      # Azure OIDC
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Export ARM env
-        run: |
-          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
-
-      # AWS OIDC for S3 backend of AKS state
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.5
-
-      - name: Preflight (ensure network state exists)
-        env:
-          TFSTATE_CONTAINER: ${{ env.TFSTATE_CONTAINER }}
-          TFSTATE_SA: ${{ env.TFSTATE_SA }}
-          NETWORK_STATE_KEY: ${{ env.NETWORK_STATE_KEY }}
-        run: bash ${{ steps.config.outputs.preflight_scripts_path }}/preflight-aks.sh
-
-      - name: Terraform init (S3 backend)
-        working-directory: ${{ steps.config.outputs.aks_path }}
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=aks/dev.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
-            -backend-config="encrypt=true"
-
-      - name: Terraform plan
-        working-directory: ${{ steps.config.outputs.aks_path }}
-        run: terraform plan -var="env=dev" -out=tfplan
-
-      - name: Terraform apply
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        working-directory: ${{ steps.config.outputs.aks_path }}
-        run: terraform apply -auto-approve tfplan
+  run:
+    uses: ./.github/workflows/_tf_plan_apply.yml
+    with:
+      working_directory: infrastructure/environment/azure/aks
+      env_config_path:   config/envs/dev.yaml
+      backend_key:       aks/dev.tfstate
+      apply:             true
+      extra_vars:        "global_config_path=config/global.yaml"
+    secrets:
+      AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AWS_ROLE_ARN:          ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION:            ${{ secrets.AWS_REGION }}
+      TF_BACKEND_BUCKET:     ${{ secrets.TF_BACKEND_BUCKET }}
+      TF_BACKEND_DDB:        ${{ secrets.TF_BACKEND_DDB }}

@@ -98,28 +98,16 @@ jobs:
 
           echo "✓ Shared lock table verification completed"
 
-      - name: Terraform Init (AWS)
+      - name: Terraform plan (AWS)
         if: ${{ matrix.cloud == 'aws' }}
-        uses: ./.github/actions/terraform-init
-        with:
-          working-directory: infrastructure/environment/dev/aws/eks
-          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
-
-      - name: Terraform Init (Azure)
-        if: ${{ matrix.cloud == 'azure' }}
-        uses: ./.github/actions/terraform-init
-        with:
-          working-directory: infrastructure/environment/dev/azure/aks
-          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
-
-      - name: Terraform validate (AWS)
-        if: ${{ matrix.cloud == 'aws' }}
-        run: terraform validate
+        run: |
+          terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
         working-directory: infrastructure/environment/dev/aws/eks
 
-      - name: Terraform validate (Azure)
+      - name: Terraform plan (Azure)
         if: ${{ matrix.cloud == 'azure' }}
-        run: terraform validate
+        run: |
+          terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
         working-directory: infrastructure/environment/dev/azure/aks
 
       - name: Verify AWS caller identity
@@ -136,3 +124,39 @@ jobs:
 
       - name: Confirm cloud tested
         run: echo "Reusable actions validated for ${{ matrix.cloud }}"
+
+  validate_network:
+    needs: validate
+    uses: ./.github/workflows/_tf_plan_apply.yml
+    with:
+      working_directory: infrastructure/environment/azure/network
+      env_config_path:   config/envs/dev.yaml
+      backend_key:       network/dev.tfstate
+      apply:             false
+      extra_vars:        "global_config_path=config/global.yaml"
+    secrets:
+      AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AWS_ROLE_ARN:          ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION:            ${{ secrets.AWS_REGION }}
+      TF_BACKEND_BUCKET:     ${{ secrets.TF_BACKEND_BUCKET }}
+      TF_BACKEND_DDB:        ${{ secrets.TF_BACKEND_DDB }}
+
+  validate_aks:
+    needs: validate
+    uses: ./.github/workflows/_tf_plan_apply.yml
+    with:
+      working_directory: infrastructure/environment/azure/aks
+      env_config_path:   config/envs/dev.yaml
+      backend_key:       aks/dev.tfstate
+      apply:             false
+      extra_vars:        "global_config_path=config/global.yaml"
+    secrets:
+      AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AWS_ROLE_ARN:          ${{ secrets.AWS_ROLE_ARN }}
+      AWS_REGION:            ${{ secrets.AWS_REGION }}
+      TF_BACKEND_BUCKET:     ${{ secrets.TF_BACKEND_BUCKET }}
+      TF_BACKEND_DDB:        ${{ secrets.TF_BACKEND_DDB }}
