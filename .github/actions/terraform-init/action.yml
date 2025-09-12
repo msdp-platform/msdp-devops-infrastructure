@@ -49,7 +49,7 @@ runs:
         REGION=$(jq -r '.region' "$CONFIG_FILE")
         DYNAMODB_TABLE=$(jq -r '.dynamodb_table' "$CONFIG_FILE")
 
-        echo "Using state key: $KEY"
+        echo "Using state key: $KEY (pipeline_name from config if present)"
 
         # Change to the Terraform working directory and initialize with backend config
         cd "${{ inputs.working-directory }}"

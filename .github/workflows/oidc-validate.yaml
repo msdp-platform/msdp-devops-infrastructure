@@ -57,7 +57,8 @@ jobs:
           cloud-segment: ${{ matrix.cloud }}
           app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
           function: tfstate
-          # pipeline-name: provisioner            # OPTIONAL — omit to use workflow name
+          key-salt: infrastructure/environment/dev/${{ matrix.cloud }}/${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
+          # pipeline-name: provisioner            # OPTIONAL — omit to use stable computed name
           aws-region: eu-west-1
           aws-account-id: 319422413814
 
