@@ -2,20 +2,25 @@ name: _tf_plan_apply
 on:
   workflow_call:
     inputs:
-      working_directory:   { required: true, type: string }
-      env_config_path:     { required: true, type: string }
-      backend_key:         { required: true, type: string }
-      apply:               { required: false, type: boolean, default: false }
-      backend_config_file: { required: false, type: string,  default: "" }
-      extra_vars:          { required: false, type: string,  default: "global_config_path=config/global.yaml" }
+      working_directory: { required: true, type: string }
+      env_config_path: { required: true, type: string }
+      backend_key: { required: true, type: string }
+      apply: { required: false, type: boolean, default: false }
+      backend_config_file: { required: false, type: string, default: "" }
+      extra_vars:
+        {
+          required: false,
+          type: string,
+          default: "global_config_path=config/global.yaml",
+        }
     secrets:
-      AZURE_CLIENT_ID:       { required: true }
-      AZURE_TENANT_ID:       { required: true }
+      AZURE_CLIENT_ID: { required: true }
+      AZURE_TENANT_ID: { required: true }
       AZURE_SUBSCRIPTION_ID: { required: true }
-      AWS_ROLE_ARN:          { required: true }
-      AWS_REGION:            { required: true }
-      TF_BACKEND_BUCKET:     { required: true }
-      TF_BACKEND_DDB:        { required: true }
+      AWS_ROLE_ARN: { required: true }
+      AWS_REGION: { required: true }
+      TF_BACKEND_BUCKET: { required: true }
+      TF_BACKEND_DDB: { required: true }
 
 permissions:
   id-token: write
@@ -34,8 +39,8 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Export ARM env
@@ -48,7 +53,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region:     ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:
@@ -58,8 +63,8 @@ jobs:
         if: ${{ inputs.backend_config_file == '' }}
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
-          TF_BACKEND_DDB:    ${{ secrets.TF_BACKEND_DDB }}
-          AWS_REGION:        ${{ secrets.AWS_REGION }}
+          TF_BACKEND_DDB: ${{ secrets.TF_BACKEND_DDB }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
           for k in TF_BACKEND_BUCKET TF_BACKEND_DDB AWS_REGION; do
@@ -89,8 +94,8 @@ jobs:
         working-directory: ${{ inputs.working_directory }}
         env:
           TF_BACKEND_BUCKET: ${{ secrets.TF_BACKEND_BUCKET }}
-          TF_BACKEND_DDB:    ${{ secrets.TF_BACKEND_DDB }}
-          AWS_REGION:        ${{ secrets.AWS_REGION }}
+          TF_BACKEND_DDB: ${{ secrets.TF_BACKEND_DDB }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
           terraform init \
