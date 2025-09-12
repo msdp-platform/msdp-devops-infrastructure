@@ -301,14 +301,16 @@ runs:
         if [[ -f "$CFG" ]]; then
           EXISTING_KEY=$(jq -r '.key // empty' "$CFG" 2>/dev/null || echo "")
           if [[ -n "$EXISTING_KEY" && "$EXISTING_KEY" != "$KEY" ]]; then
-            if [[ "${{ inputs.allow-key-mutation }}" != "true" ]]; then
-              echo "ERROR: Refusing to change backend key from '$EXISTING_KEY' to '$KEY'. Set allow-key-mutation=true to override." >&2
-              exit 1
-            else
+            if [[ "${{ inputs.allow-key-mutation }}" == "true" ]]; then
               echo "WARNING: Changing backend key from '$EXISTING_KEY' to '$KEY' (allow-key-mutation=true)"
+              # proceed with newly computed KEY
+            else
+              echo "WARNING: Existing backend key '$EXISTING_KEY' differs from computed '$KEY'. Reusing existing key to avoid accidental state move."
+              KEY="$EXISTING_KEY"
             fi
           fi
         fi
+
 
         echo "TABLE=$TABLE" >> "$GITHUB_ENV"
         echo "KEY=$KEY" >> "$GITHUB_ENV"
