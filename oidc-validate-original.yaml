@@ -1,0 +1,240 @@
+name: OIDC Validate
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate OIDC & TF — ${{ matrix.cloud }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cloud: [aws, azure]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify S3 backend is declared
+        run: bash scripts/ci/verify_s3_backend.sh
+
+      - name: Setup Terraform for fmt check
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.2
+
+      - name: Terraform fmt check
+        run: |
+          set -euo pipefail
+          echo "Checking Terraform formatting..."
+          if ! terraform fmt -recursive -check; then
+            echo "ERROR: Terraform files are not properly formatted"
+            echo "Run 'terraform fmt -recursive' to fix formatting issues"
+            terraform fmt -recursive -diff
+            exit 1
+          fi
+          echo "Terraform formatting check passed"
+
+      - name: AWS + Azure OIDC Login (local)
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure Terraform backend (per cloud/app/pipeline)
+        uses: ./.github/actions/terraform-backend
+        with:
+          repo-shortname: infra
+          project: msdp
+          env: dev
+          cloud: aws
+          cloud-segment: ${{ matrix.cloud }}
+          app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
+          function: tfstate
+          key-salt: infrastructure/environment/dev/${{ matrix.cloud }}/${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
+          # pipeline-name: provisioner            # OPTIONAL — omit to use stable computed name
+          aws-region: eu-west-1
+          use-shared-lock-table: "true"
+
+      - name: Show resolved AWS account id
+        run: echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
+
+      - name: Debug backend config
+        run: |
+          CFG=infrastructure/environment/dev/backend/backend-config.json
+          echo "Checking backend config file: $CFG"
+          test -f "$CFG" || { echo "ERROR: Backend config not found"; exit 1; }
+          echo "Backend config contents:"
+          cat "$CFG"
+
+      - name: Verify shared lock table (AWS only)
+        if: ${{ matrix.cloud == 'aws' }}
+        run: |
+          set -euo pipefail
+          echo "Verifying shared DynamoDB lock table..."
+
+          # Read table name from backend config
+          CFG=infrastructure/environment/dev/backend/backend-config.json
+          TABLE_NAME=$(jq -r '.dynamodb_table' "$CFG")
+          echo "Checking table: $TABLE_NAME"
+
+          # Verify table exists and is accessible
+          aws dynamodb describe-table --table-name "$TABLE_NAME" --query 'Table.{TableName:TableName,TableStatus:TableStatus,KeySchema:KeySchema}' --output table
+
+          # Check if PITR is enabled (optional, don't fail if not)
+          set +e
+          PITR_STATUS=$(aws dynamodb describe-continuous-backups --table-name "$TABLE_NAME" --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus' --output text 2>/dev/null || echo "UNKNOWN")
+          set -e
+          echo "Point-in-Time Recovery status: $PITR_STATUS"
+
+          echo "✓ Shared lock table verification completed"
+
+      - name: Terraform init and plan (AWS)
+        if: ${{ matrix.cloud == 'aws' }}
+        run: |
+          set -euo pipefail
+
+          # Load backend config from generated backend config file
+          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
+
+          BUCKET=$(jq -r '.bucket' "$CFG")
+          REGION=$(jq -r '.region' "$CFG")
+          DDB=$(jq -r '.dynamodb_table' "$CFG")
+          KEY=$(jq -r '.key' "$CFG")
+
+          # Validate backend config values
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in backend config"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty in backend config"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in backend config"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb_table is empty in backend config"; exit 1; }
+
+          echo "🔧 Using backend: bucket=${BUCKET} key=${KEY} region=${REGION} ddb=${DDB}"
+
+          # Pre-init sanity checks (fail-fast)
+          echo "🔍 Verifying S3 bucket exists..."
+          aws s3api head-bucket --bucket "${BUCKET}" || { 
+            echo "ERROR: S3 bucket '${BUCKET}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ S3 bucket verified: ${BUCKET}"
+
+          echo "🔍 Verifying DynamoDB table exists..."
+          aws dynamodb describe-table --table-name "${DDB}" >/dev/null || { 
+            echo "ERROR: DynamoDB table '${DDB}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ DynamoDB table verified: ${DDB}"
+
+          echo "🔧 Initializing Terraform with backend config for AWS"
+          terraform init -reconfigure \
+            -backend-config="bucket=${BUCKET}" \
+            -backend-config="key=${KEY}" \
+            -backend-config="region=${REGION}" \
+            -backend-config="dynamodb_table=${DDB}" \
+            -backend-config="encrypt=true"
+          echo "📋 Running Terraform plan for AWS"
+          terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
+        working-directory: infrastructure/environment/dev/aws/eks
+
+      - name: Terraform init and plan (Azure)
+        if: ${{ matrix.cloud == 'azure' }}
+        run: |
+          set -euo pipefail
+
+          # Load backend config from generated backend config file
+          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
+
+          BUCKET=$(jq -r '.bucket' "$CFG")
+          REGION=$(jq -r '.region' "$CFG")
+          DDB=$(jq -r '.dynamodb_table' "$CFG")
+          KEY=$(jq -r '.key' "$CFG")
+
+          # Validate backend config values
+          [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in backend config"; exit 1; }
+          [ -n "${KEY}" ] || { echo "ERROR: key is empty in backend config"; exit 1; }
+          [ -n "${REGION}" ] || { echo "ERROR: region is empty in backend config"; exit 1; }
+          [ -n "${DDB}" ] || { echo "ERROR: dynamodb_table is empty in backend config"; exit 1; }
+
+          echo "🔧 Using backend: bucket=${BUCKET} key=${KEY} region=${REGION} ddb=${DDB}"
+
+          # Pre-init sanity checks (fail-fast)
+          echo "🔍 Verifying S3 bucket exists..."
+          aws s3api head-bucket --bucket "${BUCKET}" || { 
+            echo "ERROR: S3 bucket '${BUCKET}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ S3 bucket verified: ${BUCKET}"
+
+          echo "🔍 Verifying DynamoDB table exists..."
+          aws dynamodb describe-table --table-name "${DDB}" >/dev/null || { 
+            echo "ERROR: DynamoDB table '${DDB}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ DynamoDB table verified: ${DDB}"
+
+          echo "🔧 Initializing Terraform with backend config for Azure"
+          terraform init -reconfigure \
+            -backend-config="bucket=${BUCKET}" \
+            -backend-config="key=${KEY}" \
+            -backend-config="region=${REGION}" \
+            -backend-config="dynamodb_table=${DDB}" \
+            -backend-config="encrypt=true"
+          echo "📋 Running Terraform plan for Azure"
+          terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
+        working-directory: infrastructure/environment/dev/azure/aks
+
+      - name: Verify AWS caller identity
+        run: aws sts get-caller-identity || true
+
+      - name: Verify Azure account
+        run: az account show || true
+
+      - name: Echo backend summary (AWS)
+        if: ${{ matrix.cloud == 'aws' }}
+        run: |
+          echo "Backend provisioned for ${{ matrix.cloud }}:"
+          cat infrastructure/environment/dev/backend/backend-config.json
+
+      - name: Confirm cloud tested
+        run: echo "Reusable actions validated for ${{ matrix.cloud }}"
+
+  validate_network:
+    needs: validate
+    uses: ./.github/workflows/_tf_plan_apply.yml
+    with:
+      working_directory: infrastructure/environment/azure/network
+      env_config_path: config/envs/dev.yaml
+      backend_key: network/dev.tfstate
+      apply: false
+      extra_vars: "global_config_path=config/global.yaml"
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+
+  validate_aks:
+    needs: validate
+    uses: ./.github/workflows/_tf_plan_apply.yml
+    with:
+      working_directory: infrastructure/environment/azure/aks
+      env_config_path: config/envs/dev.yaml
+      backend_key: aks/dev.tfstate
+      apply: false
+      extra_vars: "global_config_path=config/global.yaml"
+    secrets:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}

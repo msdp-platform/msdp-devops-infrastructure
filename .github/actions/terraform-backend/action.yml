@@ -335,6 +335,24 @@ runs:
         echo "table=$TABLE" >> "$GITHUB_OUTPUT"
         echo "key=$KEY" >> "$GITHUB_OUTPUT"
 
+    - name: Write backend-config.json (early)
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${CFG:?CFG not set}"
+        : "${BUCKET:?BUCKET not set}"
+        : "${KEY:?KEY not set}"
+        : "${TABLE:?TABLE not set}"
+        : "${PIPELINE_NAME:?PIPELINE_NAME not set}"
+        jq -n --arg bucket "$BUCKET" \
+              --arg key "$KEY" \
+              --arg region "${{ inputs.aws-region }}" \
+              --arg table "$TABLE" \
+              --arg pipeline_name "$PIPELINE_NAME" \
+              '{bucket:$bucket, key:$key, region:$region, dynamodb_table:$table, pipeline_name:$pipeline_name}' > "$CFG"
+        echo "Wrote early $CFG"
+        cat "$CFG"
+
     - name: Ensure S3 bucket exists
       shell: bash
       run: |
