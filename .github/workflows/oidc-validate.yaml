@@ -207,7 +207,7 @@ jobs:
 
   validate_network:
     needs: validate
-    uses: ./.github/workflows/_tf_plan_apply.yml
+    uses: .github/workflows/_tf_plan_apply.yml
     with:
       working_directory: infrastructure/environment/azure/network
       env_config_path: config/envs/dev.yaml
@@ -222,7 +222,7 @@ jobs:
 
   validate_aks:
     needs: validate
-    uses: ./.github/workflows/_tf_plan_apply.yml
+    uses: .github/workflows/_tf_plan_apply.yml
     with:
       working_directory: infrastructure/environment/azure/aks
       env_config_path: config/envs/dev.yaml
