@@ -39,9 +39,18 @@ jobs:
           cloud: aws
           cloud-segment: ${{ matrix.cloud }}
           app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
+          function: tfstate
           pipeline-name: provisioner
           aws-region: eu-west-1
           aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
+
+      - name: Debug backend config
+        run: |
+          CFG=infrastructure/environment/dev/backend/backend-config.json
+          echo "Checking backend config file: $CFG"
+          test -f "$CFG" || { echo "ERROR: Backend config not found"; exit 1; }
+          echo "Backend config contents:"
+          cat "$CFG"
 
       - name: Terraform Init (AWS)
         if: ${{ matrix.cloud == 'aws' }}

@@ -45,9 +45,10 @@ runs:
           echo "ERROR: Only cloud=aws is supported at this time." >&2
           exit 1
         fi
-        for v in repo-shortname project env app function; do
-          : # no-op
-        done
+        if [[ -z "${{ inputs.function }}" ]]; then
+          echo "ERROR: function input is required and cannot be empty." >&2
+          exit 1
+        fi
 
     - name: Prepare paths and vars
       shell: bash
