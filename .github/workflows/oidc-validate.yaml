@@ -21,6 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Terraform for fmt check
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.2
+
       - name: Terraform fmt check
         run: |
           set -euo pipefail
