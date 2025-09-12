@@ -1,8 +1,5 @@
 # Example terraform.tfvars for Azure Network dev environment
 # Copy this file to terraform.tfvars and update the values
 
-# Environment
 env = "dev"
-
-# Azure subscription ID (optional - can be set via environment variable)
 # subscription_id = "your-subscription-id-here"

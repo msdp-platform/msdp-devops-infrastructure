@@ -1,33 +1,24 @@
-# Resource Group
-resource "azurerm_resource_group" "shared" {
+resource "azurerm_resource_group" "rg" {
   name     = local.resolved.resource_group
   location = local.resolved.location
-
-  tags = {
-    Environment = var.env
-    ManagedBy   = "Terraform"
-    Component   = "Network"
-  }
 }
 
-# Virtual Network
-resource "azurerm_virtual_network" "shared" {
+resource "azurerm_virtual_network" "vnet" {
   name                = local.resolved.vnet_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   address_space       = [local.resolved.vnet_cidr]
-  location            = azurerm_resource_group.shared.location
-  resource_group_name = azurerm_resource_group.shared.name
-
-  tags = {
-    Environment = var.env
-    ManagedBy   = "Terraform"
-    Component   = "Network"
-  }
 }
 
-# Subnet for AKS
 resource "azurerm_subnet" "aks" {
   name                 = local.resolved.subnet_name
-  resource_group_name  = azurerm_resource_group.shared.name
-  virtual_network_name = azurerm_virtual_network.shared.name
+  resource_group_name  = azurerm_resource_group.rg.name
+  virtual_network_name = azurerm_virtual_network.vnet.name
   address_prefixes     = [local.resolved.subnet_cidr]
+  delegation {
+    name = "aks-delegation"
+    service_delegation {
+      name = "Microsoft.ContainerService/managedClusters"
+    }
+  }
 }

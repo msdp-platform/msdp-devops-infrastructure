@@ -1,128 +1,135 @@
-# Data source for remote state from Network stack
+############################
+# 1) Remote state (preferred)
+############################
 data "terraform_remote_state" "network" {
-  backend = "azurerm"
+  count   = var.use_remote_state ? 1 : 0
+  backend = "s3"
   config = {
-    resource_group_name  = local.resolved.tfstate_rg
-    storage_account_name = local.resolved.tfstate_sa
-    container_name       = local.resolved.tfstate_container
-    key                  = local.resolved.network_state_key
+    bucket         = "<BACKEND_BUCKET_PLACEHOLDER>"
+    key            = local.resolved.network_state_key
+    region         = "<BACKEND_REGION_PLACEHOLDER>"
+    dynamodb_table = "<BACKEND_DDB_PLACEHOLDER>"
+    encrypt        = true
   }
 }
 
-# Data source for name-based subnet lookup (fallback)
-data "azurerm_subnet" "by_name" {
-  count                = data.terraform_remote_state.network.outputs.subnet_id_aks == null ? 1 : 0
-  name                 = "snet-aks-${var.env}"
-  virtual_network_name = "vnet-shared-${var.env}"
-  resource_group_name  = "rg-shared-${var.env}"
-}
-
-# Data source for tag-based subnet lookup (fallback)
-data "azurerm_resources" "subnets_by_tag" {
-  count               = data.terraform_remote_state.network.outputs.subnet_id_aks == null && length(data.azurerm_subnet.by_name) == 0 ? 1 : 0
-  type                = "Microsoft.Network/virtualNetworks/subnets"
-  resource_group_name = "rg-shared-${var.env}"
-
-  required_tags = {
-    role = "aks"
-  }
-}
-
-# Data source to get subnet details for tag-based lookup
-data "azurerm_subnet" "by_tag" {
-  count                = length(data.azurerm_resources.subnets_by_tag) > 0 ? 1 : 0
-  name                 = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[10]
-  virtual_network_name = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[8]
-  resource_group_name  = split("/", data.azurerm_resources.subnets_by_tag[0].resources[0].id)[4]
-}
-
-# Resolve effective subnet ID with priority order
 locals {
-  # Priority 1: Remote state output
-  remote_state_subnet_id = try(data.terraform_remote_state.network.outputs.subnet_id_aks, null)
+  rs_subnet_id = var.use_remote_state ? try(data.terraform_remote_state.network[0].outputs.subnet_id_aks, "") : ""
+}
 
-  # Priority 2: Name-based lookup
-  name_based_subnet_id = length(data.azurerm_subnet.by_name) > 0 ? data.azurerm_subnet.by_name[0].id : null
+#################################
+# 2) Name-based subnet lookup
+#################################
+locals {
+  have_names = trim(var.resource_group) != "" && trim(var.vnet_name) != "" && trim(var.subnet_name) != ""
+}
 
-  # Priority 3: Tag-based lookup
-  tag_based_subnet_id = length(data.azurerm_subnet.by_tag) > 0 ? data.azurerm_subnet.by_tag[0].id : null
+data "azurerm_subnet" "by_name" {
+  count                = (local.rs_subnet_id == "" && local.have_names) ? 1 : 0
+  name                 = var.subnet_name
+  virtual_network_name = var.vnet_name
+  resource_group_name  = var.resource_group
+}
 
-  # Select effective subnet ID
+locals {
+  name_subnet_id = (local.rs_subnet_id == "" && local.have_names) ? data.azurerm_subnet.by_name[0].id : ""
+}
+
+#################################
+# 3) Tag-based discovery (strict)
+#################################
+data "azurerm_resources" "subnets_by_tag" {
+  count               = (local.rs_subnet_id == "" && local.name_subnet_id == "" && !local.have_names) ? 1 : 0
+  type                = "Microsoft.Network/virtualNetworks/subnets"
+  resource_group_name = var.resource_group != "" ? var.resource_group : null
+  
+  required_tags = var.subnet_tags
+}
+
+locals {
+  tag_matches   = length(data.azurerm_resources.subnets_by_tag) == 1 ? data.azurerm_resources.subnets_by_tag[0].resources : []
+  tag_subnet_id = length(local.tag_matches) == 1 ? local.tag_matches[0].id : ""
+}
+
+#################################
+# Selection + validation
+#################################
+locals {
   effective_subnet_id = coalesce(
-    local.remote_state_subnet_id,
-    local.name_based_subnet_id,
-    local.tag_based_subnet_id
-  )
-
-  # Count resolved subnets for validation
-  resolved_subnet_count = (
-    (local.remote_state_subnet_id != null ? 1 : 0) +
-    (local.name_based_subnet_id != null ? 1 : 0) +
-    (local.tag_based_subnet_id != null ? 1 : 0)
+    trim(local.rs_subnet_id),
+    trim(local.name_subnet_id),
+    trim(local.tag_subnet_id),
+    ""
   )
 }
 
-# Validation: Exactly one subnet must be resolved
-resource "null_resource" "validate_subnet_resolution" {
+resource "null_resource" "validate_subnet" {
   lifecycle {
     precondition {
-      condition     = local.resolved_subnet_count == 1
-      error_message = "Subnet resolution failed: found ${local.resolved_subnet_count} subnets. Expected exactly 1. Check network stack deployment or subnet configuration."
+      condition     = local.effective_subnet_id != ""
+      error_message = "Network prereq not satisfied: could not resolve subnet. Provide Network remote state (preferred), or set resource_group+vnet_name+subnet_name, or ensure exactly one subnet matches tags ${jsonencode(var.subnet_tags)}."
     }
   }
 }
 
-# AKS Module
-module "aks" {
-  source = "../../../../terraform/modules/azure/aks"
+# Optional: enforce strictness for tag discovery
+resource "null_resource" "validate_tag_uniqueness" {
+  count = (local.rs_subnet_id == "" && local.name_subnet_id == "" && !local.have_names) ? 1 : 0
+  lifecycle {
+    precondition {
+      condition     = length(local.tag_matches) == 1
+      error_message = length(local.tag_matches) == 0 ? "No subnet found with tags ${jsonencode(var.subnet_tags)}." : "Multiple subnets match tags ${jsonencode(var.subnet_tags)}. Refine tags or use name-based lookup."
+    }
+  }
+}
 
-  org                 = "msdp"
-  env                 = var.env
-  region              = local.resolved.location
+#################################
+# AKS resources
+#################################
+resource "azurerm_kubernetes_cluster" "this" {
+  name                = local.resolved.aks_name
+  location            = local.resolved.location
   resource_group_name = local.resolved.resource_group
-  cluster_name        = local.resolved.aks_name
-  subnet_id           = local.effective_subnet_id
+  kubernetes_version  = local.resolved.kubernetes_version
+  dns_prefix          = replace(local.resolved.aks_name, "/[^a-z0-9-]/", "")
 
-  # Cost-effective defaults for dev environment
-  network_plugin  = "azureoverlay" # Reduce IP consumption
-  enable_oidc     = true           # Enable for workload identity
-  sku_tier        = "Free"         # Cost-effective for dev
-  private_cluster = false          # Public for easier access in dev
+  oidc_issuer_enabled       = true
+  workload_identity_enabled = true
 
-  # Use latest stable Kubernetes version
-  k8s_version = local.resolved.kubernetes_version
-
-  # System node pool (small for dev)
-  system_node = {
-    vm_size   = local.resolved.system_vm
-    min_count = local.resolved.system_count
-    max_count = local.resolved.system_count + 1
-    os_sku    = "AzureLinux"
+  default_node_pool {
+    name           = "system"
+    vm_size        = local.resolved.system_vm
+    node_count     = local.resolved.system_count
+    vnet_subnet_id = local.effective_subnet_id
   }
 
-  # Spot node pool (enabled for cost savings)
-  spot_node = {
-    enabled         = local.resolved.user_spot
-    vm_size         = local.resolved.user_vm
-    min_count       = local.resolved.min_count
-    max_count       = local.resolved.max_count
-    max_price       = -1 # Current market price
-    eviction_policy = "Delete"
-    taints          = ["spot=true:NoSchedule"]
+  identity {
+    type = "SystemAssigned"
   }
 
-  # Log Analytics (enabled with short retention for dev)
-  log_analytics = {
-    enabled        = true
-    retention_days = 30
+  network_profile {
+    network_plugin    = "azure"
+    network_policy    = "azure"
+    outbound_type     = "loadBalancer"
+    load_balancer_sku = "standard"
   }
 
-  # Baseline tags
-  tags = {
-    Environment = var.env
-    ManagedBy   = "Terraform"
-    Component   = "AKS"
+  lifecycle {
+    ignore_changes = [default_node_pool[0].node_count]
   }
+}
 
-  depends_on = [null_resource.validate_subnet_resolution]
+resource "azurerm_kubernetes_cluster_node_pool" "apps" {
+  name                  = "apps"
+  kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
+  vm_size               = local.resolved.user_vm
+  node_count            = local.resolved.min_count
+  vnet_subnet_id        = local.effective_subnet_id
+  priority              = local.resolved.user_spot ? "Spot" : "Regular"
+  eviction_policy       = local.resolved.user_spot ? "Delete" : null
+}
+
+# Debug output to show which subnet was used
+output "resolved_subnet_id" {
+  value = local.effective_subnet_id
 }
