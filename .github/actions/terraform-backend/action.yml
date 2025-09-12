@@ -99,18 +99,20 @@ runs:
         aws s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration '{
           "Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]
         }'
-        # Tag bucket using file-based JSON
-        cat > tags.json <<EOF
-        {
-          "TagSet": [
-            {"Key": "Repo", "Value": "${{ inputs.repo-shortname }}"},
-            {"Key": "Project", "Value": "${{ inputs.project }}"},
-            {"Key": "Environment", "Value": "${{ inputs.env }}"},
-            {"Key": "App", "Value": "${{ inputs.app }}"},
-            {"Key": "Function", "Value": "${{ inputs.function }}"}
-          ]
-        }
-EOF
+        # Tag bucket using jq to generate JSON file
+        jq -n \
+          --arg repo "${{ inputs.repo-shortname }}" \
+          --arg project "${{ inputs.project }}" \
+          --arg env "${{ inputs.env }}" \
+          --arg app "${{ inputs.app }}" \
+          --arg function "${{ inputs.function }}" \
+          '{TagSet: [
+            {Key: "Repo", Value: $repo},
+            {Key: "Project", Value: $project},
+            {Key: "Environment", Value: $env},
+            {Key: "App", Value: $app},
+            {Key: "Function", Value: $function}
+          ]}' > tags.json
         echo "Applied tags: $(cat tags.json)"
         aws s3api put-bucket-tagging --bucket "$BUCKET" --tagging file://tags.json
         rm -f tags.json
