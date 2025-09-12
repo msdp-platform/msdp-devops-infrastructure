@@ -71,6 +71,7 @@ jobs:
             v="${!k:-}"
             [ -n "$v" ] || { echo "Missing required backend secret: $k"; exit 2; }
           done
+          echo "✅ Backend secrets verified"
 
       - name: Terraform init (S3 backend via file)
         if: ${{ inputs.backend_config_file != '' }}
@@ -78,11 +79,12 @@ jobs:
         run: |
           set -euo pipefail
           test -f "${{ inputs.backend_config_file }}" || { echo "backend config file not found"; exit 3; }
-          # If your Terraform version doesn't support -backend-config=path=, read JSON and expand.
+          # Read JSON and expand backend config
           CFG="${{ inputs.backend_config_file }}"
           BUCKET=$(jq -r .bucket "$CFG") ; KEY="${{ inputs.backend_key }}" ; REGION=$(jq -r .region "$CFG")
           DDB=$(jq -r .dynamodb_table "$CFG")
-          terraform init \
+          echo "🔧 Initializing Terraform with backend config from file"
+          terraform init -reconfigure \
             -backend-config="bucket=${BUCKET}" \
             -backend-config="key=${KEY}" \
             -backend-config="region=${REGION}" \
@@ -98,7 +100,8 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: |
           set -euo pipefail
-          terraform init \
+          echo "🔧 Initializing Terraform with backend config from secrets"
+          terraform init -reconfigure \
             -backend-config="bucket=${TF_BACKEND_BUCKET}" \
             -backend-config="key=${{ inputs.backend_key }}" \
             -backend-config="region=${AWS_REGION}" \
@@ -108,6 +111,7 @@ jobs:
       - name: Terraform plan
         working-directory: ${{ inputs.working_directory }}
         run: |
+          echo "📋 Running Terraform plan"
           terraform plan \
             -var="${{ inputs.extra_vars }}" \
             -var="env_config_path=${{ inputs.env_config_path }}" \

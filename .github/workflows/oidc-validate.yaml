@@ -98,15 +98,27 @@ jobs:
 
           echo "✓ Shared lock table verification completed"
 
-      - name: Terraform plan (AWS)
+      - name: Terraform init and plan (AWS)
         if: ${{ matrix.cloud == 'aws' }}
         run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=eks/dev.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
+            -backend-config="encrypt=true"
           terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
         working-directory: infrastructure/environment/dev/aws/eks
 
-      - name: Terraform plan (Azure)
+      - name: Terraform init and plan (Azure)
         if: ${{ matrix.cloud == 'azure' }}
         run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=aks/dev.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
+            -backend-config="encrypt=true"
           terraform plan -var="global_config_path=config/global.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
         working-directory: infrastructure/environment/dev/azure/aks
 
