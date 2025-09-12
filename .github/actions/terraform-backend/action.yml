@@ -182,16 +182,34 @@ runs:
           BUCKET="$(jq -r '.bucket // empty' "$CFG" 2>/dev/null || echo "")"
         fi
         if [[ -z "$BUCKET" ]]; then
-          # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
-          REGION_SHORT="$(echo "${{ inputs.aws-region }}" | sed 's/eu-west-/euw/;s/us-east-/use/;s/us-west-/usw/')"
-          BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${AWS_ACCOUNT_ID}-${REGION_SHORT}"
-          # Normalize to lowercase and safe chars
-          BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
+          # Region short helper function
+          region_short() {
+            case "$1" in
+              eu-west-1) echo "euw1" ;;
+              eu-west-2) echo "euw2" ;;
+              eu-west-3) echo "euw3" ;;
+              eu-central-1) echo "euc1" ;;
+              us-east-1) echo "use1" ;;
+              us-east-2) echo "use2" ;;
+              us-west-1) echo "usw1" ;;
+              us-west-2) echo "usw2" ;;
+              ap-south-1) echo "aps1" ;;
+              *) echo "$1" ;;
+            esac
+          }
           
-          # Basic length/syntax guard
-          if [[ ${#BUCKET} -gt 63 ]]; then
-            echo "ERROR: Bucket name too long: $BUCKET" >&2
-            exit 1
+          # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
+          REGION_SHORT="$(region_short "${{ inputs.aws-region }}")"
+          CANDIDATE="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${AWS_ACCOUNT_ID}-${REGION_SHORT}"
+          CANDIDATE="$(echo "$CANDIDATE" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-|-$//g')"
+          
+          # Deterministic bucket length guard with truncate+hash fallback
+          if [[ ${#CANDIDATE} -le 63 ]]; then
+            BUCKET="$CANDIDATE"
+          else
+            SUFFIX="$(printf '%s' "$CANDIDATE" | sha1sum | cut -c1-6)"
+            TRIM=$((63 - 1 - 6))
+            BUCKET="${CANDIDATE:0:$TRIM}-${SUFFIX}"
           fi
         fi
         echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
@@ -210,19 +228,22 @@ runs:
             TABLE="${{ inputs.lock-table-name }}"
             echo "Using custom shared lock table: $TABLE"
           else
-            # Derive shared table name from account/region
-            aws_region="${{ inputs.aws-region }}"
-            case "$aws_region" in
-              eu-west-1) aws_region_short="euw1" ;;
-              eu-west-2) aws_region_short="euw2" ;;
-              eu-west-3) aws_region_short="euw3" ;;
-              eu-central-1) aws_region_short="euc1" ;;
-              us-east-1) aws_region_short="use1" ;;
-              us-east-2) aws_region_short="use2" ;;
-              us-west-1) aws_region_short="usw1" ;;
-              us-west-2) aws_region_short="usw2" ;;
-              *) aws_region_short="$aws_region" ;;
-            esac
+            # Derive shared table name from account/region using same logic as bucket
+            region_short() {
+              case "$1" in
+                eu-west-1) echo "euw1" ;;
+                eu-west-2) echo "euw2" ;;
+                eu-west-3) echo "euw3" ;;
+                eu-central-1) echo "euc1" ;;
+                us-east-1) echo "use1" ;;
+                us-east-2) echo "use2" ;;
+                us-west-1) echo "usw1" ;;
+                us-west-2) echo "usw2" ;;
+                ap-south-1) echo "aps1" ;;
+                *) echo "$1" ;;
+              esac
+            }
+            aws_region_short="$(region_short "${{ inputs.aws-region }}")"
             TABLE="tfstate-locks-${AWS_ACCOUNT_ID}-${aws_region_short}"
             echo "Using derived shared lock table: $TABLE"
           fi
@@ -303,8 +324,12 @@ runs:
         EXISTS=$?
         set -e
         if [[ $EXISTS -ne 0 ]]; then
-          aws s3api create-bucket --bucket "$BUCKET" --region "${{ inputs.aws-region }}" \
-            --create-bucket-configuration LocationConstraint="${{ inputs.aws-region }}"
+          if [[ "${{ inputs.aws-region }}" == "us-east-1" ]]; then
+            aws s3api create-bucket --bucket "$BUCKET"
+          else
+            aws s3api create-bucket --bucket "$BUCKET" --region "${{ inputs.aws-region }}" \
+              --create-bucket-configuration LocationConstraint="${{ inputs.aws-region }}"
+          fi
         fi
 
     - name: Configure bucket (versioning, encryption, tags)
