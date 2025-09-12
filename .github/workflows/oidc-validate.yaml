@@ -103,8 +103,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file
-          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          # Load backend config from generated backend config file (relative to repo root)
+          CFG="../../../backend/backend-config.json"
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
@@ -151,8 +151,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Load backend config from generated backend config file
-          CFG="infrastructure/environment/dev/backend/backend-config.json"
+          # Load backend config from generated backend config file (relative to repo root)
+          CFG="../../../backend/backend-config.json"
           [ -f "$CFG" ] || { echo "ERROR: Backend config file not found: $CFG"; exit 1; }
 
           BUCKET=$(jq -r '.bucket' "$CFG")
