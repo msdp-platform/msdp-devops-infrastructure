@@ -57,10 +57,14 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Preflight: verify subnet exists (CLI)
-        if: ${{ vars.NETWORK_RG != '' }}
         shell: bash
         run: |
           set -euo pipefail
+          # Only run if network variables are provided
+          if [[ -z "$NETWORK_RG" || -z "$VNET_NAME" || -z "$SUBNET_NAME" ]]; then
+            echo "Skipping subnet verification - network variables not provided"
+            exit 0
+          fi
           echo "Checking if subnet exists: $NETWORK_RG/$VNET_NAME/$SUBNET_NAME"
           id=$(az network vnet subnet show \
             --resource-group "$NETWORK_RG" \
