@@ -30,22 +30,27 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        cd "${{ inputs.working-directory }}"
+        # Resolve backend-config-file to an absolute path (works regardless of cwd)
         CONFIG_FILE="${{ inputs.backend-config-file }}"
+        if [[ "$CONFIG_FILE" != /* ]]; then
+          CONFIG_FILE="${GITHUB_WORKSPACE}/$CONFIG_FILE"
+        fi
 
-        # Validate backend config file exists
+        # Validate backend config file exists BEFORE changing directory
         if [ ! -f "$CONFIG_FILE" ]; then
           echo "ERROR: Backend config file not found: $CONFIG_FILE" >&2
           exit 1
         fi
+        echo "Using backend config: $CONFIG_FILE"
 
-        # Extract backend config values using jq
+        # Extract backend config values using jq from the absolute CONFIG_FILE
         BUCKET=$(jq -r '.bucket' "$CONFIG_FILE")
         KEY=$(jq -r '.key' "$CONFIG_FILE")
         REGION=$(jq -r '.region' "$CONFIG_FILE")
         DYNAMODB_TABLE=$(jq -r '.dynamodb_table' "$CONFIG_FILE")
 
-        # Initialize with backend config
+        # Change to the Terraform working directory and initialize with backend config
+        cd "${{ inputs.working-directory }}"
         terraform init \
           -backend-config="bucket=$BUCKET" \
           -backend-config="key=$KEY" \

@@ -49,6 +49,10 @@ runs:
           echo "ERROR: function input is required and cannot be empty." >&2
           exit 1
         fi
+        if [[ -z "${{ inputs.aws-account-id }}" ]]; then
+          echo "ERROR: aws-account-id input is required and cannot be empty." >&2
+          exit 1
+        fi
 
     - name: Prepare paths and vars
       shell: bash
