@@ -61,27 +61,47 @@ runs:
           exit 1
         fi
 
-    - name: Prepare paths and vars
+    - name: Prepare paths and env
       shell: bash
       run: |
         set -euo pipefail
         BACKEND_DIR="infrastructure/environment/${{ inputs.env }}/backend"
         mkdir -p "$BACKEND_DIR"
+        CFG="$BACKEND_DIR/backend-config.json"
         echo "BACKEND_DIR=$BACKEND_DIR" >> "$GITHUB_ENV"
-        echo "CFG=$BACKEND_DIR/backend-config.json" >> "$GITHUB_ENV"
+        echo "CFG=$CFG" >> "$GITHUB_ENV"
 
-        # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
-        REGION_SHORT="$(echo "${{ inputs.aws-region }}" | sed 's/eu-west-/euw/;s/us-east-/use/;s/us-west-/usw/')"
-        BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${{ inputs.aws-account-id }}-${REGION_SHORT}"
-        # Normalize to lowercase and safe chars
-        BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
-
-        # Basic length/syntax guard
-        if [[ ${#BUCKET} -gt 63 ]]; then
-          echo "ERROR: Bucket name too long: $BUCKET" >&2
-          exit 1
+    - name: Determine or generate bucket name
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${CFG:?CFG not set}"
+        BUCKET=""
+        if [[ -f "$CFG" ]]; then
+          BUCKET="$(jq -r '.bucket // empty' "$CFG" 2>/dev/null || echo "")"
         fi
+        if [[ -z "$BUCKET" ]]; then
+          # Stable bucket naming: <repo>-<project>-<env>-<function>-<account-id>-<region>
+          REGION_SHORT="$(echo "${{ inputs.aws-region }}" | sed 's/eu-west-/euw/;s/us-east-/use/;s/us-west-/usw/')"
+          BUCKET="${{ inputs.repo-shortname }}-${{ inputs.project }}-${{ inputs.env }}-${{ inputs.function }}-${{ inputs.aws-account-id }}-${REGION_SHORT}"
+          # Normalize to lowercase and safe chars
+          BUCKET="$(echo "$BUCKET" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g')"
+          
+          # Basic length/syntax guard
+          if [[ ${#BUCKET} -gt 63 ]]; then
+            echo "ERROR: Bucket name too long: $BUCKET" >&2
+            exit 1
+          fi
+        fi
+        echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
 
+    - name: Determine pipeline name and build key
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${CFG:?CFG not set}"
+        : "${BUCKET:?BUCKET not set}"
+        
         # DynamoDB table name
         TABLE="${BUCKET}-locks"
 
@@ -131,7 +151,6 @@ runs:
           fi
         fi
 
-        echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
         echo "TABLE=$TABLE" >> "$GITHUB_ENV"
         echo "KEY=$KEY" >> "$GITHUB_ENV"
         echo "PIPELINE_NAME=$pipeline_name" >> "$GITHUB_ENV"
@@ -140,6 +159,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        : "${BUCKET:?BUCKET not set}"
         set +e
         aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1
         EXISTS=$?
@@ -153,6 +173,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        : "${BUCKET:?BUCKET not set}"
         aws s3api put-bucket-versioning --bucket "$BUCKET" --versioning-configuration Status=Enabled
         aws s3api put-bucket-encryption --bucket "$BUCKET" --server-side-encryption-configuration '{
           "Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]
@@ -179,6 +200,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        : "${TABLE:?TABLE not set}"
         set +e
         aws dynamodb describe-table --table-name "$TABLE" >/dev/null 2>&1
         EXISTS=$?
@@ -195,6 +217,11 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        : "${CFG:?CFG not set}"
+        : "${BUCKET:?BUCKET not set}"
+        : "${KEY:?KEY not set}"
+        : "${TABLE:?TABLE not set}"
+        : "${PIPELINE_NAME:?PIPELINE_NAME not set}"
         jq -n --arg bucket "$BUCKET" \
               --arg key "$KEY" \
               --arg region "${{ inputs.aws-region }}" \
@@ -204,10 +231,23 @@ runs:
         echo "Wrote $CFG"
         cat "$CFG"
 
+    - name: Verify backend-config present
+      shell: bash
+      run: |
+        set -euo pipefail
+        : "${CFG:?CFG not set}"
+        echo "Checking backend config at $CFG"
+        test -f "$CFG"
+        jq -C . "$CFG" || cat "$CFG"
+
     - name: Summary
       shell: bash
       run: |
         set -euo pipefail
+        : "${BUCKET:?BUCKET not set}"
+        : "${TABLE:?TABLE not set}"
+        : "${KEY:?KEY not set}"
+        : "${PIPELINE_NAME:?PIPELINE_NAME not set}"
         echo "Backend summary:"
         echo "BUCKET=$BUCKET"
         echo "TABLE=$TABLE"
