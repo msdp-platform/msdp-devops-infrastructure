@@ -13,14 +13,8 @@ module "eks" {
   vpc_id             = var.vpc_id
   private_subnet_ids = var.private_subnet_ids
   k8s_version        = var.k8s_version
-  node_group = {
-    name          = var.node_group_name
-    instance_type = var.node_instance_type
-    desired_size  = var.node_desired
-    min_size      = var.node_min
-    max_size      = var.node_max
-  }
-  tags = var.tags
+  node_group         = var.node_group
+  tags               = var.tags
 }
 
 output "cluster_name" {

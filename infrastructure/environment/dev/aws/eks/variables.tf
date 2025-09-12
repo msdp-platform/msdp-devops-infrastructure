@@ -26,24 +26,14 @@ variable "k8s_version" {
   type = string
 }
 
-variable "node_group_name" {
-  type = string
-}
-
-variable "node_instance_type" {
-  type = string
-}
-
-variable "node_desired" {
-  type = number
-}
-
-variable "node_min" {
-  type = number
-}
-
-variable "node_max" {
-  type = number
+variable "node_group" {
+  type = object({
+    name          = string
+    instance_type = string
+    desired_size  = number
+    min_size      = number
+    max_size      = number
+  })
 }
 
 variable "tags" {

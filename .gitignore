@@ -99,3 +99,8 @@ kubeconfig
 # Temporary files
 tmp/
 temp/
+
+# CI/CD generated artifacts
+infrastructure/environment/*/backend/backend-config.json
+infrastructure/environment/*/artifacts/
+infrastructure/environment/*/artifacts/**/*
