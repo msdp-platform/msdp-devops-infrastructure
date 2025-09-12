@@ -21,6 +21,12 @@ registries:
   azure_acr: acme.azurecr.io # optional, for future multi-cloud
 default_registry: ghcr # use GHCR by default
 
+naming:
+  repo_shortname: infra
+  project: msdp
+  app: crossplane
+  function: tfstate
+
 oidc_validation:
   dev:
     aws_region: eu-west-1

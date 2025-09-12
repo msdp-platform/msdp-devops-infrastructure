@@ -1,0 +1,46 @@
+name: "Terraform Init (Reusable)"
+description: "Composite action to install Terraform, initialize backend, and validate configuration."
+
+inputs:
+  working-directory:
+    description: "Directory containing Terraform configuration (where init/validate will run)"
+    required: true
+  terraform-version:
+    description: "Terraform version to install"
+    required: false
+    default: "1.13.2"
+  backend-config-file:
+    description: "Optional path to backend config file (e.g., backend.tfvars)"
+    required: false
+  var-file:
+    description: "Optional path to a .tfvars file (reserved for future steps like plan/apply)"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    # Step 1: Install Terraform at the requested version.
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+
+    # Step 2: Initialize Terraform (optionally with a backend config file).
+    - name: Terraform init
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{ inputs.working-directory }}"
+        if [ -n "${{ inputs.backend-config-file }}" ]; then
+          terraform init -backend-config="${{ inputs.backend-config-file }}"
+        else
+          terraform init
+        fi
+
+    # Step 3: Validate Terraform configuration.
+    - name: Terraform validate
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{ inputs.working-directory }}"
+        terraform validate
