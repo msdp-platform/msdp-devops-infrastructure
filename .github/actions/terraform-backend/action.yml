@@ -122,14 +122,25 @@ runs:
           pipeline_name="$PIPELINE_NAME_INPUT"
           echo "Using provided pipeline_name: $pipeline_name"
         else
-          # Compute stable fallback
+          # Compute stable fallback with shorter format
           cloud_segment="${{ inputs.cloud-segment }}"
           if [[ -z "$cloud_segment" || "$cloud_segment" == "null" ]]; then cloud_segment="${{ inputs.cloud }}"; fi
           KEY_SALT="${{ inputs.key-salt }}"
           BASE="${GITHUB_REPOSITORY}|${{ inputs.env }}|${cloud_segment}|${{ inputs.app }}|${KEY_SALT}"
-          slug="$(echo "$BASE" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-|-$//g')"
+          
+          # Extract repo name from GITHUB_REPOSITORY (org/repo -> repo)
+          slug_repo="$(echo "$GITHUB_REPOSITORY" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')"
           hash8="$(echo -n "$BASE" | sha1sum | cut -c1-8)"
-          pipeline_name="${slug}-${hash8}"
+          
+          # Build pipeline_name with shorter format
+          pipeline_name="tf-${slug_repo}-${{ inputs.env }}-${cloud_segment}-${{ inputs.app }}-${hash8}"
+          
+          # Normalize and truncate if needed
+          pipeline_name="$(echo "$pipeline_name" | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-|-$//g')"
+          if [[ ${#pipeline_name} -gt 63 ]]; then
+            pipeline_name="${pipeline_name:0:63}"
+          fi
+          
           echo "Computed stable pipeline_name: $pipeline_name"
         fi
 
