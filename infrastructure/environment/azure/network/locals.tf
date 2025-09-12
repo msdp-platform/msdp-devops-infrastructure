@@ -1,28 +1,15 @@
-variable "global_config_path" {
-  description = "Path to global config file"
-  type        = string
-}
-
-variable "env_config_path" {
-  description = "Path to environment config file"
-  type        = string
-}
-
 locals {
-  # Load config files
-  global_config = yamldecode(file(var.global_config_path))
-  env_config    = yamldecode(file(var.env_config_path))
+  use_explicit = length(var.address_space) > 0 && length(var.subnets) > 0
 
-  # Azure configuration with fallbacks
-  az = {
-    subscriptionId = local.env_config.azure.subscriptionId
-    resourceGroup  = local.env_config.azure.resourceGroup
-    aksName        = local.env_config.azure.aksName
-    vnetName       = local.env_config.azure.vnetName
-    subnetName     = local.env_config.azure.subnetName
-    vnetCidr       = local.env_config.azure.vnetCidr
-    subnetCidr     = local.env_config.azure.subnetCidr
-  }
+  normalized_address_space = local.use_explicit ? var.address_space : [var.base_cidr]
 
-  global = local.global_config
+  computed_subnets = local.use_explicit ? [] : [
+    for i in range(var.subnet_count) : {
+      name     = length(var.subnet_names) > i ? var.subnet_names[i] : "subnet-${i + 1}"
+      cidr     = cidrsubnet(var.base_cidr, var.subnet_newbits, i)
+      nsg_name = var.nsg_enabled && var.nsg_prefix != "" ? "${var.nsg_prefix}-${length(var.subnet_names) > i ? var.subnet_names[i] : "subnet-${i + 1}"}" : null
+    }
+  ]
+
+  effective_subnets = local.use_explicit ? var.subnets : local.computed_subnets
 }

@@ -1,100 +1,63 @@
-# Azure Network Dev Environment Stack
+# Azure Network Stack
 
-This Terraform stack creates the foundational networking infrastructure for the dev environment, including resource group, virtual network, and AKS subnet.
+Production-ready, parameterized Terraform for Azure VNet and subnets with two modes: explicit (user-provided CIDRs) and computed (derived subnets from a base CIDR).
 
-## Architecture
-
-- **Resource Group**: `rg-shared-dev`
-- **Virtual Network**: `vnet-shared-dev` (10.50.0.0/16)
-- **AKS Subnet**: `snet-aks-dev` (10.50.1.0/24)
+Defaults match current dev behavior so `terraform plan` in dev remains unchanged.
 
 ## Prerequisites
-
-- Azure CLI authenticated with OIDC
 - Terraform >= 1.6
-- Azure subscription with appropriate permissions
+- Azure OIDC auth available to the workflow or CLI session
+- S3/DynamoDB backend is configured via the reusable backend action (workflow)
+
+## Variables (high level)
+- resource_group, location, vnet_name
+- address_space: list of CIDRs (explicit mode). If set with `subnets`, computed mode is disabled.
+- subnets: list of objects `{ name, cidr, nsg_name? }` (explicit mode)
+- base_cidr, subnet_count, subnet_newbits, subnet_names (computed mode)
+- nsg_enabled, nsg_prefix (optional; only used to auto-name NSGs in computed mode)
+- tags: map(string)
 
 ## Usage
 
-### 1. Configure Variables
+### Explicit mode example
+Example `network.auto.tfvars.json`:
 
-Copy `terraform.tfvars.example` to `terraform.tfvars`:
-
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
-
-### 2. Deploy
-
-```bash
-# Initialize Terraform
-terraform init
-
-# Plan the deployment
-terraform plan
-
-# Apply the configuration
-terraform apply
-```
-
-### 3. Use Outputs
-
-The stack outputs the `subnet_id_aks` which can be used by other stacks:
-
-```bash
-# Get the subnet ID for AKS
-terraform output subnet_id_aks
-```
-
-## Configuration
-
-### Environment Map
-
-The stack uses a local environment map in `locals.tf`:
-
-```hcl
-envs = {
-  dev = {
-    subscription_id = "<REPLACE-SUB-ID>"
-    location        = "uksouth"
-    resource_group  = "rg-shared-dev"
-    vnet_name       = "vnet-shared-dev"
-    vnet_cidr       = "10.50.0.0/16"
-    subnet_name     = "snet-aks-dev"
-    subnet_cidr     = "10.50.1.0/24"
-    subnet_tags = {
-      role = "aks"
-    }
-  }
+```json
+{
+  "resource_group": "rg-shared-dev",
+  "location": "uksouth",
+  "vnet_name": "vnet-shared-dev",
+  "address_space": ["10.60.0.0/16"],
+  "subnets": [
+    { "name": "snet-aks-dev", "cidr": "10.60.1.0/24" },
+    { "name": "snet-db",     "cidr": "10.60.2.0/24", "nsg_name": "nsg-db" }
+  ]
 }
 ```
 
-### Variables
+### Computed mode example
+Derive subnets deterministically with `cidrsubnet()`:
 
-- `env`: Environment name (default: "dev")
-- `subscription_id`: Azure subscription ID (optional)
+```json
+{
+  "resource_group": "rg-network-prod",
+  "location": "westeurope",
+  "vnet_name": "msdp-prod-vnet",
+  "base_cidr": "10.20.0.0/16",
+  "subnet_count": 3,
+  "subnet_newbits": 8,
+  "subnet_names": ["app", "db", "ops"],
+  "nsg_enabled": true,
+  "nsg_prefix": "nsg-prod"
+}
+```
 
 ## Outputs
+- vnet_name: Name of the VNet
+- address_space: List of VNet CIDRs
+- subnets: Map of `{ name -> { id, cidr } }`
 
-- `subnet_id_aks`: ID of the AKS subnet
-- `resource_group_name`: Name of the resource group
-- `vnet_name`: Name of the virtual network
-- `subnet_name`: Name of the AKS subnet
-- `vnet_id`: ID of the virtual network
-
-## Security
-
-- Uses OIDC authentication (no hardcoded credentials)
-- Subnet tagged with `role = "aks"`
-- All resources tagged with environment and management info
-
-## Dependencies
-
-This stack should be deployed before:
-- AKS cluster deployment
-- Any application workloads requiring network access
-
-## Related Documentation
-
-- [AKS Environment Stack](../aks/README.md)
-- [Factory Model Blueprint](../../../docs/architecture/Factory-Model-DevOps-Blueprint.md)
+## Notes
+- Explicit mode is used when both `address_space` and `subnets` are provided and non-empty.
+- Computed mode is used otherwise; `base_cidr` and `subnet_count` are required for useful results.
+- If `nsg_name` is provided for a subnet (or computed when `nsg_enabled=true`), an NSG is created and associated to that subnet.

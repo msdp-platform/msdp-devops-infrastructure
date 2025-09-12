@@ -7,6 +7,50 @@ on:
       - "config/**"
       - "infrastructure/config/**" # include if globals live here
   workflow_dispatch:
+    inputs:
+      action:
+        description: plan | apply | destroy
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      resource_group:
+        required: true
+      location:
+        required: true
+        default: westeurope
+      vnet_name:
+        required: true
+        default: msdp-prod-vnet
+      address_space:
+        description: CSV list (e.g. 10.20.0.0/16)
+        required: false
+        default: ""
+      subnets_json:
+        description: JSON array of {name,cidr,nsg_name?}
+        required: false
+        default: ""
+      base_cidr:
+        required: false
+        default: ""
+      subnet_count:
+        required: false
+        default: "0"
+      subnet_newbits:
+        required: false
+        default: "8"
+      subnet_names:
+        description: CSV (e.g. app,db,ops)
+        required: false
+        default: ""
+      nsg_enabled:
+        description: Whether to create NSGs per subnet (computed mode)
+        required: false
+        default: "false"
+      nsg_prefix:
+        description: NSG name prefix (computed mode)
+        required: false
+        default: ""
 
 permissions:
   id-token: write
@@ -74,12 +118,68 @@ jobs:
           terraform-version: 1.13.2
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
-      # Plan / Apply (use your config files; fix path if it's 'globals.yaml' not 'global.yaml')
+      - name: Build network.auto.tfvars.json
+        working-directory: infrastructure/environment/azure/network
+        shell: bash
+        run: |
+          set -euo pipefail
+          addr_csv="${{ github.event.inputs.address_space || '' }}"
+          if [ -n "$addr_csv" ]; then
+            # explicit mode
+            addrs=$(printf '%s\n' "$addr_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
+            sj="${{ github.event.inputs.subnets_json || '' }}"
+            if [ -n "$sj" ]; then
+              # validate JSON
+              subnets=$(printf '%s' "$sj" | jq -c .)
+            else
+              subnets='[]'
+            fi
+            jq -n \
+              --arg rg "${{ github.event.inputs.resource_group || '' }}" \
+              --arg loc "${{ github.event.inputs.location || '' }}" \
+              --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
+              --argjson address_space "$addrs" \
+              --argjson subnets "$subnets" \
+              '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
+              > network.auto.tfvars.json
+          else
+            # computed mode
+            names_csv="${{ github.event.inputs.subnet_names || '' }}"
+            if [ -n "$names_csv" ]; then
+              names=$(printf '%s\n' "$names_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
+            else
+              names='[]'
+            fi
+            count="${{ github.event.inputs.subnet_count || '0' }}"
+            newbits="${{ github.event.inputs.subnet_newbits || '8' }}"
+            nsg_enabled="${{ github.event.inputs.nsg_enabled || 'false' }}"
+            nsg_prefix="${{ github.event.inputs.nsg_prefix || '' }}"
+            jq -n \
+              --arg rg "${{ github.event.inputs.resource_group || '' }}" \
+              --arg loc "${{ github.event.inputs.location || '' }}" \
+              --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
+              --arg base "${{ github.event.inputs.base_cidr || '' }}" \
+              --argjson count "$count" \
+              --argjson newbits "$newbits" \
+              --argjson names "$names" \
+              --argjson nsg_enabled "$nsg_enabled" \
+              --arg nsg_prefix "$nsg_prefix" \
+              '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_enabled:$nsg_enabled, nsg_prefix:$nsg_prefix}' \
+              > network.auto.tfvars.json
+          fi
+          echo "Wrote $(pwd)/network.auto.tfvars.json"
+
       - name: Terraform plan
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan || terraform plan -out=tfplan && terraform apply -auto-approve tfplan
+
+      - name: Terraform destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform destroy -auto-approve
