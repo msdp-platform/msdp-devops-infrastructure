@@ -105,6 +105,10 @@ jobs:
 
           # Load backend config from env config file
           ENV_CONFIG="config/envs/dev.yaml"
+          # Make path relative to repository root if it's not absolute
+          if [[ "$ENV_CONFIG" != /* ]]; then
+            ENV_CONFIG="$GITHUB_WORKSPACE/$ENV_CONFIG"
+          fi
           [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
 
           BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
@@ -137,6 +141,10 @@ jobs:
 
           # Load backend config from env config file
           ENV_CONFIG="config/envs/dev.yaml"
+          # Make path relative to repository root if it's not absolute
+          if [[ "$ENV_CONFIG" != /* ]]; then
+            ENV_CONFIG="$GITHUB_WORKSPACE/$ENV_CONFIG"
+          fi
           [ -f "$ENV_CONFIG" ] || { echo "ERROR: Environment config file not found: $ENV_CONFIG"; exit 1; }
 
           BUCKET=$(yq eval '.state.bucket' "$ENV_CONFIG")
