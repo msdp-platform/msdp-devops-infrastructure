@@ -1,8 +1,8 @@
 name: azure-network
 on:
   push:
-    branches: [ main ]
-    paths: [ "infrastructure/environment/azure/network/**", "config/**" ]
+    branches: [main]
+    paths: ["infrastructure/environment/azure/network/**", "config/**"]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region:     ${{ secrets.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v3
         with:

@@ -76,4 +76,4 @@ azure:
   subnetCidrDefault: "10.50.1.0/24"
 paths:
   network: "infrastructure/environment/azure/network"
-  aks:     "infrastructure/environment/azure/aks"
+  aks: "infrastructure/environment/azure/aks"
