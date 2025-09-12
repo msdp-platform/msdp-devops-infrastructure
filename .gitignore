@@ -102,5 +102,5 @@ temp/
 
 # CI/CD generated artifacts
 infrastructure/environment/*/backend/backend-config.json
+infrastructure/environment/*/backend/
 infrastructure/environment/*/artifacts/
-infrastructure/environment/*/artifacts/**/*

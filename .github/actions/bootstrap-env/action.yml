@@ -1,0 +1,20 @@
+name: "Bootstrap Environment"
+description: "Export Terraform config and backend paths for workflows"
+
+inputs:
+  env:
+    description: "Environment name (e.g., dev)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Export config paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        REPO_ROOT="$GITHUB_WORKSPACE"
+        echo "TF_VAR_global_config_path=$REPO_ROOT/infrastructure/config/globals.yaml" >> "$GITHUB_ENV"
+        echo "TF_VAR_env_config_path=$REPO_ROOT/config/envs/${{ inputs.env }}.yaml" >> "$GITHUB_ENV"
+        BACKEND_FILE="$REPO_ROOT/infrastructure/environment/${{ inputs.env }}/backend/backend-config.json"
+        echo "TF_BACKEND_CONFIG_FILE=$BACKEND_FILE" >> "$GITHUB_ENV"

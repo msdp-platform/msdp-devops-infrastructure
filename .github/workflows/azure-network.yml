@@ -43,6 +43,11 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
 
+      - name: Bootstrap environment
+        uses: ./.github/actions/bootstrap-env
+        with:
+          env: dev
+
       # --- BACKEND: create/ensure S3+DDB and write backend-config.json ---
       - name: Terraform Backend (AWS)
         uses: ./.github/actions/terraform-backend
@@ -67,12 +72,12 @@ jobs:
         with:
           working-directory: infrastructure/environment/azure/network
           terraform-version: 1.13.2
-          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
       # Plan / Apply (use your config files; fix path if it's 'globals.yaml' not 'global.yaml')
       - name: Terraform plan
         working-directory: infrastructure/environment/azure/network
-        run: terraform plan -var="global_config_path=infrastructure/config/globals.yaml" -var="env_config_path=config/envs/dev.yaml" -out=tfplan
+        run: terraform plan -out=tfplan
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

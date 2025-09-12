@@ -1,19 +1,17 @@
 variable "global_config_path" {
   description = "Path to global config file"
   type        = string
-  default     = "config/global.yaml"
 }
 
 variable "env_config_path" {
   description = "Path to environment config file"
   type        = string
-  default     = "config/envs/dev.yaml"
 }
 
 locals {
   # Load config files
-  global_config = yamldecode(file("${path.module}/../../../${var.global_config_path}"))
-  env_config    = yamldecode(file("${path.module}/../../../${var.env_config_path}"))
+  global_config = yamldecode(file(var.global_config_path))
+  env_config    = yamldecode(file(var.env_config_path))
 
   # Azure configuration with fallbacks
   az = {
