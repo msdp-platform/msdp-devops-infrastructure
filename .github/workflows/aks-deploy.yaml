@@ -57,7 +57,7 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Preflight: verify subnet exists (CLI)
-        if: ${{ vars.NETWORK_RG != '' && vars.VNET_NAME != '' && vars.SUBNET_NAME != '' && vars.SUBNET_ID == '' }}
+        if: ${{ vars.NETWORK_RG != '' }}
         shell: bash
         run: |
           set -euo pipefail
