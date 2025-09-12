@@ -1,5 +1,5 @@
 provider "aws" {
-  region = local.region
+  region = var.region
 }
 
 module "eks" {
@@ -8,10 +8,10 @@ module "eks" {
   org                = var.org
   env                = var.env
   cloud              = "aws"
-  region             = local.region
-  cluster_name       = local.cluster_name
-  vpc_id             = local.vpc_id
-  private_subnet_ids = local.private_subnet_ids
+  region             = var.region
+  cluster_name       = var.cluster_name
+  vpc_id             = var.vpc_id
+  private_subnet_ids = var.private_subnet_ids
   k8s_version        = var.k8s_version
   node_group = {
     name          = var.node_group_name
