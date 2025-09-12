@@ -1,6 +1,6 @@
 state:
   bucket: "msdp-terraform-state-dev"
-  region: "us-east-1"
+  region: "eu-west-1"
   dynamodb: "msdp-terraform-locks-dev"
   networkKey: "network/dev.tfstate"
   aksKey: "aks/dev.tfstate"

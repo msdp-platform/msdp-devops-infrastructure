@@ -109,14 +109,37 @@ jobs:
           DDB=$(yq eval '.state.dynamodb' "$ENV_CONFIG")
           KEY="${{ inputs.backend_key }}"
 
+          # Determine correct backend key based on working directory
+          if [[ "${{ inputs.working_directory }}" == *"network"* ]]; then
+            KEY=$(yq eval '.state.networkKey' "$ENV_CONFIG")
+          elif [[ "${{ inputs.working_directory }}" == *"aks"* ]]; then
+            KEY=$(yq eval '.state.aksKey' "$ENV_CONFIG")
+          fi
+
           # Validate backend config values
           [ -n "${BUCKET}" ] || { echo "ERROR: bucket is empty in config file"; exit 1; }
           [ -n "${KEY}" ] || { echo "ERROR: backend_key is empty"; exit 1; }
           [ -n "${REGION}" ] || { echo "ERROR: region is empty in config file"; exit 1; }
           [ -n "${DDB}" ] || { echo "ERROR: dynamodb is empty in config file"; exit 1; }
 
+          echo "🔧 Using backend: bucket=${BUCKET} key=${KEY} region=${REGION} ddb=${DDB}"
+
+          # Pre-init sanity checks (fail-fast)
+          echo "🔍 Verifying S3 bucket exists..."
+          aws s3api head-bucket --bucket "${BUCKET}" || { 
+            echo "ERROR: S3 bucket '${BUCKET}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ S3 bucket verified: ${BUCKET}"
+
+          echo "🔍 Verifying DynamoDB table exists..."
+          aws dynamodb describe-table --table-name "${DDB}" >/dev/null || { 
+            echo "ERROR: DynamoDB table '${DDB}' does not exist or is not accessible. Check backend configuration."; 
+            exit 1; 
+          }
+          echo "✅ DynamoDB table verified: ${DDB}"
+
           echo "🔧 Initializing Terraform with backend config from config file"
-          echo "Backend config: bucket=${BUCKET}, key=${KEY}, region=${REGION}, dynamodb_table=${DDB}"
           terraform init -reconfigure \
             -backend-config="bucket=${BUCKET}" \
             -backend-config="key=${KEY}" \
