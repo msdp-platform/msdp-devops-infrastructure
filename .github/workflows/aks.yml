@@ -134,7 +134,6 @@ jobs:
           fi
 
       - name: Build aks.auto.tfvars.json (remote_state only)
-        if: ${{ github.event_name == 'workflow_dispatch' }}
         working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
