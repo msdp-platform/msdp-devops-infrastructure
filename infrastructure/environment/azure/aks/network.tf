@@ -60,12 +60,21 @@ resource "null_resource" "validate_network_config" {
 # Output network status for visibility
 output "network_status" {
   value = var.manage_network ? {
-    mode              = "auto-create"
-    resources_created = try(module.network_auto_create[0].created_resources, {})
-    subnet_id         = local.final_subnet_id
+    mode      = "auto-create"
+    subnet_id = local.final_subnet_id
+    resources_created = try(module.network_auto_create[0].created_resources, {
+      resource_group = false
+      vnet           = false
+      subnet         = false
+    })
     } : {
     mode      = "lookup-only"
     subnet_id = local.effective_subnet_id
+    resources_created = {
+      resource_group = false
+      vnet           = false
+      subnet         = false
+    }
   }
   description = "Network configuration status"
 }
