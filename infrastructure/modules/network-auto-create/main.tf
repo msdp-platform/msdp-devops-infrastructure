@@ -137,7 +137,7 @@ locals {
   subnet_candidates = [
     for r in data.azurerm_resources.subnet_check.resources :
     r
-    if (
+    if(
       try(r.resource_group_name, "") == var.resource_group
       || can(regex("/resourceGroups/${var.resource_group}/", r.id))
     )
