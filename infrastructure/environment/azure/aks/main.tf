@@ -9,7 +9,6 @@ resource "azurerm_kubernetes_cluster" "this" {
   name                = var.aks_name
   location            = local.rg_loc
   resource_group_name = local.rg_name
-  kubernetes_version  = var.kubernetes_version
   dns_prefix          = replace(var.aks_name, "/[^a-z0-9-]/", "")
 
   oidc_issuer_enabled       = true
