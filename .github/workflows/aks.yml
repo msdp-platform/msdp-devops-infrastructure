@@ -5,7 +5,7 @@
 name: aks
 on:
   push:
-    branches: [main]
+    branches: [dev, main]
     paths:
       - "infrastructure/environment/azure/aks/**"
       - "config/**"
@@ -228,20 +228,10 @@ jobs:
           set -euo pipefail
           # Detach shared network resources from state to avoid prevent_destroy errors and preserve them
           if terraform state list >/dev/null 2>&1; then
-            for pattern in \
-              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_subnet\.this(\[[0-9]+\])?
- \
-              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_virtual_network\.this(\[[0-9]+\])?
- \
-              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_resource_group\.this(\[[0-9]+\])?
-; do
-              addrs=$(terraform state list | grep -E "$pattern" || true)
-              if [ -n "$addrs" ]; then
-                echo "Detaching from state:"
-                echo "$addrs"
-                for addr in $addrs; do
-                  terraform state rm "$addr" || true
-                done
+            terraform state list | grep -E '^(module\.network_auto_create(\[[0-9]+\])?\.azurerm_(subnet\.this|virtual_network\.this|resource_group\.this)(\[[0-9]+\])?)$' | while read -r addr; do
+              if [ -n "$addr" ]; then
+                echo "Detaching from state: $addr"
+                terraform state rm "$addr" || true
               fi
             done
           fi
