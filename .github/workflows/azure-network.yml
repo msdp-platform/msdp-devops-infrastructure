@@ -18,6 +18,10 @@ on:
         default: plan
         type: choice
         options: [plan, apply, destroy]
+      size:
+        description: Optional subnet size override (large|medium|small)
+        required: false
+        default: ""
 
 permissions:
   id-token: write
@@ -130,7 +134,13 @@ jobs:
             spec='[]'
             for row in $(echo "$clusters_arr" | jq -c '.[]'); do
               sname=$(echo "$row" | jq -r '.subnetName')
-              size=$(echo "$row" | jq -r '.size')
+              # Apply pipeline size override if provided
+              size_in='${{ github.event.inputs.size || '' }}'
+              if [ -n "$size_in" ]; then
+                size="$size_in"
+              else
+                size=$(echo "$row" | jq -r '.size')
+              fi
               nb=$(map_size "$size")
               spec=$(jq -nc --argjson cur "$spec" --arg n "$sname" --argjson nb "$nb" '$cur + [{name:$n,newbits:$nb}]')
             done
