@@ -48,8 +48,8 @@ variable "subnet_address_prefix" {
 
 variable "create_resource_group" {
   type        = bool
-  description = "Create resource group if it doesn't exist"
-  default     = false
+  description = "Create resource group if it doesn't exist (module-managed RG). If false, RG must pre-exist."
+  default     = true
 }
 
 variable "tags" {
@@ -58,7 +58,7 @@ variable "tags" {
   default     = {}
 }
 
-# Check and create resource group
+# Conditionally create the Resource Group (module-managed) or read an existing one
 resource "azurerm_resource_group" "this" {
   count    = var.create_resource_group ? 1 : 0
   name     = var.resource_group
@@ -70,18 +70,25 @@ resource "azurerm_resource_group" "this" {
   }
 }
 
-# Get the resource group (existing or created)
 data "azurerm_resource_group" "this" {
-  name       = var.resource_group
-  depends_on = [azurerm_resource_group.this]
+  count = var.create_resource_group ? 0 : 1
+  name  = var.resource_group
 }
 
-# Check if VNet exists
+# Existence checks for VNet/Subnet must run after RG exists when RG is being created by this module
+# (depends_on ensures the RG is created before listing resources in that RG)
+
 data "azurerm_resources" "vnet_check" {
   type                = "Microsoft.Network/virtualNetworks"
   resource_group_name = var.resource_group
   name                = var.vnet_name
-  depends_on          = [azurerm_resource_group.this]
+
+  depends_on = [azurerm_resource_group.this]
+}
+
+locals {
+  rg_location   = var.create_resource_group ? var.location : data.azurerm_resource_group.this[0].location
+  vnet_exists   = length(data.azurerm_resources.vnet_check.resources) > 0
 }
 
 # Create VNet if it doesn't exist
@@ -92,7 +99,6 @@ resource "azurerm_virtual_network" "this" {
   resource_group_name = var.resource_group
   address_space       = var.vnet_address_space
   tags                = var.tags
-  depends_on          = [azurerm_resource_group.this]
 
   lifecycle {
     prevent_destroy = true
@@ -100,23 +106,25 @@ resource "azurerm_virtual_network" "this" {
 }
 
 # Get the VNet (existing or created)
+
 data "azurerm_virtual_network" "this" {
   name                = var.vnet_name
   resource_group_name = var.resource_group
-  depends_on          = [azurerm_virtual_network.this]
+
+  depends_on = [azurerm_virtual_network.this]
 }
 
-# Check if subnet exists
+# Check if subnet exists (after VNet is guaranteed to exist if module just created it)
+
 data "azurerm_resources" "subnet_check" {
   type                = "Microsoft.Network/virtualNetworks/subnets"
   resource_group_name = var.resource_group
   name                = "${var.vnet_name}/${var.subnet_name}"
-  depends_on          = [azurerm_virtual_network.this]
+
+  depends_on = [azurerm_virtual_network.this]
 }
 
 locals {
-  rg_location   = data.azurerm_resource_group.this.location
-  vnet_exists   = length(data.azurerm_resources.vnet_check.resources) > 0
   subnet_exists = length(data.azurerm_resources.subnet_check.resources) > 0
 }
 
@@ -127,7 +135,6 @@ resource "azurerm_subnet" "this" {
   resource_group_name  = var.resource_group
   virtual_network_name = var.vnet_name
   address_prefixes     = [var.subnet_address_prefix]
-  depends_on           = [azurerm_virtual_network.this]
 
   lifecycle {
     prevent_destroy = true
@@ -135,11 +142,13 @@ resource "azurerm_subnet" "this" {
 }
 
 # Get the subnet (existing or created)
+
 data "azurerm_subnet" "this" {
   name                 = var.subnet_name
   virtual_network_name = var.vnet_name
   resource_group_name  = var.resource_group
-  depends_on           = [azurerm_subnet.this]
+
+  depends_on = [azurerm_subnet.this]
 }
 
 # Outputs
@@ -154,7 +163,7 @@ output "vnet_id" {
 }
 
 output "resource_group_id" {
-  value       = data.azurerm_resource_group.this.id
+  value       = var.create_resource_group && length(azurerm_resource_group.this) > 0 ? azurerm_resource_group.this[0].id : data.azurerm_resource_group.this[0].id
   description = "The ID of the resource group"
 }
 
