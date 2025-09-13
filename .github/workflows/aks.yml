@@ -239,7 +239,7 @@ jobs:
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
-        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
+y        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
         run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
 
