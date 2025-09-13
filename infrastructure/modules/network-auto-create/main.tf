@@ -72,7 +72,7 @@ resource "azurerm_resource_group" "this" {
 
 # Get the resource group (existing or created)
 data "azurerm_resource_group" "this" {
-  name = var.resource_group
+  name       = var.resource_group
   depends_on = [azurerm_resource_group.this]
 }
 
