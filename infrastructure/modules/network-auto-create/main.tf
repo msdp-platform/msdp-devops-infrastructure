@@ -106,7 +106,7 @@ locals {
 
 # Create VNet if it doesn't exist
 resource "azurerm_virtual_network" "this" {
-  count               = local.vnet_exists ? 0 : 1
+  count               = 1
   name                = var.vnet_name
   location            = local.rg_location
   resource_group_name = var.resource_group
@@ -150,7 +150,7 @@ locals {
 
 # Create subnet if it doesn't exist
 resource "azurerm_subnet" "this" {
-  count                = local.subnet_exists ? 0 : 1
+  count                = 1
   name                 = var.subnet_name
   resource_group_name  = var.resource_group
   virtual_network_name = var.vnet_name
