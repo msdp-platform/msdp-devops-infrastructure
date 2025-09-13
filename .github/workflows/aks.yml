@@ -1,12 +1,59 @@
-name: AKS CI/CD
+name: aks
 on:
   push:
     branches: [main]
-    paths: ["infrastructure/environment/**/azure/aks/**"]
+    paths:
+      - "infrastructure/environment/azure/aks/**"
+      - "config/**"
+      - "infrastructure/config/**"
   workflow_dispatch:
-  workflow_run:
-    workflows: ["azure-network"]
-    types: [completed]
+    inputs:
+      provision_type:
+        description: Manage RG or use existing
+        required: true
+        default: existing_rg
+        type: choice
+        options: [new_rg, existing_rg]
+      action:
+        description: plan | apply | destroy
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      resource_group:
+        required: true
+        default: rg-shared-dev
+      location:
+        required: true
+        default: uksouth
+      aks_name:
+        required: true
+        default: aks-dev-01
+      kubernetes_version:
+        required: false
+        default: "1.29.7"
+      subnet_mode:
+        description: How to select subnet
+        required: true
+        default: by_name
+        type: choice
+        options: [explicit, remote_state, by_name]
+      subnet_id:
+        description: Subnet ID (explicit mode)
+        required: false
+        default: ""
+      network_state_key:
+        description: Network state key (remote_state mode)
+        required: false
+        default: "network/dev.tfstate"
+      vnet_name:
+        description: VNet name (by_name mode)
+        required: false
+        default: vnet-shared-dev
+      subnet_name:
+        description: Subnet name (by_name mode)
+        required: false
+        default: snet-aks-dev
 
 permissions:
   id-token: write
@@ -15,25 +62,12 @@ permissions:
 env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
-  TFSTATE_RG: ${{ secrets.TFSTATE_RG }}
-  TFSTATE_SA: ${{ secrets.TFSTATE_SA }}
-  TFSTATE_CONTAINER: ${{ secrets.TFSTATE_CONTAINER }}
-  NETWORK_STATE_KEY: network/dev.tfstate
 
 jobs:
   plan-apply:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Load config paths
-      - name: Load config paths
-        id: config
-        run: |
-          AKS_PATH=$(yq '.paths.aks' infrastructure/config/local.yaml)
-          PREFLIGHT_SCRIPTS_PATH=$(yq '.paths.preflight_scripts' infrastructure/config/local.yaml)
-          echo "aks_path=$AKS_PATH" >> $GITHUB_OUTPUT
-          echo "preflight_scripts_path=$PREFLIGHT_SCRIPTS_PATH" >> $GITHUB_OUTPUT
 
       # Azure OIDC
       - name: Azure login (OIDC)
@@ -56,32 +90,101 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Bootstrap environment
+        uses: ./.github/actions/bootstrap-env
         with:
-          terraform_version: 1.9.5
+          env: dev
 
-      - name: Preflight (ensure network state exists)
-        env:
-          TFSTATE_CONTAINER: ${{ env.TFSTATE_CONTAINER }}
-          TFSTATE_SA: ${{ env.TFSTATE_SA }}
-          NETWORK_STATE_KEY: ${{ env.NETWORK_STATE_KEY }}
-        run: bash ${{ steps.config.outputs.preflight_scripts_path }}/preflight-aks.sh
+      # Backend creation + config (reusable, S3+DDB)
+      - name: Terraform Backend (AWS)
+        uses: ./.github/actions/terraform-backend
+        with:
+          repo-shortname: infra
+          project: msdp
+          env: dev
+          cloud: aws
+          cloud-segment: azure
+          app: aks
+          function: tfstate
+          key-salt: infrastructure/environment/azure/aks
+          aws-region: eu-west-1
+          use-shared-lock-table: "true"
 
-      - name: Terraform init (S3 backend)
-        working-directory: ${{ steps.config.outputs.aks_path }}
+      - name: Terraform Init (Reusable)
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/aks
+          terraform-version: 1.13.2
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+
+      - name: Build aks.auto.tfvars.json
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        working-directory: infrastructure/environment/azure/aks
+        shell: bash
         run: |
-          terraform init \
-            -backend-config="bucket=${{ secrets.TF_BACKEND_BUCKET }}" \
-            -backend-config="key=aks/dev.tfstate" \
-            -backend-config="region=eu-west-1" \
-            -backend-config="dynamodb_table=${{ secrets.TF_BACKEND_DDB }}" \
-            -backend-config="encrypt=true"
+          set -euo pipefail
+          prov="${{ github.event.inputs.provision_type || '' }}"; mode="${{ github.event.inputs.subnet_mode || '' }}"
+          rg="${{ github.event.inputs.resource_group || '' }}"; loc="${{ github.event.inputs.location || '' }}"; name="${{ github.event.inputs.aks_name || '' }}"
+          if [ -z "$rg" ] || [ -z "$name" ] || [ -z "$prov" ] || [ -z "$mode" ]; then
+            echo "::error ::resource_group, aks_name, provision_type, subnet_mode are required"; exit 1
+          fi
+          case "$prov" in
+            new_rg) manage_rg=true ;;
+            existing_rg) manage_rg=false ;;
+            *) echo "::error ::Invalid provision_type: $prov"; exit 1 ;;
+          esac
+
+          # Read backend config to populate remote state bucket/region
+          CFG="${{ env.TF_BACKEND_CONFIG_FILE }}"
+          bucket=$(jq -r '.bucket' "$CFG")
+          region=$(jq -r '.region' "$CFG")
+          ddb=$(jq -r '.dynamodb_table' "$CFG")
+
+          case "$mode" in
+            explicit)
+              sid="${{ github.event.inputs.subnet_id || '' }}"
+              if [ -z "$sid" ]; then echo "::error ::subnet_id is required for explicit mode"; exit 1; fi
+              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
+                    --argjson manage_rg "$manage_rg" --arg sid "$sid" \
+                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, subnet_id:$sid, kubernetes_version:$ver}' \
+                > aks.auto.tfvars.json
+              ;;
+            remote_state)
+              nkey="${{ github.event.inputs.network_state_key || '' }}"
+              if [ -z "$nkey" ]; then echo "::error ::network_state_key is required for remote_state mode"; exit 1; fi
+              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
+                    --argjson manage_rg "$manage_rg" \
+                    --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$nkey" \
+                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key, kubernetes_version:$ver}' \
+                > aks.auto.tfvars.json
+              ;;
+            by_name)
+              vnet="${{ github.event.inputs.vnet_name || '' }}"; sname="${{ github.event.inputs.subnet_name || '' }}"
+              if [ -z "$vnet" ] || [ -z "$sname" ]; then echo "::error ::vnet_name and subnet_name are required for by_name mode"; exit 1; fi
+              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
+                    --argjson manage_rg "$manage_rg" \
+                    --arg vnet "$vnet" --arg sname "$sname" \
+                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, vnet_name:$vnet, subnet_name:$sname, kubernetes_version:$ver}' \
+                > aks.auto.tfvars.json
+              ;;
+            *) echo "::error ::Invalid subnet_mode: $mode"; exit 1 ;;
+          esac
+          echo "Wrote $(pwd)/aks.auto.tfvars.json"
 
       - name: Terraform plan
-        working-directory: ${{ steps.config.outputs.aks_path }}
-        run: terraform plan -var="env=dev" -out=tfplan
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: terraform plan -out=tfplan
 
       - name: Terraform apply
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        working-directory: ${{ steps.config.outputs.aks_path }}
-        run: terraform apply -auto-approve tfplan
+        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
+
+      - name: Terraform destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: terraform destroy -auto-approve
