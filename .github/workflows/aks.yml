@@ -29,9 +29,6 @@ on:
       aks_name:
         required: true
         default: aks-dev-01
-      kubernetes_version:
-        required: false
-        default: "1.29.7"
       subnet_mode:
         description: How to select subnet
         required: true
@@ -146,8 +143,7 @@ jobs:
               if [ -z "$sid" ]; then echo "::error ::subnet_id is required for explicit mode"; exit 1; fi
               jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
                     --argjson manage_rg "$manage_rg" --arg sid "$sid" \
-                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, subnet_id:$sid, kubernetes_version:$ver}' \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, subnet_id:$sid}' \
                 > aks.auto.tfvars.json
               ;;
             remote_state)
@@ -156,8 +152,7 @@ jobs:
               jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
                     --argjson manage_rg "$manage_rg" \
                     --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$nkey" \
-                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key, kubernetes_version:$ver}' \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
                 > aks.auto.tfvars.json
               ;;
             by_name)
@@ -166,8 +161,7 @@ jobs:
               jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
                     --argjson manage_rg "$manage_rg" \
                     --arg vnet "$vnet" --arg sname "$sname" \
-                    --arg ver "${{ github.event.inputs.kubernetes_version || '' }}" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, vnet_name:$vnet, subnet_name:$sname, kubernetes_version:$ver}' \
+                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, vnet_name:$vnet, subnet_name:$sname}' \
                 > aks.auto.tfvars.json
               ;;
             *) echo "::error ::Invalid subnet_mode: $mode"; exit 1 ;;
