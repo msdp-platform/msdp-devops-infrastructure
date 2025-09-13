@@ -58,9 +58,23 @@ variable "tags" {
   default     = {}
 }
 
-# Conditionally create the Resource Group (module-managed) or read an existing one
+# Non-failing existence check for the Resource Group (does not 404 if missing)
+# Lists across the subscription and filters by name
+# Returns zero resources if not found
+
+data "azurerm_resources" "rg_check" {
+  type = "Microsoft.Resources/resourceGroups"
+  name = var.resource_group
+}
+
+locals {
+  rg_exists   = length(data.azurerm_resources.rg_check.resources) > 0
+  rg_location = local.rg_exists ? data.azurerm_resources.rg_check.resources[0].location : var.location
+}
+
+# Conditionally create the Resource Group (only when missing and allowed)
 resource "azurerm_resource_group" "this" {
-  count    = var.create_resource_group ? 1 : 0
+  count    = (var.create_resource_group && !local.rg_exists) ? 1 : 0
   name     = var.resource_group
   location = var.location
   tags     = var.tags
@@ -70,13 +84,8 @@ resource "azurerm_resource_group" "this" {
   }
 }
 
-data "azurerm_resource_group" "this" {
-  count = var.create_resource_group ? 0 : 1
-  name  = var.resource_group
-}
-
-# Existence checks for VNet/Subnet must run after RG exists when RG is being created by this module
-# (depends_on ensures the RG is created before listing resources in that RG)
+# After RG exists (either pre-existing or created here), check for VNet existence
+# This read is scoped to the RG and would 404 if RG didn't exist; ensure ordering
 
 data "azurerm_resources" "vnet_check" {
   type                = "Microsoft.Network/virtualNetworks"
@@ -87,7 +96,6 @@ data "azurerm_resources" "vnet_check" {
 }
 
 locals {
-  rg_location = var.create_resource_group ? var.location : data.azurerm_resource_group.this[0].location
   vnet_exists = length(data.azurerm_resources.vnet_check.resources) > 0
 }
 
@@ -152,6 +160,10 @@ data "azurerm_subnet" "this" {
 }
 
 # Outputs
+locals {
+  resource_group_id = local.rg_exists ? data.azurerm_resources.rg_check.resources[0].id : azurerm_resource_group.this[0].id
+}
+
 output "subnet_id" {
   value       = data.azurerm_subnet.this.id
   description = "The ID of the subnet (existing or newly created)"
@@ -163,13 +175,13 @@ output "vnet_id" {
 }
 
 output "resource_group_id" {
-  value       = var.create_resource_group && length(azurerm_resource_group.this) > 0 ? azurerm_resource_group.this[0].id : data.azurerm_resource_group.this[0].id
+  value       = local.resource_group_id
   description = "The ID of the resource group"
 }
 
 output "created_resources" {
   value = {
-    resource_group = var.create_resource_group && length(azurerm_resource_group.this) > 0
+    resource_group = (var.create_resource_group && !local.rg_exists) && length(azurerm_resource_group.this) > 0
     vnet           = !local.vnet_exists
     subnet         = !local.subnet_exists
   }
