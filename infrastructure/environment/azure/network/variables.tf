@@ -83,6 +83,15 @@ variable "subnet_newbits" {
   default     = 8
 }
 
+variable "computed_subnets_spec" {
+  description = "Computed mode: per-subnet size spec list. Each: { name, newbits }"
+  type = list(object({
+    name    = string
+    newbits = number
+  }))
+  default = []
+}
+
 variable "subnet_names" {
   type        = list(string)
   description = "Subnet names (computed mode). If fewer than subnet_count, remaining are auto-named."

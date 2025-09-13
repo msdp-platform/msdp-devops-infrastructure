@@ -22,34 +22,10 @@ variable "kubernetes_version" {
   default     = "1.29.7"
 }
 
-variable "manage_resource_group" {
-  type        = bool
-  description = "When true, create/manage the resource group; otherwise use existing"
-  default     = false
-}
-
-variable "subnet_id" {
-  type        = string
-  description = "Explicit subnet ID for AKS (takes precedence if set)"
-  default     = ""
-}
-
-variable "vnet_name" {
-  type        = string
-  description = "VNet name (name-based subnet lookup)"
-  default     = "vnet-shared-dev"
-}
-
 variable "subnet_name" {
   type        = string
-  description = "Subnet name (name-based subnet lookup)"
+  description = "Subnet name used to index the Network remote state outputs (subnets[\"<name>\"])"
   default     = "snet-aks-dev"
-}
-
-variable "subnet_tags" {
-  type        = map(string)
-  description = "Tags used for tag-based subnet discovery (fallback when subnet_id and names are not provided)"
-  default     = { role = "aks" }
 }
 
 variable "remote_state_bucket" {

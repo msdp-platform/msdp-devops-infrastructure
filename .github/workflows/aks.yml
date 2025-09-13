@@ -1,3 +1,7 @@
+# NOTE: Config-driven workflow. Values are read from
+# - infrastructure/config/globals.yaml (global defaults)
+# - config/envs/<env>.yaml (environment specifics)
+# Only input is action; matrix is derived from azure.aksClusters.
 name: aks
 on:
   push:
@@ -14,12 +18,6 @@ on:
         default: plan
         type: choice
         options: [plan, apply, destroy]
-      resource_group:
-        required: true
-        default: rg-shared-dev
-      aks_name:
-        required: true
-        default: aks-dev-01
 
 permissions:
   id-token: write
@@ -30,8 +28,47 @@ env:
   ARM_USE_OIDC: "true"
 
 jobs:
-  plan-apply:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.gen.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Bootstrap environment
+        uses: ./.github/actions/bootstrap-env
+        with:
+          env: dev
+      - name: Generate cluster matrix from config
+        id: gen
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
+          if command -v yq >/dev/null 2>&1; then
+            raw=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV")
+          else
+            raw="{}"
+          fi
+          # Normalize: support map form {clusterName: {size, subnetName?}} or array form
+          clusters=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key))} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name))} ] else [] end' <<< "$raw")
+
+          # Fallback to single cluster from aksName/subnetName if aksClusters is empty
+          if [ "$(jq -r 'length' <<< "$clusters")" -eq 0 ]; then
+            name=$(grep -E '^\s*aksName\s*:' -n "$CFG_ENV" | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true)
+            sname=$(grep -E '^\s*subnetName\s*:' -n "$CFG_ENV" | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true)
+            if [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
+              echo "::error ::No azure.aksClusters and missing azure.aksName/subnetName in env config"; exit 1
+            fi
+            clusters=$(jq -nc --arg n "$name" --arg s "$sname" '[{name:$n, subnetName:$s}]')
+          fi
+          echo "matrix=$clusters" >> $GITHUB_OUTPUT
+
+  plan-apply:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -75,6 +112,7 @@ jobs:
           key-salt: infrastructure/environment/azure/aks
           aws-region: eu-west-1
           use-shared-lock-table: "true"
+          pipeline-name: aks-${{ matrix.name }}
 
       - name: Terraform Init (Reusable)
         uses: ./.github/actions/terraform-init
@@ -83,13 +121,24 @@ jobs:
           terraform-version: 1.13.2
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
-      - name: Build aks.auto.tfvars.json
+      - name: Show backend state key
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIG="${{ env.TF_BACKEND_CONFIG_FILE }}"
+          if [ -f "$CONFIG" ]; then
+            echo "Backend state key: $(jq -r '.key' "$CONFIG")"
+          else
+            echo "Backend config file not found: $CONFIG" >&2
+          fi
+
+      - name: Build aks.auto.tfvars.json (remote_state only)
         if: ${{ github.event_name == 'workflow_dispatch' }}
         working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
           set -euo pipefail
-          # Prefer config-driven values from globals/env
+          # Config-driven remote_state only (unique and steady)
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
           get_yaml() {
@@ -101,39 +150,23 @@ jobs:
             fi
           }
           rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
-          name=$(get_yaml "$CFG_ENV" '.azure.aksName')
-          vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
-          sname=$(get_yaml "$CFG_ENV" '.azure.subnetName')
+          name='${{ matrix.name }}'
+          sname='${{ matrix.subnetName }}'
           net_key=$(get_yaml "$CFG_ENV" '.state.networkKey')
-          if [ -z "${rg:-}" ] || [ -z "${name:-}" ]; then
-            echo "::error ::Missing required config values for AKS (azure.resourceGroup, azure.aksName)."; exit 1
+          if [ -z "${rg:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ] || [ -z "${net_key:-}" ]; then
+            echo "::error ::Missing required config: azure.resourceGroup, azure.aksName, azure.subnetName, and state.networkKey are required for remote_state mode."; exit 1
           fi
           # Read backend config for remote state bucket/region/ddb
           CFG="${{ env.TF_BACKEND_CONFIG_FILE }}"
           bucket=$(jq -r '.bucket' "$CFG")
           region=$(jq -r '.region' "$CFG")
           ddb=$(jq -r '.dynamodb_table' "$CFG")
-
-          if [ -n "${net_key:-}" ]; then
-            # Use remote_state to resolve subnet from the network stack outputs
-            jq -n --arg rg "$rg" --arg name "$name" \
-                  --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$net_key" \
-                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
-              > aks.auto.tfvars.json
-            echo "Wrote $(pwd)/aks.auto.tfvars.json (remote_state mode)"
-          elif [ -n "${vnet:-}" ] && [ -n "${sname:-}" ]; then
-            # Fall back to name-based lookup
-            jq -n --arg rg "$rg" --arg name "$name" --arg vnet "$vnet" --arg sname "$sname" \
-                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false, vnet_name:$vnet, subnet_name:$sname}' \
-              > aks.auto.tfvars.json
-            echo "Wrote $(pwd)/aks.auto.tfvars.json (by_name mode)"
-          else
-            # Final fallback: tag-based discovery (role=aks from globals)
-            jq -n --arg rg "$rg" --arg name "$name" \
-                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false}' \
-              > aks.auto.tfvars.json
-            echo "Wrote $(pwd)/aks.auto.tfvars.json (tag-based discovery)"
-          fi
+          # Use remote_state to resolve subnet from the network stack outputs
+          jq -n --arg rg "$rg" --arg name "$name" --arg sname "$sname" \
+                --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$net_key" \
+                '{resource_group:$rg, aks_name:$name, subnet_name:$sname, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
+            > aks.auto.tfvars.json
+          echo "Wrote $(pwd)/aks.auto.tfvars.json (remote_state only)"
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}

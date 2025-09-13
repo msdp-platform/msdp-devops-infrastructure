@@ -1,3 +1,7 @@
+# NOTE: Config-driven workflow. Values are read from
+# - infrastructure/config/globals.yaml (global defaults)
+# - config/envs/<env>.yaml (environment specifics)
+# Only input is action; no interactive network inputs.
 name: azure-network
 on:
   push:
@@ -81,6 +85,17 @@ jobs:
           terraform-version: 1.13.2
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
+      - name: Show backend state key
+        shell: bash
+        run: |
+          set -euo pipefail
+          CONFIG="${{ env.TF_BACKEND_CONFIG_FILE }}"
+          if [ -f "$CONFIG" ]; then
+            echo "Backend state key: $(jq -r '.key' "$CONFIG")"
+          else
+            echo "Backend config file not found: $CONFIG" >&2
+          fi
+
       - name: Build network.auto.tfvars.json (from config)
         working-directory: infrastructure/environment/azure/network
         shell: bash
@@ -100,18 +115,43 @@ jobs:
           cfg_rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
           cfg_vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
           cfg_vnet_cidr=$(get_yaml "$CFG_ENV" '.azure.vnetCidr')
-          cfg_subnet=$(get_yaml "$CFG_ENV" '.azure.subnetName')
-          cfg_subnet_cidr=$(get_yaml "$CFG_ENV" '.azure.subnetCidr')
-          if [ -z "${cfg_rg:-}" ] || [ -z "${cfg_loc:-}" ] || [ -z "${cfg_vnet:-}" ] || [ -z "${cfg_vnet_cidr:-}" ] || [ -z "${cfg_subnet:-}" ] || [ -z "${cfg_subnet_cidr:-}" ]; then
-            echo "::error ::Missing required config values for network (resourceGroup, location, vnetName, vnetCidr, subnetName, subnetCidr)."; exit 1
+          # Try multi-cluster spec from azure.aksClusters; fallback to single-subnet config
+          clusters_json="{}"
+          if command -v yq >/dev/null 2>&1; then
+            clusters_json=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV")
           fi
           addrs=$(jq -nc --arg cidr "$cfg_vnet_cidr" '$cidr|[.]')
-          subnets=$(jq -nc --arg name "$cfg_subnet" --arg cidr "$cfg_subnet_cidr" '[{name:$name,cidr:$cidr}]')
-          jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
-                --argjson address_space "$addrs" --argjson subnets "$subnets" \
-                '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
-            > network.auto.tfvars.json
-          echo "Wrote $(pwd)/network.auto.tfvars.json (config-driven)"
+          # Normalize clusters to array of {name, subnetName, size}
+          clusters_arr=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key)), size: (.value.size // "medium")} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name)), size: (.size // "medium")} ] else [] end' <<< "$clusters_json")
+          if [ "$(jq -r 'length' <<< "$clusters_arr")" -gt 0 ]; then
+            # Map size label to newbits
+            map_size() { case "$1" in large) echo 8;; medium) echo 9;; small) echo 10;; *) echo 9;; esac }
+            # Build computed_subnets_spec from clusters
+            spec='[]'
+            for row in $(echo "$clusters_arr" | jq -c '.[]'); do
+              sname=$(echo "$row" | jq -r '.subnetName')
+              size=$(echo "$row" | jq -r '.size')
+              nb=$(map_size "$size")
+              spec=$(jq -nc --argjson cur "$spec" --arg n "$sname" --argjson nb "$nb" '$cur + [{name:$n,newbits:$nb}]')
+            done
+            jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
+                  --arg base "$cfg_vnet_cidr" --argjson spec "$spec" \
+                  '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, computed_subnets_spec:$spec}' \
+              > network.auto.tfvars.json
+            echo "Wrote $(pwd)/network.auto.tfvars.json (computed_subnets_spec from aksClusters)"
+          else
+            cfg_subnet=$(get_yaml "$CFG_ENV" '.azure.subnetName')
+            cfg_subnet_cidr=$(get_yaml "$CFG_ENV" '.azure.subnetCidr')
+            if [ -z "${cfg_rg:-}" ] || [ -z "${cfg_loc:-}" ] || [ -z "${cfg_vnet:-}" ] || [ -z "${cfg_vnet_cidr:-}" ] || [ -z "${cfg_subnet:-}" ] || [ -z "${cfg_subnet_cidr:-}" ]; then
+              echo "::error ::Missing required config values for network (resourceGroup, location, vnetName, vnetCidr, subnetName, subnetCidr)."; exit 1
+            fi
+            subnets=$(jq -nc --arg name "$cfg_subnet" --arg cidr "$cfg_subnet_cidr" '[{name:$name,cidr:$cidr}]')
+            jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
+                  --argjson address_space "$addrs" --argjson subnets "$subnets" \
+                  '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
+              > network.auto.tfvars.json
+            echo "Wrote $(pwd)/network.auto.tfvars.json (single subnet)"
+          fi
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}

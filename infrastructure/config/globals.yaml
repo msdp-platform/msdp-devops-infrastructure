@@ -74,6 +74,25 @@ azure:
   # defaults that env can override
   vnetCidrDefault: "10.50.0.0/16"
   subnetCidrDefault: "10.50.1.0/24"
+
+  # --- Config Reference (AKS Matrix + Subnet Sizing) ---
+  # The AKS workflow can deploy multiple clusters via a job matrix defined in the env config (config/envs/<env>.yaml):
+  #
+  #   azure:
+  #     aksClusters:
+  #       - name: aks-dev-a          # required; cluster and backend state name suffix
+  #         size: medium             # optional; affects subnet size in Network (see size mapping below)
+  #         # subnetName: snet-aks-dev-a  # optional override; defaults to "snet-<name>"
+  #       - name: aks-dev-b
+  #         size: large
+  #
+  # Size → newbits mapping (used by the Network workflow when computed_subnets_spec is generated):
+  #   large  => newbits=8  => /24 subnets (for a /16 base_cidr)
+  #   medium => newbits=9  => /25 subnets
+  #   small  => newbits=10 => /26 subnets
+  #
+  # The Network workflow reads azure.vnetCidr as base_cidr and builds computed_subnets_spec from aksClusters.
+  # The AKS workflow selects subnets by name via remote state: outputs.subnets["<subnetName>"].id.
 paths:
   network: "infrastructure/environment/azure/network"
   aks: "infrastructure/environment/azure/aks"

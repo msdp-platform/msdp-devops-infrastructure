@@ -1,36 +1,17 @@
-resource "azurerm_resource_group" "rg" {
-  count    = var.manage_resource_group ? 1 : 0
-  name     = var.resource_group
-  location = var.location
-  tags     = var.tags
-}
-
 data "azurerm_resource_group" "rg" {
-  count = var.manage_resource_group ? 0 : 1
-  name  = var.resource_group
+  name = var.resource_group
 }
 
 locals {
-  rg_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  rg_loc  = var.manage_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
+  rg_name = data.azurerm_resource_group.rg.name
+  rg_loc  = data.azurerm_resource_group.rg.location
 }
 
 resource "null_resource" "validate_subnet" {
   lifecycle {
     precondition {
       condition     = local.effective_subnet_id != ""
-      error_message = "Could not resolve subnet. Set subnet_id explicitly, or provide remote state inputs (bucket, region, key), or vnet_name+subnet_name in resource_group."
-    }
-  }
-}
-
-# Enforce exactly one match when using tag-based discovery
-resource "null_resource" "validate_tag_uniqueness" {
-  count = (var.subnet_id == "" && !local.use_remote_state && length(trimspace(var.subnet_name)) == 0) ? 1 : 0
-  lifecycle {
-    precondition {
-      condition     = length(local.tag_matches) == 1
-      error_message = length(local.tag_matches) == 0 ? "No subnet found with tags ${jsonencode(var.subnet_tags)}." : "Multiple subnets match tags ${jsonencode(var.subnet_tags)}. Refine tags or specify names."
+      error_message = "Network prereq not satisfied: could not resolve subnet from remote state. Ensure env.state.networkKey is set and the Network stack outputs include subnets[\"${var.subnet_name}\"].id"
     }
   }
 }

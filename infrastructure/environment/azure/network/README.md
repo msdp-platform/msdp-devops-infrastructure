@@ -60,3 +60,44 @@ Derive subnets deterministically with `cidrsubnet()`:
 - Explicit mode is used when both `address_space` and `subnets` are provided and non-empty.
 - Computed mode is used otherwise; `base_cidr` and `subnet_count` are required for useful results.
 - If `nsg_name` is provided for a subnet (or computed when `nsg_enabled=true`), an NSG is created and associated to that subnet.
+
+## Multi-Cluster Subnet Sizing (Config-Driven)
+
+When `azure.aksClusters` is present in `config/envs/<env>.yaml`, the workflow builds `computed_subnets_spec` automatically from that list and `azure.vnetCidr`. Each cluster gets its own subnet, sized by the `size` label:
+
+- Size mapping (for a `base_cidr` like /16):
+  - `large` → `newbits=8` → `/24`
+  - `medium` → `newbits=9` → `/25`
+  - `small` → `newbits=10` → `/26`
+
+Example (env config):
+
+```yaml
+azure:
+  resourceGroup: msdp-aks-eu
+  vnetName: msdp-prod-vnet
+  vnetCidr: 10.60.0.0/16
+  aksClusters:
+    - name: aks-dev-a   # subnet defaults to snet-aks-dev-a
+      size: medium
+    - name: aks-dev-b
+      size: large
+      subnetName: snet-custom-b  # optional override
+```
+
+The network workflow writes `network.auto.tfvars.json` with:
+
+```json
+{
+  "resource_group": "msdp-aks-eu",
+  "location": "westeurope",
+  "vnet_name": "msdp-prod-vnet",
+  "base_cidr": "10.60.0.0/16",
+  "computed_subnets_spec": [
+    {"name":"snet-aks-dev-a","newbits":9},
+    {"name":"snet-custom-b","newbits":8}
+  ]
+}
+```
+
+Downstream (AKS) selects the proper subnet by name via remote state.
