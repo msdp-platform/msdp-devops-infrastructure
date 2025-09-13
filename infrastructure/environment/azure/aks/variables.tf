@@ -73,7 +73,7 @@ variable "user_max_count" {
 variable "user_spot" {
   type        = bool
   description = "Apps node pool uses Spot instances"
-  default     = true
+  default     = false
 }
 
 variable "tags" {
