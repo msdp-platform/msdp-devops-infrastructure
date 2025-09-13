@@ -13,8 +13,8 @@ data "azurerm_resource_group" "rg" {
 resource "azurerm_virtual_network" "vnet" {
   count               = var.manage_vnet ? 1 : 0
   name                = var.vnet_name
-  location            = coalesce(try(azurerm_resource_group.rg[0].location, null), data.azurerm_resource_group.rg[0].location)
-  resource_group_name = coalesce(try(azurerm_resource_group.rg[0].name, null), data.azurerm_resource_group.rg[0].name)
+  location            = var.manage_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
+  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name     : data.azurerm_resource_group.rg[0].name
   address_space       = local.normalized_address_space
   tags                = var.tags
 }
@@ -22,22 +22,22 @@ resource "azurerm_virtual_network" "vnet" {
 data "azurerm_virtual_network" "vnet" {
   count               = var.manage_vnet ? 0 : 1
   name                = var.vnet_name
-  resource_group_name = coalesce(try(azurerm_resource_group.rg[0].name, null), data.azurerm_resource_group.rg[0].name)
+  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
 }
 
 resource "azurerm_network_security_group" "nsg" {
   for_each            = { for s in local.effective_subnets : s.name => s if try(s.nsg_name != null && s.nsg_name != "", false) }
   name                = each.value.nsg_name
-  location            = coalesce(try(azurerm_resource_group.rg[0].location, null), data.azurerm_resource_group.rg[0].location)
-  resource_group_name = coalesce(try(azurerm_resource_group.rg[0].name, null), data.azurerm_resource_group.rg[0].name)
+  location            = var.manage_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
+  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name     : data.azurerm_resource_group.rg[0].name
   tags                = var.tags
 }
 
 resource "azurerm_subnet" "subnets" {
   for_each             = { for s in local.effective_subnets : s.name => s }
   name                 = each.value.name
-  resource_group_name  = coalesce(try(azurerm_resource_group.rg[0].name, null), data.azurerm_resource_group.rg[0].name)
-  virtual_network_name = coalesce(try(azurerm_virtual_network.vnet[0].name, null), data.azurerm_virtual_network.vnet[0].name)
+  resource_group_name  = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
+  virtual_network_name = var.manage_vnet ? azurerm_virtual_network.vnet[0].name : data.azurerm_virtual_network.vnet[0].name
   address_prefixes     = [each.value.cidr]
 }
 
