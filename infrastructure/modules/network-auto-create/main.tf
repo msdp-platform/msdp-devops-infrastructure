@@ -113,6 +113,8 @@ resource "azurerm_virtual_network" "this" {
   address_space       = var.vnet_address_space
   tags                = var.tags
 
+  depends_on = [azurerm_resource_group.this]
+
   lifecycle {
     prevent_destroy = true
   }
@@ -153,6 +155,8 @@ resource "azurerm_subnet" "this" {
   resource_group_name  = var.resource_group
   virtual_network_name = var.vnet_name
   address_prefixes     = [var.subnet_address_prefix]
+
+  depends_on = [azurerm_virtual_network.this]
 
   lifecycle {
     prevent_destroy = true
