@@ -1,7 +1,7 @@
 # NOTE: Config-driven workflow. Values are read from
 # - infrastructure/config/globals.yaml (global defaults)
 # - config/envs/<env>.yaml (environment specifics)
-# Only input is action; matrix is derived from azure.aksClusters or the 'name' input.
+# This workflow supports naming-driven creation and controlled destroy.
 name: aks
 
 on:
@@ -23,12 +23,20 @@ on:
         description: Environment name (used to resolve config paths)
         required: false
         default: dev
-      size:
-        description: Optional cluster size (small|medium|large)
+      aks_name:
+        description: AKS cluster name (when provided, overrides env config)
         required: false
         default: ""
-      name:
-        description: Optional base name to derive AKS/RG/VNet/Subnet (e.g., dev-01 => rg-dev-01, vnet-dev-01, snet-dev-01)
+      rg_name:
+        description: Resource Group name (when provided, overrides env config)
+        required: false
+        default: ""
+      region:
+        description: Azure region (when provided, overrides globals.yaml)
+        required: false
+        default: ""
+      size:
+        description: Optional cluster size (small|medium|large) for vnet/subnet naming and node caps
         required: false
         default: ""
       create_rg:
@@ -41,10 +49,25 @@ on:
         required: false
         default: false
         type: boolean
+      push_changes:
+        description: Commit and push config updates (env file) to the current branch
+        required: false
+        default: true
+        type: boolean
+      delete_network:
+        description: On destroy, also delete VNet/Subnet via Azure CLI after AKS destroy
+        required: false
+        default: false
+        type: boolean
+      delete_rg:
+        description: On destroy, delete the entire Resource Group via Azure CLI (skips Terraform destroy)
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
 
 env:
   TF_INPUT: "false"
@@ -66,38 +89,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Resolve env config path
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-
-          # Install yq if not available
-          if ! command -v yq >/dev/null 2>&1; then
-            echo "Installing yq..."
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
-          fi
-
-          raw=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV" 2>/dev/null || echo "{}")
-
-          # Normalize: support map form {clusterName: {size, subnetName?}} or array form
-          clusters=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key))} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name))} ] else [] end' <<< "$raw")
-
-          # If matrix empty, fallback to aksName/subnetName in env config
-          if [ "$(jq -r 'length' <<< "$clusters")" -eq 0 ]; then
-            name=$(yq -r '.azure.aksName // ""' "$CFG_ENV" 2>/dev/null || echo "")
-            sname=$(yq -r '.azure.subnetName // ""' "$CFG_ENV" 2>/dev/null || echo "")
-            if [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
-              echo "::error ::No azure.aksClusters and missing azure.aksName/subnetName in env config"; exit 1
-            fi
-            clusters=$(jq -nc --arg n "$name" --arg s "$sname" '[{name:$n, subnetName:$s}]')
-          fi
-
-          # If a 'name' input was provided, override matrix with a single entry
-          in_name='${{ inputs.name || '' }}'
-          if [ -n "$in_name" ]; then
-            clusters=$(jq -nc --arg n "$in_name" --arg s "snet-$in_name" '[{name:$n, subnetName:$s}]')
-          fi
-
-          echo "matrix=$clusters" >> $GITHUB_OUTPUT
+          MATRIX=$( ./.github/scripts/aks.sh gen-matrix --cfg-env "$CFG_ENV" ${INPUT_NAME:+--name "$INPUT_NAME"} )
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+        env:
+          INPUT_NAME: ${{ inputs.aks_name || '' }}
 
   plan-apply:
     needs: prepare
@@ -170,101 +166,51 @@ jobs:
             echo "Backend config file not found: $CONFIG" >&2
           fi
 
-      - name: Build aks.auto.tfvars.json (using data sources)
+      - name: Resolve names and build aks.auto.tfvars.json
+        id: build
         working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
           set -euo pipefail
-          # Resolve config paths
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          
-          # Install yq if not available
-          if ! command -v yq >/dev/null 2>&1; then
-            echo "Installing yq..."
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
+          ./.github/scripts/aks.sh build-tfvars \
+            --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" --name "${{ matrix.name }}" \
+            ${INPUT_AKS_NAME:+--aks-name "$INPUT_AKS_NAME"} \
+            ${INPUT_RG_NAME:+--rg-name "$INPUT_RG_NAME"} \
+            ${INPUT_REGION:+--region "$INPUT_REGION"} \
+            ${INPUT_SIZE:+--size "$INPUT_SIZE"} \
+            --manage-network "${{ inputs.manage_network || false }}" \
+            --create-rg "${{ inputs.create_rg || false }}" \
+            --out aks.auto.tfvars.json --outputs-file "$GITHUB_OUTPUT"
+        env:
+          INPUT_AKS_NAME: ${{ inputs.aks_name || '' }}
+          INPUT_RG_NAME: ${{ inputs.rg_name || '' }}
+          INPUT_REGION: ${{ inputs.region || '' }}
+          INPUT_SIZE: ${{ inputs.size || '' }}
+
+      - name: Update env config and push changes
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.push_changes == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
+          ./.github/scripts/aks.sh update-config \
+            --cfg-env "$CFG_ENV" \
+            --rg '${{ steps.build.outputs.rg }}' \
+            --vnet '${{ steps.build.outputs.vnet }}' \
+            --subnet '${{ steps.build.outputs.subnet }}' \
+            --aks '${{ steps.build.outputs.aks }}' \
+            --location '${{ steps.build.outputs.location }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$CFG_ENV"
+          if ! git diff --cached --quiet; then
+            git commit -m "aks: update ${CFG_ENV} with naming-driven values"
+            git push
+          else
+            echo "No changes to commit"
           fi
-          
-          get_yaml() {
-            local file="$1" key="$2"
-            if command -v yq >/dev/null 2>&1; then
-              yq -r "$key" "$file" 2>/dev/null || true
-            else
-              grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
-            fi
-          }
-
-          # Normalization for derived names
-          norm() {
-            # lowercase, replace invalid chars with '-', collapse repeats, trim edges
-            echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9-]+/-/g; s/-+/-/g; s/^-|-$//g'
-          }
-          
-          # Get configuration values
-          rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
-          vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
-          location=$(get_yaml "$CFG_GLOBAL" '.azure.location')
-          name='${{ matrix.name }}'
-          sname='${{ matrix.subnetName }}'
-
-          # Derive from 'name' input if provided
-          in_name='${{ inputs.name || '' }}'
-          if [ -n "$in_name" ]; then
-            in_name=$(norm "$in_name")
-            name="$in_name"
-            sname="snet-$in_name"
-            rg="rg-$in_name"
-            vnet="vnet-$in_name"
-          fi
-
-          # Validate required config
-          if [ -z "${rg:-}" ] || [ -z "${vnet:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
-            echo "::error ::Missing required config: azure.resourceGroup, azure.vnetName, matrix/name, and subnetName are required."; exit 1
-          fi
-
-          echo "Resolved names:"
-          echo "  RG:    $rg"
-          echo "  VNet:  $vnet"
-          echo "  AKS:   $name"
-          echo "  Subnet:$sname"
-          echo "  Location: $(echo "$location" | tr -d '"')"
-          
-          # Optional size mapping for node pools (cost-optimized defaults for Visual Studio subscriptions)
-          size_in='${{ inputs.size || '' }}'
-          # Default to "small" profile when no size provided
-          sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2; user_spot=false
-          if [ -n "$size_in" ]; then
-            case "$size_in" in
-              small)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=2
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2 ;;
-              medium)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=4
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=4 ;;
-              large)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=8
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=8 ;;
-              *) : ;; # leave defaults
-            esac
-          fi
-
-          # Booleans (safe defaults)
-          manage_network='${{ inputs.manage_network }}'
-          [ -z "$manage_network" ] && manage_network=false
-          create_rg='${{ inputs.create_rg }}'
-          [ -z "$create_rg" ] && create_rg=false
-
-          # Build tfvars with VNet name for data source lookup
-          jq -n --arg rg "$rg" --arg vnet "$vnet" --arg location "$location" \
-                --arg name "$name" --arg sname "$sname" \
-                --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
-                --argjson user_min "$user_min" --argjson user_max "$user_max" --argjson user_spot "$user_spot" \
-                --argjson manage_network "$manage_network" --argjson create_rg "$create_rg" \
-                '{resource_group:$rg, vnet_name:$vnet, location:$location, aks_name:$name, subnet_name:$sname, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot, manage_network:$manage_network, create_resource_group:$create_rg}' \
-            > aks.auto.tfvars.json
-          echo "Wrote $(pwd)/aks.auto.tfvars.json (using Azure data sources)"
-          cat aks.auto.tfvars.json
 
       - name: Terraform plan
         if: ${{ inputs.action == 'plan' || inputs.action == 'apply' || github.event_name == 'push' }}
@@ -278,22 +224,15 @@ jobs:
         shell: bash
         run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
 
-      - name: Terraform destroy (AKS-only, preserve network)
+      - name: Destroy (AKS, optional network/RG)
         if: ${{ inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
           set -euo pipefail
-          echo "Detaching shared network resources from state (preserve network)"
-          if terraform state list >/dev/null 2>&1; then
-            terraform state list | grep -E 'module\.network_auto_create(\[[0-9]+\])?\.azurerm_(subnet|virtual_network|resource_group)\.this(\[[0-9]+\])?$' | while read -r addr; do
-              if [ -n "$addr" ]; then
-                echo " - $addr"
-                terraform state rm "$addr" || true
-              fi
-            done
-          fi
-          echo "Destroying AKS resources"
-          terraform destroy -auto-approve \
-            -target=azurerm_kubernetes_cluster_node_pool.apps \
-            -target=azurerm_kubernetes_cluster.this
+          ./.github/scripts/aks.sh destroy \
+            --rg '${{ steps.build.outputs.rg }}' \
+            --vnet '${{ steps.build.outputs.vnet }}' \
+            --subnet '${{ steps.build.outputs.subnet }}' \
+            --delete-rg '${{ inputs.delete_rg || false }}' \
+            --delete-network '${{ inputs.delete_network || false }}'
