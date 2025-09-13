@@ -42,10 +42,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "apps" {
   name                  = "apps"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
   vm_size               = var.user_vm_size
+  node_count            = var.user_min_count
   vnet_subnet_id        = local.final_subnet_id
-  enable_auto_scaling   = true
-  min_count             = 0
-  max_count             = var.user_max_count
   priority              = var.user_spot ? "Spot" : "Regular"
   eviction_policy       = var.user_spot ? "Delete" : null
   tags                  = var.tags
