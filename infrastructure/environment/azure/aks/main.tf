@@ -1,10 +1,6 @@
-data "azurerm_resource_group" "rg" {
-  name = var.resource_group
-}
-
 locals {
-  rg_name = data.azurerm_resource_group.rg.name
-  rg_loc  = data.azurerm_resource_group.rg.location
+  rg_name = var.resource_group
+  rg_loc  = var.location
 }
 
 # Validation is now implicit - if the subnet doesn't exist, the data source will fail with a clear error
