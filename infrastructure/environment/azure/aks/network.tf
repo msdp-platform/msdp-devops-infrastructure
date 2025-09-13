@@ -6,13 +6,13 @@
 variable "manage_network" {
   type        = bool
   description = "If true, create VNet/Subnet if they don't exist. If false, they must already exist."
-  default     = false
+  default     = true
 }
 
 variable "create_resource_group" {
   type        = bool
   description = "If true and manage_network is true, create resource group if it doesn't exist"
-  default     = false
+  default     = true
 }
 
 variable "vnet_address_space" {
