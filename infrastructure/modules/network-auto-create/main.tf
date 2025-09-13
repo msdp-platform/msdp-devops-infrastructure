@@ -87,8 +87,8 @@ data "azurerm_resources" "vnet_check" {
 }
 
 locals {
-  rg_location   = var.create_resource_group ? var.location : data.azurerm_resource_group.this[0].location
-  vnet_exists   = length(data.azurerm_resources.vnet_check.resources) > 0
+  rg_location = var.create_resource_group ? var.location : data.azurerm_resource_group.this[0].location
+  vnet_exists = length(data.azurerm_resources.vnet_check.resources) > 0
 }
 
 # Create VNet if it doesn't exist
