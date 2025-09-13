@@ -88,15 +88,20 @@ resource "azurerm_resource_group" "this" {
 # This read is scoped to the RG and would 404 if RG didn't exist; ensure ordering
 
 data "azurerm_resources" "vnet_check" {
-  type                = "Microsoft.Network/virtualNetworks"
-  resource_group_name = var.resource_group
-  name                = var.vnet_name
-
-  depends_on = [azurerm_resource_group.this]
+  type = "Microsoft.Network/virtualNetworks"
 }
 
 locals {
-  vnet_exists = length(data.azurerm_resources.vnet_check.resources) > 0
+  vnet_candidates = [
+    for r in data.azurerm_resources.vnet_check.resources :
+    r
+    if lower(r.name) == lower(var.vnet_name)
+    && (
+      try(r.resource_group_name, "") == var.resource_group
+      || can(regex("/resourceGroups/${var.resource_group}/", r.id))
+    )
+  ]
+  vnet_exists = length(local.vnet_candidates) > 0
 }
 
 # Create VNet if it doesn't exist
@@ -125,15 +130,20 @@ data "azurerm_virtual_network" "this" {
 # Check if subnet exists (after VNet is guaranteed to exist if module just created it)
 
 data "azurerm_resources" "subnet_check" {
-  type                = "Microsoft.Network/virtualNetworks/subnets"
-  resource_group_name = var.resource_group
-  name                = "${var.vnet_name}/${var.subnet_name}"
-
-  depends_on = [azurerm_virtual_network.this]
+  type = "Microsoft.Network/virtualNetworks/subnets"
 }
 
 locals {
-  subnet_exists = length(data.azurerm_resources.subnet_check.resources) > 0
+  subnet_candidates = [
+    for r in data.azurerm_resources.subnet_check.resources :
+    r
+    if (
+      try(r.resource_group_name, "") == var.resource_group
+      || can(regex("/resourceGroups/${var.resource_group}/", r.id))
+    )
+    && can(regex("/virtualNetworks/${var.vnet_name}/subnets/${var.subnet_name}$", r.id))
+  ]
+  subnet_exists = length(local.subnet_candidates) > 0
 }
 
 # Create subnet if it doesn't exist
