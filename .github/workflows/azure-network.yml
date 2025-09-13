@@ -8,45 +8,12 @@ on:
       - "infrastructure/config/**" # include if globals live here
   workflow_dispatch:
     inputs:
-      provision_type:
-        description: What to manage
-        required: true
-        default: new_rg_and_vnet
-        type: choice
-        options: [new_rg_and_vnet, existing_rg_new_vnet, existing_rg_and_vnet]
       action:
         description: plan | apply | destroy
         required: true
         default: plan
         type: choice
         options: [plan, apply, destroy]
-      resource_group:
-        required: true
-      location:
-        required: true
-        default: westeurope
-      vnet_name:
-        required: true
-        default: msdp-prod-vnet
-      address_space:
-        description: CSV list (e.g. 10.20.0.0/16)
-        required: false
-        default: ""
-      subnets_json:
-        description: JSON array of {name,cidr,nsg_name?}
-        required: false
-        default: ""
-      base_cidr:
-        required: false
-        default: ""
-      subnet_names:
-        description: CSV (e.g. app,db,ops)
-        required: false
-        default: ""
-      nsg_prefix:
-        description: NSG name prefix (computed mode)
-        required: false
-        default: ""
 
 permissions:
   id-token: write
@@ -114,96 +81,37 @@ jobs:
           terraform-version: 1.13.2
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
-      - name: Build network.auto.tfvars.json
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+      - name: Build network.auto.tfvars.json (from config)
         working-directory: infrastructure/environment/azure/network
         shell: bash
         run: |
           set -euo pipefail
-          # Basic required inputs
-          rg="${{ github.event.inputs.resource_group || '' }}"
-          loc="${{ github.event.inputs.location || '' }}"
-          vnet="${{ github.event.inputs.vnet_name || '' }}"
-          prov="${{ github.event.inputs.provision_type || '' }}"
-
-          if [ -z "$rg" ]; then echo "::error ::resource_group is required"; exit 1; fi
-          if [ -z "$vnet" ]; then echo "::error ::vnet_name is required"; exit 1; fi
-          if [ -z "$prov" ]; then echo "::error ::provision_type is required"; exit 1; fi
-          # derive management flags from provision_type
-          case "${{ github.event.inputs.provision_type }}" in
-            new_rg_and_vnet)
-              manage_rg=true; manage_vnet=true ;;
-            existing_rg_new_vnet)
-              manage_rg=false; manage_vnet=true ;;
-            existing_rg_and_vnet)
-              manage_rg=false; manage_vnet=false ;;
-            *) echo "Invalid provision_type" >&2; exit 1 ;;
-          esac
-          addr_csv="${{ github.event.inputs.address_space || '' }}"
-          addr_trim=$(printf '%s' "$addr_csv" | tr -d '[:space:]')
-          if [ -n "$addr_trim" ]; then
-            # explicit mode
-            addrs=$(printf '%s\n' "$addr_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
-            # validate at least one CIDR provided
-            if [ "$(jq -r 'length' <<< "$addrs")" -lt 1 ]; then
-              echo "::error ::address_space must include at least one CIDR (CSV)"; exit 1
-            fi
-            sj="${{ github.event.inputs.subnets_json || '' }}"
-            if [ -n "$sj" ]; then
-              # validate JSON
-              if ! subnets=$(printf '%s' "$sj" | jq -c .); then
-                echo "::error ::subnets_json must be valid JSON array of objects {name,cidr,nsg_name?}"; exit 1
-              fi
+          CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
+          CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
+          get_yaml() {
+            local file="$1" key="$2"
+            if command -v yq >/dev/null 2>&1; then
+              yq -r "$key" "$file" 2>/dev/null || true
             else
-              subnets='[]'
+              grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
             fi
-            if [ "$(jq -r 'length' <<< "$subnets")" -lt 1 ]; then
-              echo "::error ::subnets_json must include at least one subnet"; exit 1
-            fi
-            jq -n \
-              --arg rg "${{ github.event.inputs.resource_group || '' }}" \
-              --arg loc "${{ github.event.inputs.location || '' }}" \
-              --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
-              --argjson manage_rg "$manage_rg" \
-              --argjson manage_vnet "$manage_vnet" \
-              --argjson address_space "$addrs" \
-              --argjson subnets "$subnets" \
-              '{resource_group:$rg, location:$loc, vnet_name:$vnet, manage_resource_group:$manage_rg, manage_vnet:$manage_vnet, address_space:$address_space, subnets:$subnets}' \
-              > network.auto.tfvars.json
-          else
-            # computed mode
-            base="${{ github.event.inputs.base_cidr || '' }}"
-            if [ -z "$base" ]; then
-              echo "::error ::computed mode requires base_cidr (e.g., 10.20.0.0/16)"; exit 1
-            fi
-            names_csv="${{ github.event.inputs.subnet_names || '' }}"
-            if [ -n "$names_csv" ]; then
-              names=$(printf '%s\n' "$names_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
-            else
-              names='[]'
-            fi
-            # derive subnet count from names length if provided, else default 0
-            count=$(jq -r 'length' <<< "$names")
-            if [ "$count" -lt 1 ]; then
-              echo "::error ::computed mode requires subnet_names (CSV), e.g., app,db,ops"; exit 1
-            fi
-            newbits=8
-            nsg_prefix="${{ github.event.inputs.nsg_prefix || '' }}"
-            jq -n \
-              --arg rg "${{ github.event.inputs.resource_group || '' }}" \
-              --arg loc "${{ github.event.inputs.location || '' }}" \
-              --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
-              --argjson manage_rg "$manage_rg" \
-              --argjson manage_vnet "$manage_vnet" \
-              --arg base "$base" \
-              --argjson count "$count" \
-              --argjson newbits "$newbits" \
-              --argjson names "$names" \
-              --arg nsg_prefix "$nsg_prefix" \
-              '{resource_group:$rg, location:$loc, vnet_name:$vnet, manage_resource_group:$manage_rg, manage_vnet:$manage_vnet, base_cidr:$base, subnet_count:$count, subnet_newbits:$newbits, subnet_names:$names, nsg_prefix:$nsg_prefix}' \
-              > network.auto.tfvars.json
+          }
+          cfg_loc=$(get_yaml "$CFG_GLOBAL" '.azure.location')
+          cfg_rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
+          cfg_vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
+          cfg_vnet_cidr=$(get_yaml "$CFG_ENV" '.azure.vnetCidr')
+          cfg_subnet=$(get_yaml "$CFG_ENV" '.azure.subnetName')
+          cfg_subnet_cidr=$(get_yaml "$CFG_ENV" '.azure.subnetCidr')
+          if [ -z "${cfg_rg:-}" ] || [ -z "${cfg_loc:-}" ] || [ -z "${cfg_vnet:-}" ] || [ -z "${cfg_vnet_cidr:-}" ] || [ -z "${cfg_subnet:-}" ] || [ -z "${cfg_subnet_cidr:-}" ]; then
+            echo "::error ::Missing required config values for network (resourceGroup, location, vnetName, vnetCidr, subnetName, subnetCidr)."; exit 1
           fi
-          echo "Wrote $(pwd)/network.auto.tfvars.json"
+          addrs=$(jq -nc --arg cidr "$cfg_vnet_cidr" '$cidr|[.]')
+          subnets=$(jq -nc --arg name "$cfg_subnet" --arg cidr "$cfg_subnet_cidr" '[{name:$name,cidr:$cidr}]')
+          jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
+                --argjson address_space "$addrs" --argjson subnets "$subnets" \
+                '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
+            > network.auto.tfvars.json
+          echo "Wrote $(pwd)/network.auto.tfvars.json (config-driven)"
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}

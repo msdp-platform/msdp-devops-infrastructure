@@ -89,15 +89,51 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rg="${{ github.event.inputs.resource_group || '' }}"; name="${{ github.event.inputs.aks_name || '' }}"
-          if [ -z "$rg" ] || [ -z "$name" ]; then
-            echo "::error ::resource_group and aks_name are required"; exit 1
+          # Prefer config-driven values from globals/env
+          CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
+          CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
+          get_yaml() {
+            local file="$1" key="$2"
+            if command -v yq >/dev/null 2>&1; then
+              yq -r "$key" "$file" 2>/dev/null || true
+            else
+              grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
+            fi
+          }
+          rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
+          name=$(get_yaml "$CFG_ENV" '.azure.aksName')
+          vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
+          sname=$(get_yaml "$CFG_ENV" '.azure.subnetName')
+          net_key=$(get_yaml "$CFG_ENV" '.state.networkKey')
+          if [ -z "${rg:-}" ] || [ -z "${name:-}" ]; then
+            echo "::error ::Missing required config values for AKS (azure.resourceGroup, azure.aksName)."; exit 1
           fi
-          # Simplest: use existing RG, discover subnet by tags (role=aks)
-          jq -n --arg rg "$rg" --arg name "$name" \
-                '{resource_group:$rg, aks_name:$name, manage_resource_group:false}' \
+          # Read backend config for remote state bucket/region/ddb
+          CFG="${{ env.TF_BACKEND_CONFIG_FILE }}"
+          bucket=$(jq -r '.bucket' "$CFG")
+          region=$(jq -r '.region' "$CFG")
+          ddb=$(jq -r '.dynamodb_table' "$CFG")
+
+          if [ -n "${net_key:-}" ]; then
+            # Use remote_state to resolve subnet from the network stack outputs
+            jq -n --arg rg "$rg" --arg name "$name" \
+                  --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$net_key" \
+                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
               > aks.auto.tfvars.json
-          echo "Wrote $(pwd)/aks.auto.tfvars.json (tag-based subnet discovery)"
+            echo "Wrote $(pwd)/aks.auto.tfvars.json (remote_state mode)"
+          elif [ -n "${vnet:-}" ] && [ -n "${sname:-}" ]; then
+            # Fall back to name-based lookup
+            jq -n --arg rg "$rg" --arg name "$name" --arg vnet "$vnet" --arg sname "$sname" \
+                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false, vnet_name:$vnet, subnet_name:$sname}' \
+              > aks.auto.tfvars.json
+            echo "Wrote $(pwd)/aks.auto.tfvars.json (by_name mode)"
+          else
+            # Final fallback: tag-based discovery (role=aks from globals)
+            jq -n --arg rg "$rg" --arg name "$name" \
+                  '{resource_group:$rg, aks_name:$name, manage_resource_group:false}' \
+              > aks.auto.tfvars.json
+            echo "Wrote $(pwd)/aks.auto.tfvars.json (tag-based discovery)"
+          fi
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
