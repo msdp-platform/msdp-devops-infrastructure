@@ -15,10 +15,11 @@ resource "azurerm_kubernetes_cluster" "this" {
   workload_identity_enabled = true
 
   default_node_pool {
-    name           = "system"
-    vm_size        = var.system_vm_size
-    node_count     = var.system_node_count
-    vnet_subnet_id = local.final_subnet_id
+    name                        = "system"
+    vm_size                     = var.system_vm_size
+    node_count                  = var.system_node_count
+    vnet_subnet_id              = local.final_subnet_id
+    temporary_name_for_rotation = "sysrot"
   }
 
   identity {
