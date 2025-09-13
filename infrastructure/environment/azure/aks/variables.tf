@@ -24,31 +24,19 @@ variable "kubernetes_version" {
 
 variable "subnet_name" {
   type        = string
-  description = "Subnet name used to index the Network remote state outputs (subnets[\"<name>\"])"
+  description = "Name of the subnet to use for AKS nodes"
   default     = "snet-aks-dev"
 }
 
-variable "remote_state_bucket" {
+variable "vnet_name" {
   type        = string
-  description = "S3 bucket for reading network remote state"
-  default     = ""
+  description = "Name of the Virtual Network containing the subnet"
+  default     = "vnet-shared-dev"
 }
 
-variable "remote_state_region" {
+variable "vnet_resource_group" {
   type        = string
-  description = "AWS region for S3 remote state"
-  default     = ""
-}
-
-variable "remote_state_dynamodb_table" {
-  type        = string
-  description = "DynamoDB table for state locking (remote state)"
-  default     = ""
-}
-
-variable "remote_state_key" {
-  type        = string
-  description = "Remote state key for the network stack"
+  description = "Resource group containing the VNet (defaults to main resource_group if not specified)"
   default     = ""
 }
 

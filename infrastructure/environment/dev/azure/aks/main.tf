@@ -1,24 +1,5 @@
-############################
-# 1) Remote state (preferred)
-############################
-data "terraform_remote_state" "network" {
-  count   = var.use_remote_state ? 1 : 0
-  backend = "s3"
-  config = {
-    bucket         = "<BACKEND_BUCKET_PLACEHOLDER>"
-    key            = local.resolved.network_state_key
-    region         = "<BACKEND_REGION_PLACEHOLDER>"
-    dynamodb_table = "<BACKEND_DDB_PLACEHOLDER>"
-    encrypt        = true
-  }
-}
-
-locals {
-  rs_subnet_id = var.use_remote_state ? try(data.terraform_remote_state.network[0].outputs.subnet_id_aks, "") : ""
-}
-
 #################################
-# 2) Name-based subnet lookup
+# 1) Name-based subnet lookup (primary)
 #################################
 locals {
   have_names = (
@@ -29,21 +10,21 @@ locals {
 }
 
 data "azurerm_subnet" "by_name" {
-  count                = (local.rs_subnet_id == "" && local.have_names) ? 1 : 0
+  count                = local.have_names ? 1 : 0
   name                 = var.subnet_name
   virtual_network_name = var.vnet_name
   resource_group_name  = var.resource_group
 }
 
 locals {
-  name_subnet_id = (local.rs_subnet_id == "" && local.have_names) ? data.azurerm_subnet.by_name[0].id : ""
+  name_subnet_id = local.have_names ? data.azurerm_subnet.by_name[0].id : ""
 }
 
 #################################
-# 3) Tag-based discovery (strict)
+# 2) Tag-based discovery (fallback)
 #################################
 data "azurerm_resources" "subnets_by_tag" {
-  count               = (local.rs_subnet_id == "" && local.name_subnet_id == "" && !local.have_names) ? 1 : 0
+  count               = (!local.have_names) ? 1 : 0
   type                = "Microsoft.Network/virtualNetworks/subnets"
   resource_group_name = var.resource_group != "" ? var.resource_group : null
 
@@ -51,7 +32,7 @@ data "azurerm_resources" "subnets_by_tag" {
 }
 
 locals {
-  tag_matches   = length(data.azurerm_resources.subnets_by_tag) == 1 ? data.azurerm_resources.subnets_by_tag[0].resources : []
+  tag_matches   = (!local.have_names && length(data.azurerm_resources.subnets_by_tag) == 1) ? data.azurerm_resources.subnets_by_tag[0].resources : []
   tag_subnet_id = length(local.tag_matches) == 1 ? local.tag_matches[0].id : ""
 }
 
@@ -60,7 +41,6 @@ locals {
 #################################
 locals {
   effective_subnet_id = coalesce(
-    local.rs_subnet_id,
     local.name_subnet_id,
     local.tag_subnet_id,
     ""
@@ -71,14 +51,14 @@ resource "null_resource" "validate_subnet" {
   lifecycle {
     precondition {
       condition     = local.effective_subnet_id != ""
-      error_message = "Network prereq not satisfied: could not resolve subnet. Provide Network remote state (preferred), or set resource_group+vnet_name+subnet_name, or ensure exactly one subnet matches tags ${jsonencode(var.subnet_tags)}."
+      error_message = "Network prereq not satisfied: could not resolve subnet. Set resource_group+vnet_name+subnet_name, or ensure exactly one subnet matches tags ${jsonencode(var.subnet_tags)}."
     }
   }
 }
 
 # Optional: enforce strictness for tag discovery
 resource "null_resource" "validate_tag_uniqueness" {
-  count = (local.rs_subnet_id == "" && local.name_subnet_id == "" && !local.have_names) ? 1 : 0
+  count = (!local.have_names) ? 1 : 0
   lifecycle {
     precondition {
       condition     = length(local.tag_matches) == 1

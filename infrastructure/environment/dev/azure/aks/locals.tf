@@ -34,11 +34,6 @@ variable "subnet_tags" {
   default     = { role = "aks" }
 }
 
-variable "use_remote_state" {
-  description = "Whether to use remote state for subnet resolution"
-  type        = bool
-  default     = true
-}
 
 locals {
   # Load config paths

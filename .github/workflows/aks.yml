@@ -22,6 +22,11 @@ on:
         description: Optional cluster size (small|medium|large)
         required: false
         default: ""
+      manage_network:
+        description: Auto-create VNet/Subnet if they don't exist
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -137,14 +142,22 @@ jobs:
             echo "Backend config file not found: $CONFIG" >&2
           fi
 
-      - name: Build aks.auto.tfvars.json (remote_state only)
+      - name: Build aks.auto.tfvars.json (using data sources)
         working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
           set -euo pipefail
-          # Config-driven remote_state only (unique and steady)
+          # Config-driven using Azure data sources instead of remote state
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
+          
+          # Install yq if not available
+          if ! command -v yq >/dev/null 2>&1; then
+            echo "Installing yq..."
+            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+            sudo chmod +x /usr/local/bin/yq
+          fi
+          
           get_yaml() {
             local file="$1" key="$2"
             if command -v yq >/dev/null 2>&1; then
@@ -153,18 +166,19 @@ jobs:
               grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
             fi
           }
+          
+          # Get configuration values
           rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
+          vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
+          location=$(get_yaml "$CFG_GLOBAL" '.azure.location')
           name='${{ matrix.name }}'
           sname='${{ matrix.subnetName }}'
-          net_key=$(get_yaml "$CFG_ENV" '.state.networkKey')
-          if [ -z "${rg:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ] || [ -z "${net_key:-}" ]; then
-            echo "::error ::Missing required config: azure.resourceGroup, azure.aksName, azure.subnetName, and state.networkKey are required for remote_state mode."; exit 1
+          
+          # Validate required config
+          if [ -z "${rg:-}" ] || [ -z "${vnet:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
+            echo "::error ::Missing required config: azure.resourceGroup, azure.vnetName, matrix.name, and matrix.subnetName are required."; exit 1
           fi
-          # Read backend config for remote state bucket/region/ddb
-          CFG="${{ env.TF_BACKEND_CONFIG_FILE }}"
-          bucket=$(jq -r '.bucket' "$CFG")
-          region=$(jq -r '.region' "$CFG")
-          ddb=$(jq -r '.dynamodb_table' "$CFG")
+          
           # Optional size mapping for node pools
           size_in='${{ github.event.inputs.size || '' }}'
           sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_D4s_v5"; user_min=0; user_max=6; user_spot=true
@@ -180,14 +194,17 @@ jobs:
             esac
           fi
 
-          # Use remote_state to resolve subnet from the network stack outputs and apply optional size overrides
-          jq -n --arg rg "$rg" --arg name "$name" --arg sname "$sname" \
-                --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$net_key" \
+          # Build tfvars with VNet name for data source lookup
+          manage_network='${{ github.event.inputs.manage_network || false }}'
+          jq -n --arg rg "$rg" --arg vnet "$vnet" --arg location "$location" \
+                --arg name "$name" --arg sname "$sname" \
                 --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
                 --argjson user_min "$user_min" --argjson user_max "$user_max" --argjson user_spot "$user_spot" \
-                '{resource_group:$rg, aks_name:$name, subnet_name:$sname, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot}' \
+                --argjson manage_network "$manage_network" \
+                '{resource_group:$rg, vnet_name:$vnet, location:$location, aks_name:$name, subnet_name:$sname, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot, manage_network:$manage_network}' \
             > aks.auto.tfvars.json
-          echo "Wrote $(pwd)/aks.auto.tfvars.json (remote_state only)"
+          echo "Wrote $(pwd)/aks.auto.tfvars.json (using Azure data sources)"
+          cat aks.auto.tfvars.json
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}

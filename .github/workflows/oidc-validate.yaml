@@ -109,7 +109,7 @@ jobs:
         if: ${{ matrix.cloud == 'azure' }}
         uses: ./.github/actions/terraform-init
         with:
-          working-directory: infrastructure/environment/dev/azure/aks
+          working-directory: infrastructure/environment/azure/aks
           backend-config-file: infrastructure/environment/dev/backend/backend-config.json
 
       - name: Terraform validate (AWS)
@@ -120,7 +120,7 @@ jobs:
       - name: Terraform validate (Azure)
         if: ${{ matrix.cloud == 'azure' }}
         run: terraform validate
-        working-directory: infrastructure/environment/dev/azure/aks
+        working-directory: infrastructure/environment/azure/aks
 
       - name: Verify AWS caller identity
         run: aws sts get-caller-identity || true

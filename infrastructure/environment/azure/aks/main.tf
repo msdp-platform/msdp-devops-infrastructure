@@ -7,14 +7,7 @@ locals {
   rg_loc  = data.azurerm_resource_group.rg.location
 }
 
-resource "null_resource" "validate_subnet" {
-  lifecycle {
-    precondition {
-      condition     = local.effective_subnet_id != ""
-      error_message = "Network prereq not satisfied: could not resolve subnet from remote state. Ensure env.state.networkKey is set and the Network stack outputs include subnets[\"${var.subnet_name}\"].id"
-    }
-  }
-}
+# Validation is now implicit - if the subnet doesn't exist, the data source will fail with a clear error
 
 resource "azurerm_kubernetes_cluster" "this" {
   name                = var.aks_name
@@ -30,7 +23,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     name           = "system"
     vm_size        = var.system_vm_size
     node_count     = var.system_node_count
-    vnet_subnet_id = local.effective_subnet_id
+    vnet_subnet_id = local.final_subnet_id
   }
 
   identity {
@@ -55,7 +48,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "apps" {
   kubernetes_cluster_id = azurerm_kubernetes_cluster.this.id
   vm_size               = var.user_vm_size
   node_count            = var.user_min_count
-  vnet_subnet_id        = local.effective_subnet_id
+  vnet_subnet_id        = local.final_subnet_id
   priority              = var.user_spot ? "Spot" : "Regular"
   eviction_policy       = var.user_spot ? "Delete" : null
   tags                  = var.tags

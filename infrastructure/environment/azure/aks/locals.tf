@@ -1,20 +1,24 @@
 locals {
-  # Remote state is the single source of truth
-  use_remote_state = length(trimspace(var.remote_state_bucket)) > 0 && length(trimspace(var.remote_state_region)) > 0 && length(trimspace(var.remote_state_key)) > 0
+  # Use the VNet resource group if specified, otherwise use the main resource group
+  vnet_rg_name = coalesce(var.vnet_resource_group, var.resource_group)
 }
 
-data "terraform_remote_state" "network" {
-  count   = local.use_remote_state ? 1 : 0
-  backend = "s3"
-  config = {
-    bucket         = var.remote_state_bucket
-    key            = var.remote_state_key
-    region         = var.remote_state_region
-    dynamodb_table = var.remote_state_dynamodb_table
-    encrypt        = true
-  }
+# Conditional lookup - only if not managing network
+data "azurerm_virtual_network" "vnet" {
+  count               = var.manage_network ? 0 : 1
+  name                = var.vnet_name
+  resource_group_name = local.vnet_rg_name
+}
+
+# Conditional lookup - only if not managing network
+data "azurerm_subnet" "aks_subnet" {
+  count                = var.manage_network ? 0 : 1
+  name                 = var.subnet_name
+  virtual_network_name = var.vnet_name
+  resource_group_name  = local.vnet_rg_name
 }
 
 locals {
-  effective_subnet_id = local.use_remote_state ? try(data.terraform_remote_state.network[0].outputs.subnets["${var.subnet_name}"].id, "") : ""
+  # Direct reference to the subnet ID from data source (when not managing)
+  effective_subnet_id = var.manage_network ? "" : try(data.azurerm_subnet.aks_subnet[0].id, "")
 }
