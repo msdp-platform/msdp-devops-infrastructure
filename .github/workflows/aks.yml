@@ -22,6 +22,15 @@ on:
         description: Optional cluster size (small|medium|large)
         required: false
         default: ""
+      name:
+        description: Optional base name to derive AKS/RG/VNet/Subnet (e.g., dev-01 => rg-dev-01, vnet-dev-01, snet-dev-01)
+        required: false
+        default: ""
+      create_rg:
+        description: Create the Resource Group if it does not exist
+        required: false
+        default: false
+        type: boolean
       manage_network:
         description: Auto-create VNet/Subnet if they don't exist
         required: false
@@ -69,6 +78,10 @@ jobs:
               echo "::error ::No azure.aksClusters and missing azure.aksName/subnetName in env config"; exit 1
             fi
             clusters=$(jq -nc --arg n "$name" --arg s "$sname" '[{name:$n, subnetName:$s}]')
+          fi
+          in_name='${{ github.event.inputs.name || '' }}'
+          if [ -n "$in_name" ]; then
+            clusters=$(jq -nc --arg n "$in_name" --arg s "snet-$in_name" '[{name:$n, subnetName:$s}]')
           fi
           echo "matrix=$clusters" >> $GITHUB_OUTPUT
 
@@ -173,6 +186,15 @@ jobs:
           location=$(get_yaml "$CFG_GLOBAL" '.azure.location')
           name='${{ matrix.name }}'
           sname='${{ matrix.subnetName }}'
+
+          # If a 'name' input was provided, derive naming from it
+          in_name='${{ github.event.inputs.name || '' }}'
+          if [ -n "$in_name" ]; then
+            name="$in_name"
+            sname="snet-$in_name"
+            rg="rg-$in_name"
+            vnet="vnet-$in_name"
+          fi
           
           # Validate required config
           if [ -z "${rg:-}" ] || [ -z "${vnet:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
@@ -200,7 +222,7 @@ jobs:
 
           # Build tfvars with VNet name for data source lookup
           manage_network='${{ github.event.inputs.manage_network || false }}'
-          create_rg='false'
+          create_rg='${{ github.event.inputs.create_rg || false }}'
           jq -n --arg rg "$rg" --arg vnet "$vnet" --arg location "$location" \
                 --arg name "$name" --arg sname "$sname" \
                 --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
