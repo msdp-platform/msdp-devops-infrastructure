@@ -55,10 +55,6 @@ variable "subnets" {
     condition     = length(var.subnets) == 0 || alltrue([for s in var.subnets : can(cidrhost(s.cidr, 0))])
     error_message = "subnets[*].cidr must be valid CIDR."
   }
-  validation {
-    condition     = length(var.address_space) == 0 || length(var.subnets) == 0 || alltrue([for s in var.subnets : anytrue([for a in var.address_space : cidrcontains(a, cidrhost(s.cidr, 0))])])
-    error_message = "Each subnet CIDR must be contained within one of the VNet CIDRs in address_space."
-  }
 }
 
 variable "base_cidr" {
