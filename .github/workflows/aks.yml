@@ -18,6 +18,10 @@ on:
         default: plan
         type: choice
         options: [plan, apply, destroy]
+      size:
+        description: Optional cluster size (small|medium|large)
+        required: false
+        default: ""
 
 permissions:
   id-token: write
@@ -161,10 +165,27 @@ jobs:
           bucket=$(jq -r '.bucket' "$CFG")
           region=$(jq -r '.region' "$CFG")
           ddb=$(jq -r '.dynamodb_table' "$CFG")
-          # Use remote_state to resolve subnet from the network stack outputs
+          # Optional size mapping for node pools
+          size_in='${{ github.event.inputs.size || '' }}'
+          sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_D4s_v5"; user_min=0; user_max=6; user_spot=true
+          if [ -n "$size_in" ]; then
+            case "$size_in" in
+              small)
+                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_D4s_v5"; user_min=0; user_max=2 ;;
+              medium)
+                sys_count=2; sys_vm="Standard_D2s_v5"; user_vm="Standard_D4s_v5"; user_min=1; user_max=4 ;;
+              large)
+                sys_count=3; sys_vm="Standard_D4s_v5"; user_vm="Standard_D8s_v5"; user_min=2; user_max=8 ;;
+              *) : ;; # leave defaults
+            esac
+          fi
+
+          # Use remote_state to resolve subnet from the network stack outputs and apply optional size overrides
           jq -n --arg rg "$rg" --arg name "$name" --arg sname "$sname" \
                 --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$net_key" \
-                '{resource_group:$rg, aks_name:$name, subnet_name:$sname, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
+                --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
+                --argjson user_min "$user_min" --argjson user_max "$user_max" --argjson user_spot "$user_spot" \
+                '{resource_group:$rg, aks_name:$name, subnet_name:$sname, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot}' \
             > aks.auto.tfvars.json
           echo "Wrote $(pwd)/aks.auto.tfvars.json (remote_state only)"
 
