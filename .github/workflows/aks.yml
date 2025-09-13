@@ -200,12 +200,13 @@ jobs:
 
           # Build tfvars with VNet name for data source lookup
           manage_network='${{ github.event.inputs.manage_network || false }}'
+          create_rg='false'
           jq -n --arg rg "$rg" --arg vnet "$vnet" --arg location "$location" \
                 --arg name "$name" --arg sname "$sname" \
                 --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
                 --argjson user_min "$user_min" --argjson user_max "$user_max" --argjson user_spot "$user_spot" \
-                --argjson manage_network "$manage_network" \
-                '{resource_group:$rg, vnet_name:$vnet, location:$location, aks_name:$name, subnet_name:$sname, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot, manage_network:$manage_network}' \
+                --argjson manage_network "$manage_network" --argjson create_rg "$create_rg" \
+                '{resource_group:$rg, vnet_name:$vnet, location:$location, aks_name:$name, subnet_name:$sname, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot, manage_network:$manage_network, create_resource_group:$create_rg}' \
             > aks.auto.tfvars.json
           echo "Wrote $(pwd)/aks.auto.tfvars.json (using Azure data sources)"
           cat aks.auto.tfvars.json
