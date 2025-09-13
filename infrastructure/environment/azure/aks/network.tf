@@ -63,7 +63,7 @@ output "network_status" {
     mode              = "auto-create"
     resources_created = try(module.network_auto_create[0].created_resources, {})
     subnet_id         = local.final_subnet_id
-  } : {
+    } : {
     mode      = "lookup-only"
     subnet_id = local.effective_subnet_id
   }
