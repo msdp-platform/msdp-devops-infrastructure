@@ -179,17 +179,21 @@ jobs:
             echo "::error ::Missing required config: azure.resourceGroup, azure.vnetName, matrix.name, and matrix.subnetName are required."; exit 1
           fi
           
-          # Optional size mapping for node pools
+          # Optional size mapping for node pools (cost-optimized defaults for Visual Studio subscriptions)
           size_in='${{ github.event.inputs.size || '' }}'
-          sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_D4s_v5"; user_min=0; user_max=6; user_spot=true
+          # Default to "small" profile when no size provided
+          sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2; user_spot=false
           if [ -n "$size_in" ]; then
             case "$size_in" in
               small)
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_D4s_v5"; user_min=0; user_max=2 ;;
+                # system: B2s min=1 max=2 ; app: B2s min=0 max=2
+                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2 ;;
               medium)
-                sys_count=2; sys_vm="Standard_D2s_v5"; user_vm="Standard_D4s_v5"; user_min=1; user_max=4 ;;
+                # system: B2s min=1 max=2 ; app: B2s min=0 max=4
+                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=4 ;;
               large)
-                sys_count=3; sys_vm="Standard_D4s_v5"; user_vm="Standard_D8s_v5"; user_min=2; user_max=8 ;;
+                # system: B2s min=1 max=2 ; app: B2s min=0 max=8
+                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=8 ;;
               *) : ;; # leave defaults
             esac
           fi
