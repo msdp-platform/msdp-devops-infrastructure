@@ -120,6 +120,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Basic required inputs
+          rg="${{ github.event.inputs.resource_group || '' }}"
+          loc="${{ github.event.inputs.location || '' }}"
+          vnet="${{ github.event.inputs.vnet_name || '' }}"
+          prov="${{ github.event.inputs.provision_type || '' }}"
+
+          if [ -z "$rg" ]; then echo "::error ::resource_group is required"; exit 1; fi
+          if [ -z "$vnet" ]; then echo "::error ::vnet_name is required"; exit 1; fi
+          if [ -z "$prov" ]; then echo "::error ::provision_type is required"; exit 1; fi
           # derive management flags from provision_type
           case "${{ github.event.inputs.provision_type }}" in
             new_rg_and_vnet)
@@ -131,15 +140,25 @@ jobs:
             *) echo "Invalid provision_type" >&2; exit 1 ;;
           esac
           addr_csv="${{ github.event.inputs.address_space || '' }}"
-          if [ -n "$addr_csv" ]; then
+          addr_trim=$(printf '%s' "$addr_csv" | tr -d '[:space:]')
+          if [ -n "$addr_trim" ]; then
             # explicit mode
             addrs=$(printf '%s\n' "$addr_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
+            # validate at least one CIDR provided
+            if [ "$(jq -r 'length' <<< "$addrs")" -lt 1 ]; then
+              echo "::error ::address_space must include at least one CIDR (CSV)"; exit 1
+            fi
             sj="${{ github.event.inputs.subnets_json || '' }}"
             if [ -n "$sj" ]; then
               # validate JSON
-              subnets=$(printf '%s' "$sj" | jq -c .)
+              if ! subnets=$(printf '%s' "$sj" | jq -c .); then
+                echo "::error ::subnets_json must be valid JSON array of objects {name,cidr,nsg_name?}"; exit 1
+              fi
             else
               subnets='[]'
+            fi
+            if [ "$(jq -r 'length' <<< "$subnets")" -lt 1 ]; then
+              echo "::error ::subnets_json must include at least one subnet"; exit 1
             fi
             jq -n \
               --arg rg "${{ github.event.inputs.resource_group || '' }}" \
@@ -153,6 +172,10 @@ jobs:
               > network.auto.tfvars.json
           else
             # computed mode
+            base="${{ github.event.inputs.base_cidr || '' }}"
+            if [ -z "$base" ]; then
+              echo "::error ::computed mode requires base_cidr (e.g., 10.20.0.0/16)"; exit 1
+            fi
             names_csv="${{ github.event.inputs.subnet_names || '' }}"
             if [ -n "$names_csv" ]; then
               names=$(printf '%s\n' "$names_csv" | tr -s ' ' | tr ',' '\n' | jq -R . | jq -s .)
@@ -161,6 +184,9 @@ jobs:
             fi
             # derive subnet count from names length if provided, else default 0
             count=$(jq -r 'length' <<< "$names")
+            if [ "$count" -lt 1 ]; then
+              echo "::error ::computed mode requires subnet_names (CSV), e.g., app,db,ops"; exit 1
+            fi
             newbits=8
             nsg_prefix="${{ github.event.inputs.nsg_prefix || '' }}"
             jq -n \
@@ -169,7 +195,7 @@ jobs:
               --arg vnet "${{ github.event.inputs.vnet_name || '' }}" \
               --argjson manage_rg "$manage_rg" \
               --argjson manage_vnet "$manage_vnet" \
-              --arg base "${{ github.event.inputs.base_cidr || '' }}" \
+              --arg base "$base" \
               --argjson count "$count" \
               --argjson newbits "$newbits" \
               --argjson names "$names" \
