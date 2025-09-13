@@ -46,8 +46,11 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
 
 resource "aws_lambda_function" "location" {
   function_name = "${var.project}-location-${var.env}"
-  package_type  = var.lambda_image_uri != "" ? "Image" : "Zip"
-  image_uri     = var.lambda_image_uri
+  package_type  = "Zip"
+  filename      = var.lambda_zip_path
+  source_code_hash = filebase64sha256(var.lambda_zip_path)
+  handler       = "index.handler"
+  runtime       = "nodejs18.x"
   role          = aws_iam_role.lambda_exec.arn
 }
 

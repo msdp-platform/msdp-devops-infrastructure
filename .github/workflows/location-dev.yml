@@ -1,0 +1,38 @@
+name: location-dev
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - feature/location-gateway-lambda
+    paths:
+      - 'services/location/**'
+
+jobs:
+  plan-apply:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION || 'eu-west-1' }}
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE_ARN }}
+          role-session-name: github-actions-terraform
+      - name: Terraform Init
+        working-directory: services/location
+        run: terraform init -input=false
+      - name: Terraform Plan
+        working-directory: services/location
+        run: terraform plan -input=false -out=tfplan
+      - name: Terraform Apply (auto-approve on branch)
+        if: github.ref == 'refs/heads/feature/location-gateway-lambda'
+        working-directory: services/location
+        run: terraform apply -input=false -auto-approve tfplan
+
