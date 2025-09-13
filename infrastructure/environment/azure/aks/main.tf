@@ -24,6 +24,17 @@ resource "null_resource" "validate_subnet" {
   }
 }
 
+# Enforce exactly one match when using tag-based discovery
+resource "null_resource" "validate_tag_uniqueness" {
+  count = (var.subnet_id == "" && !local.use_remote_state && length(trimspace(var.subnet_name)) == 0) ? 1 : 0
+  lifecycle {
+    precondition {
+      condition     = length(local.tag_matches) == 1
+      error_message = length(local.tag_matches) == 0 ? "No subnet found with tags ${jsonencode(var.subnet_tags)}." : "Multiple subnets match tags ${jsonencode(var.subnet_tags)}. Refine tags or specify names."
+    }
+  }
+}
+
 resource "azurerm_kubernetes_cluster" "this" {
   name                = var.aks_name
   location            = local.rg_loc
@@ -68,4 +79,3 @@ resource "azurerm_kubernetes_cluster_node_pool" "apps" {
   eviction_policy       = var.user_spot ? "Delete" : null
   tags                  = var.tags
 }
-

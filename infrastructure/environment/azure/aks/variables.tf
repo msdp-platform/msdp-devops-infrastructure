@@ -46,6 +46,12 @@ variable "subnet_name" {
   default     = "snet-aks-dev"
 }
 
+variable "subnet_tags" {
+  type        = map(string)
+  description = "Tags used for tag-based subnet discovery (fallback when subnet_id and names are not provided)"
+  default     = { role = "aks" }
+}
+
 variable "remote_state_bucket" {
   type        = string
   description = "S3 bucket for reading network remote state"
@@ -111,4 +117,3 @@ variable "tags" {
   description = "Resource tags"
   default     = {}
 }
-

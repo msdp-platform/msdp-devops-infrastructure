@@ -8,12 +8,6 @@ on:
       - "infrastructure/config/**"
   workflow_dispatch:
     inputs:
-      provision_type:
-        description: Manage RG or use existing
-        required: true
-        default: existing_rg
-        type: choice
-        options: [new_rg, existing_rg]
       action:
         description: plan | apply | destroy
         required: true
@@ -23,34 +17,9 @@ on:
       resource_group:
         required: true
         default: rg-shared-dev
-      location:
-        required: true
-        default: uksouth
       aks_name:
         required: true
         default: aks-dev-01
-      subnet_mode:
-        description: How to select subnet
-        required: true
-        default: by_name
-        type: choice
-        options: [explicit, remote_state, by_name]
-      subnet_id:
-        description: Subnet ID (explicit mode)
-        required: false
-        default: ""
-      network_state_key:
-        description: Network state key (remote_state mode)
-        required: false
-        default: "network/dev.tfstate"
-      vnet_name:
-        description: VNet name (by_name mode)
-        required: false
-        default: vnet-shared-dev
-      subnet_name:
-        description: Subnet name (by_name mode)
-        required: false
-        default: snet-aks-dev
 
 permissions:
   id-token: write
@@ -120,53 +89,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          prov="${{ github.event.inputs.provision_type || '' }}"; mode="${{ github.event.inputs.subnet_mode || '' }}"
-          rg="${{ github.event.inputs.resource_group || '' }}"; loc="${{ github.event.inputs.location || '' }}"; name="${{ github.event.inputs.aks_name || '' }}"
-          if [ -z "$rg" ] || [ -z "$name" ] || [ -z "$prov" ] || [ -z "$mode" ]; then
-            echo "::error ::resource_group, aks_name, provision_type, subnet_mode are required"; exit 1
+          rg="${{ github.event.inputs.resource_group || '' }}"; name="${{ github.event.inputs.aks_name || '' }}"
+          if [ -z "$rg" ] || [ -z "$name" ]; then
+            echo "::error ::resource_group and aks_name are required"; exit 1
           fi
-          case "$prov" in
-            new_rg) manage_rg=true ;;
-            existing_rg) manage_rg=false ;;
-            *) echo "::error ::Invalid provision_type: $prov"; exit 1 ;;
-          esac
-
-          # Read backend config to populate remote state bucket/region
-          CFG="${{ env.TF_BACKEND_CONFIG_FILE }}"
-          bucket=$(jq -r '.bucket' "$CFG")
-          region=$(jq -r '.region' "$CFG")
-          ddb=$(jq -r '.dynamodb_table' "$CFG")
-
-          case "$mode" in
-            explicit)
-              sid="${{ github.event.inputs.subnet_id || '' }}"
-              if [ -z "$sid" ]; then echo "::error ::subnet_id is required for explicit mode"; exit 1; fi
-              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
-                    --argjson manage_rg "$manage_rg" --arg sid "$sid" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, subnet_id:$sid}' \
-                > aks.auto.tfvars.json
-              ;;
-            remote_state)
-              nkey="${{ github.event.inputs.network_state_key || '' }}"
-              if [ -z "$nkey" ]; then echo "::error ::network_state_key is required for remote_state mode"; exit 1; fi
-              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
-                    --argjson manage_rg "$manage_rg" \
-                    --arg bucket "$bucket" --arg region "$region" --arg ddb "$ddb" --arg key "$nkey" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, remote_state_bucket:$bucket, remote_state_region:$region, remote_state_dynamodb_table:$ddb, remote_state_key:$key}' \
-                > aks.auto.tfvars.json
-              ;;
-            by_name)
-              vnet="${{ github.event.inputs.vnet_name || '' }}"; sname="${{ github.event.inputs.subnet_name || '' }}"
-              if [ -z "$vnet" ] || [ -z "$sname" ]; then echo "::error ::vnet_name and subnet_name are required for by_name mode"; exit 1; fi
-              jq -n --arg rg "$rg" --arg loc "$loc" --arg name "$name" \
-                    --argjson manage_rg "$manage_rg" \
-                    --arg vnet "$vnet" --arg sname "$sname" \
-                    '{resource_group:$rg, location:$loc, aks_name:$name, manage_resource_group:$manage_rg, vnet_name:$vnet, subnet_name:$sname}' \
-                > aks.auto.tfvars.json
-              ;;
-            *) echo "::error ::Invalid subnet_mode: $mode"; exit 1 ;;
-          esac
-          echo "Wrote $(pwd)/aks.auto.tfvars.json"
+          # Simplest: use existing RG, discover subnet by tags (role=aks)
+          jq -n --arg rg "$rg" --arg name "$name" \
+                '{resource_group:$rg, aks_name:$name, manage_resource_group:false}' \
+              > aks.auto.tfvars.json
+          echo "Wrote $(pwd)/aks.auto.tfvars.json (tag-based subnet discovery)"
 
       - name: Terraform plan
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
