@@ -26,6 +26,10 @@ variable "vnet_name" {
 variable "vnet_address_space" {
   type        = list(string)
   description = "Address space for VNet"
+  validation {
+    condition     = alltrue([for cidr in var.vnet_address_space : can(cidrnetmask(cidr))])
+    error_message = "All vnet_address_space entries must be valid CIDR blocks."
+  }
 }
 
 variable "subnet_name" {
@@ -36,6 +40,10 @@ variable "subnet_name" {
 variable "subnet_address_prefix" {
   type        = string
   description = "Address prefix for subnet"
+  validation {
+    condition     = can(cidrnetmask(var.subnet_address_prefix))
+    error_message = "subnet_address_prefix must be a valid CIDR block."
+  }
 }
 
 variable "create_resource_group" {
@@ -51,8 +59,6 @@ variable "tags" {
 }
 
 # Check and create resource group
-data "azurerm_client_config" "current" {}
-
 resource "azurerm_resource_group" "this" {
   count    = var.create_resource_group ? 1 : 0
   name     = var.resource_group
@@ -60,19 +66,14 @@ resource "azurerm_resource_group" "this" {
   tags     = var.tags
 
   lifecycle {
-    create_before_destroy = true
+    prevent_destroy = true
   }
 }
 
 # Get the resource group (existing or created)
 data "azurerm_resource_group" "this" {
   name = var.resource_group
-  
   depends_on = [azurerm_resource_group.this]
-}
-
-locals {
-  rg_location = data.azurerm_resource_group.this.location
 }
 
 # Check if VNet exists
@@ -80,12 +81,7 @@ data "azurerm_resources" "vnet_check" {
   type                = "Microsoft.Network/virtualNetworks"
   resource_group_name = var.resource_group
   name                = var.vnet_name
-  
-  depends_on = [azurerm_resource_group.this]
-}
-
-locals {
-  vnet_exists = length(data.azurerm_resources.vnet_check.resources) > 0
+  depends_on          = [azurerm_resource_group.this]
 }
 
 # Create VNet if it doesn't exist
@@ -96,11 +92,10 @@ resource "azurerm_virtual_network" "this" {
   resource_group_name = var.resource_group
   address_space       = var.vnet_address_space
   tags                = var.tags
-  
-  depends_on = [azurerm_resource_group.this]
+  depends_on          = [azurerm_resource_group.this]
 
   lifecycle {
-    create_before_destroy = true
+    prevent_destroy = true
   }
 }
 
@@ -108,20 +103,20 @@ resource "azurerm_virtual_network" "this" {
 data "azurerm_virtual_network" "this" {
   name                = var.vnet_name
   resource_group_name = var.resource_group
-  
-  depends_on = [azurerm_virtual_network.this]
+  depends_on          = [azurerm_virtual_network.this]
 }
 
 # Check if subnet exists
 data "azurerm_resources" "subnet_check" {
   type                = "Microsoft.Network/virtualNetworks/subnets"
   resource_group_name = var.resource_group
-  name                = "${var.vnet_name}/subnets/${var.subnet_name}"
-  
-  depends_on = [azurerm_virtual_network.this]
+  name                = "${var.vnet_name}/${var.subnet_name}"
+  depends_on          = [azurerm_virtual_network.this]
 }
 
 locals {
+  rg_location   = data.azurerm_resource_group.this.location
+  vnet_exists   = length(data.azurerm_resources.vnet_check.resources) > 0
   subnet_exists = length(data.azurerm_resources.subnet_check.resources) > 0
 }
 
@@ -132,11 +127,10 @@ resource "azurerm_subnet" "this" {
   resource_group_name  = var.resource_group
   virtual_network_name = var.vnet_name
   address_prefixes     = [var.subnet_address_prefix]
-  
-  depends_on = [azurerm_virtual_network.this]
+  depends_on           = [azurerm_virtual_network.this]
 
   lifecycle {
-    create_before_destroy = true
+    prevent_destroy = true
   }
 }
 
@@ -145,8 +139,7 @@ data "azurerm_subnet" "this" {
   name                 = var.subnet_name
   virtual_network_name = var.vnet_name
   resource_group_name  = var.resource_group
-  
-  depends_on = [azurerm_subnet.this]
+  depends_on           = [azurerm_subnet.this]
 }
 
 # Outputs
