@@ -220,7 +220,32 @@ jobs:
         working-directory: infrastructure/environment/azure/aks
         run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
 
-      - name: Terraform destroy
+      - name: Terraform destroy (AKS-only, preserve network)
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/aks
-        run: terraform destroy -auto-approve
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Detach shared network resources from state to avoid prevent_destroy errors and preserve them
+          if terraform state list >/dev/null 2>&1; then
+            for pattern in \
+              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_subnet\.this(\[[0-9]+\])?
+ \
+              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_virtual_network\.this(\[[0-9]+\])?
+ \
+              '^module\.network_auto_create(\[[0-9]+\])?\.azurerm_resource_group\.this(\[[0-9]+\])?
+; do
+              addrs=$(terraform state list | grep -E "$pattern" || true)
+              if [ -n "$addrs" ]; then
+                echo "Detaching from state:"
+                echo "$addrs"
+                for addr in $addrs; do
+                  terraform state rm "$addr" || true
+                done
+              fi
+            done
+          fi
+          # Destroy AKS resources only
+          terraform destroy -auto-approve \
+            -target=azurerm_kubernetes_cluster_node_pool.apps \
+            -target=azurerm_kubernetes_cluster.this
