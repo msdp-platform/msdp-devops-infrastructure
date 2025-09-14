@@ -8,59 +8,11 @@ description: "Generates network.auto.tfvars.json from config files for Azure net
 runs:
   using: "composite"
   steps:
-    - name: Generate network.auto.tfvars.json
+    - name: Install Python dependencies
       shell: bash
-      run: |
-        set -euo pipefail
-        CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
-        CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
-        get_yaml() {
-          local file="$1" key="$2"
-          if command -v yq >/dev/null 2>&1; then
-            yq -r "$key" "$file" 2>/dev/null || true
-          else
-            grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
-          fi
-        }
-        cfg_loc=$(get_yaml "$CFG_GLOBAL" '.azure.location')
-        cfg_rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
-        cfg_vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
-        cfg_vnet_cidr=$(get_yaml "$CFG_ENV" '.azure.vnetCidr')
-        clusters_json="{}"
-        if command -v yq >/dev/null 2>&1; then
-          clusters_json=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV")
-        fi
-        addrs=$(jq -nc --arg cidr "$cfg_vnet_cidr" '$cidr|[.]')
-        clusters_arr=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key)), size: (.value.size // "medium")} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name)), size: (.size // "medium")} ] else [] end' <<< "$clusters_json")
-        if [ "$(jq -r 'length' <<< "$clusters_arr")" -gt 0 ]; then
-          map_size() { case "$1" in large) echo 8;; medium) echo 9;; small) echo 10;; *) echo 9;; esac }
-          spec='[]'
-          for row in $(echo "$clusters_arr" | jq -c '.[]'); do
-            sname=$(echo "$row" | jq -r '.subnetName')
-            size_in='${{ inputs.size || '' }}'
-            if [ -n "$size_in" ]; then
-              size="$size_in"
-            else
-              size=$(echo "$row" | jq -r '.size')
-            fi
-            nb=$(map_size "$size")
-            spec=$(jq -nc --argjson cur "$spec" --arg n "$sname" --argjson nb "$nb" '$cur + [{name:$n,newbits:$nb}]')
-          done
-          jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
-                --arg base "$cfg_vnet_cidr" --argjson spec "$spec" \
-                '{resource_group:$rg, location:$loc, vnet_name:$vnet, base_cidr:$base, computed_subnets_spec:$spec}' \
-            > network.auto.tfvars.json
-          echo "Wrote $(pwd)/network.auto.tfvars.json (computed_subnets_spec from aksClusters)"
-        else
-          cfg_subnet=$(get_yaml "$CFG_ENV" '.azure.subnetName')
-          cfg_subnet_cidr=$(get_yaml "$CFG_ENV" '.azure.subnetCidr')
-          if [ -z "${cfg_rg:-}" ] || [ -z "${cfg_loc:-}" ] || [ -z "${cfg_vnet:-}" ] || [ -z "${cfg_vnet_cidr:-}" ] || [ -z "${cfg_subnet:-}" ] || [ -z "${cfg_subnet_cidr:-}" ]; then
-            echo "::error ::Missing required config values for network (resourceGroup, location, vnetName, vnetCidr, subnetName, subnetCidr)."; exit 1
-          fi
-          subnets=$(jq -nc --arg name "$cfg_subnet" --arg cidr "$cfg_subnet_cidr" '[{name:$name,cidr:$cidr}]')
-          jq -n --arg rg "$cfg_rg" --arg loc "$cfg_loc" --arg vnet "$cfg_vnet" \
-                --argjson address_space "$addrs" --argjson subnets "$subnets" \
-                '{resource_group:$rg, location:$loc, vnet_name:$vnet, address_space:$address_space, subnets:$subnets}' \
-            > network.auto.tfvars.json
-          echo "Wrote $(pwd)/network.auto.tfvars.json (single subnet)"
-        fi
+      run: pip install pyyaml
+    - name: Generate network.auto.tfvars.json
+      shell: python
+      env:
+        INPUT_SIZE: ${{ inputs.size || '' }}
+      run: .github/scripts/network/generate_network_tfvars.py
