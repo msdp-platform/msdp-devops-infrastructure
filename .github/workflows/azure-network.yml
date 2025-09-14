@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/shared-terraform.yaml
     with:
       env: dev
-      cloud: azure
+      cloud: aws
       app: network
       action: ${{ github.event.inputs.action || 'plan' }}
       kubernetes_version: ""
