@@ -97,7 +97,7 @@ jobs:
         working-directory: infrastructure/environment/azure/network
         run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
       - name: Terraform destroy
-      - name: Terraform destroy
+        # ...existing code...
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform destroy -auto-approve || { terraform plan -out=tfplan && terraform destroy -auto-approve; }
