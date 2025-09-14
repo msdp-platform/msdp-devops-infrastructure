@@ -23,6 +23,8 @@ on:
         description: Environment name (used to resolve config paths)
         required: false
         default: dev
+        type: choice
+        options: [dev, test, prod]
       aks_name:
         description: AKS cluster name (when provided, overrides env config)
         required: false
@@ -86,7 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          MATRIX=$( ./.github/scripts/aks.sh gen-matrix --cfg-env "$CFG_ENV" ${INPUT_NAME:+--name "$INPUT_NAME"} )
+          MATRIX=$( bash ./.github/scripts/aks.sh gen-matrix --cfg-env "$CFG_ENV" ${INPUT_NAME:+--name "$INPUT_NAME"} )
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
         env:
           INPUT_NAME: ${{ inputs.aks_name || '' }}
@@ -170,7 +172,7 @@ jobs:
           set -euo pipefail
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          ./.github/scripts/aks.sh build-tfvars \
+          bash ./.github/scripts/aks.sh build-tfvars \
             --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" --name "${{ matrix.name }}" \
             ${INPUT_AKS_NAME:+--aks-name "$INPUT_AKS_NAME"} \
             ${INPUT_RG_NAME:+--rg-name "$INPUT_RG_NAME"} \
@@ -191,7 +193,7 @@ jobs:
         run: |
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          ./.github/scripts/aks.sh update-config \
+          bash ./.github/scripts/aks.sh update-config \
             --cfg-env "$CFG_ENV" \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
@@ -230,7 +232,7 @@ jobs:
           DEL_RG=false; DEL_NET=false
           if [ "$DEL_SCOPE" = "resource_group" ]; then DEL_RG=true; fi
           if [ "$DEL_SCOPE" = "aks_and_network" ]; then DEL_NET=true; fi
-          ./.github/scripts/aks.sh destroy \
+          bash ./.github/scripts/aks.sh destroy \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
             --subnet '${{ steps.build.outputs.subnet }}' \
