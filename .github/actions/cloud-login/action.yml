@@ -4,19 +4,19 @@ description: "Composite action to login to AWS and Azure using GitHub OIDC (no s
 inputs:
   aws-role-arn:
     description: "AWS IAM Role ARN to assume via OIDC"
-    required: true
+    required: false
   aws-region:
     description: "AWS region for CLI operations (e.g., eu-west-1)"
-    required: true
+    required: false
   azure-client-id:
     description: "Azure Entra ID Application (Client) ID for OIDC login"
-    required: true
+    required: false
   azure-tenant-id:
     description: "Azure Entra ID Tenant ID"
-    required: true
+    required: false
   azure-subscription-id:
     description: "Azure Subscription ID to target"
-    required: true
+    required: false
 
 runs:
   using: "composite"
@@ -25,15 +25,17 @@ runs:
     # This exchanges the GitHub OIDC token for short-lived credentials
     # on the specified IAM role; no static AWS keys are required.
     - name: Configure AWS credentials (OIDC)
+      if: ${{ inputs.aws-role-arn != '' }}
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.aws-role-arn }}
-        aws-region: ${{ inputs.aws-region }}
+        aws-region: ${{ inputs.aws-region || env.AWS_REGION || env.AWS_DEFAULT_REGION }}
 
     # Step 2: Azure Login using OIDC.
     # The action exchanges the GitHub OIDC token for an Azure token
     # bound to the provided Client ID/Tenant/Subscription.
     - name: Azure Login (OIDC)
+      if: ${{ inputs.azure-client-id != '' && inputs.azure-tenant-id != '' && inputs.azure-subscription-id != '' }}
       uses: azure/login@v2
       with:
         client-id: ${{ inputs.azure-client-id }}
