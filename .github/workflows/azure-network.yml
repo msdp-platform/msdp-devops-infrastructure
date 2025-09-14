@@ -21,71 +21,20 @@ permissions:
   contents: read
 
 jobs:
-  backend-setup:
-    runs-on: ubuntu-latest
-    outputs:
-      aws-account-id: ${{ steps.set-backend.outputs.aws-account-id }}
-      bucket: ${{ steps.set-backend.outputs.bucket }}
-      table: ${{ steps.set-backend.outputs.table }}
-      key: ${{ steps.set-backend.outputs.key }}
-      pipeline-name: ${{ steps.set-backend.outputs.pipeline-name }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-west-1
-          audience: sts.amazonaws.com
-          output-env-credentials: true
-      - name: Set and Print Backend Config
-        id: set-backend
-        run: |
-          export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-          export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-          export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
-          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:0:4}****"
-          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:0:4}****"
-          echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:0:4}****"
-          # Simulate backend config resolution (replace with actual logic)
-          AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-${{ secrets.AWS_ACCOUNT_ID }}}"
-          BUCKET="msdp-terraform-state-dev"
-          TABLE="tfstate-locks-${AWS_ACCOUNT_ID}-euw1"
-          KEY="dev/terraform.tfstate"
-          PIPELINE_NAME="tf-msdp-devops-infrastructure-dev-aws-network-d458b911"
-          echo "Resolved AWS account ID: $AWS_ACCOUNT_ID"
-          echo "BUCKET=$BUCKET"
-          echo "TABLE=$TABLE"
-          echo "KEY=$KEY"
-          echo "PIPELINE_NAME=$PIPELINE_NAME"
-          echo "aws-account-id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
-          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
-          echo "table=$TABLE" >> $GITHUB_OUTPUT
-          echo "key=$KEY" >> $GITHUB_OUTPUT
-          echo "pipeline-name=$PIPELINE_NAME" >> $GITHUB_OUTPUT
-
   network-logic:
-    needs: backend-setup
     runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: true
     steps:
       - uses: actions/checkout@v4
-      - name: Cloud Login (AWS + Azure)
+      - name: Cloud Login (AWS)
         uses: ./.github/actions/cloud-login
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Export AWS Credentials
-        run: |
-          export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-          export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-          export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
-          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:0:4}****"
-          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:0:4}****"
-          echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:0:4}****"
       - name: Build network.auto.tfvars.json (from config)
         uses: ./.github/actions/network-tfvars
         with:
@@ -103,6 +52,7 @@ jobs:
           key-salt: infrastructure/environment/azure/network
           aws-region: eu-west-1
           use-shared-lock-table: "true"
+          aws-account-id: ${{ secrets.AWS_ACCOUNT_ID }}
       - name: Terraform Init
         uses: ./.github/actions/terraform-init
         with:
