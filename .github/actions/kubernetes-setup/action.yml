@@ -209,6 +209,8 @@ runs:
     - name: Install kubelogin for AKS
       if: ${{ inputs.provider == 'aks' }}
       uses: azure/use-kubelogin@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
       with:
         kubelogin-version: latest
 
