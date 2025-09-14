@@ -38,6 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Cloud Login (OIDC for AWS)
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
       - name: Build network.auto.tfvars.json (from config)
         uses: ./.github/actions/network-tfvars
         with:
