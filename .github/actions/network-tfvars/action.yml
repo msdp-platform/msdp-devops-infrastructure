@@ -1,3 +1,8 @@
+inputs:
+  size:
+    description: Optional subnet size override (large|medium|small)
+    required: false
+    default: ""
 name: "Generate Network tfvars"
 description: "Generates network.auto.tfvars.json from config files for Azure network stack."
 runs:
