@@ -68,13 +68,7 @@ jobs:
   network-logic:
     needs: backend-setup
     runs-on: ubuntu-latest
-    env:
-      AWS_ACCOUNT_ID: ${{ needs.backend-setup.outputs.aws-account-id }}
-      BUCKET: ${{ needs.backend-setup.outputs.bucket }}
-      TABLE: ${{ needs.backend-setup.outputs.table }}
-      KEY: ${{ needs.backend-setup.outputs.key }}
-      PIPELINE_NAME: ${{ needs.backend-setup.outputs.pipeline-name }}
-    steps:
+        steps:
       - uses: actions/checkout@v4
       - name: Cloud Login (AWS + Azure)
         uses: ./.github/actions/cloud-login
@@ -96,18 +90,25 @@ jobs:
         uses: ./.github/actions/network-tfvars
         with:
           size: ${{ github.event.inputs.size || '' }}
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - name: Ensure Terraform backend (S3/DynamoDB)
+        uses: ./.github/actions/terraform-backend
         with:
-          terraform_version: 1.9.5
-      - name: Terraform init (S3 backend)
-        working-directory: infrastructure/environment/azure/network
-        run: |
-          terraform init \
-            -backend-config="bucket=${{ env.BUCKET }}" \
-            -backend-config="key=${{ env.KEY }}" \
-            -backend-config="region=eu-west-1" \
-            -backend-config="dynamodb_table=${{ env.TABLE }}"
+          repo-shortname: infra
+          project: msdp
+          env: dev
+          cloud: aws
+          cloud-segment: azure
+          app: network
+          function: tfstate
+          key-salt: infrastructure/environment/azure/network
+          aws-region: eu-west-1
+          use-shared-lock-table: "true"
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/network
+          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
+          terraform-version: 1.9.5
       - name: Terraform plan
         if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
