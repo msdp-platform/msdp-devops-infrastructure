@@ -12,37 +12,26 @@ on:
         description: plan | apply | destroy
         required: true
         default: plan
-        type: choice
-        options: [plan, apply, destroy]
       size:
         description: Optional subnet size override (large|medium|small)
         required: false
         default: ""
-
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  shared-terraform:
-    uses: ./.github/workflows/shared-terraform.yaml
-    with:
-      env: dev
-      cloud: aws
-      app: network
-      action: ${{ github.event.inputs.action || 'plan' }}
-      kubernetes_version: ""
-
-  network-logic:
-    needs: shared-terraform
+  backend-setup:
     runs-on: ubuntu-latest
+    outputs:
+      aws-account-id: ${{ steps.set-backend.outputs.aws-account-id }}
+      bucket: ${{ steps.set-backend.outputs.bucket }}
+      table: ${{ steps.set-backend.outputs.table }}
+      key: ${{ steps.set-backend.outputs.key }}
+      pipeline-name: ${{ steps.set-backend.outputs.pipeline-name }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Cloud Login (OIDC for AWS)
-        uses: ./.github/actions/cloud-login
-        with:
-          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-west-1
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -50,12 +39,68 @@ jobs:
           aws-region: eu-west-1
           audience: sts.amazonaws.com
           output-env-credentials: true
-      - name: Debug AWS Credentials
+      - name: Set and Print Backend Config
+        id: set-backend
         run: |
+          export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+          export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+          export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
+          echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:0:4}****"
+          echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:0:4}****"
+          echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:0:4}****"
+          # Simulate backend config resolution (replace with actual logic)
+          AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-${{ secrets.AWS_ACCOUNT_ID }}}"
+          BUCKET="msdp-terraform-state-dev"
+          TABLE="tfstate-locks-${AWS_ACCOUNT_ID}-euw1"
+          KEY="dev/terraform.tfstate"
+          PIPELINE_NAME="tf-msdp-devops-infrastructure-dev-aws-network-d458b911"
+          echo "Resolved AWS account ID: $AWS_ACCOUNT_ID"
+          echo "BUCKET=$BUCKET"
+          echo "TABLE=$TABLE"
+          echo "KEY=$KEY"
+          echo "PIPELINE_NAME=$PIPELINE_NAME"
+          echo "aws-account-id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "bucket=$BUCKET" >> $GITHUB_OUTPUT
+          echo "table=$TABLE" >> $GITHUB_OUTPUT
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+          echo "pipeline-name=$PIPELINE_NAME" >> $GITHUB_OUTPUT
+
+  network-logic:
+    needs: backend-setup
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCOUNT_ID: ${{ needs.backend-setup.outputs.aws-account-id }}
+      BUCKET: ${{ needs.backend-setup.outputs.bucket }}
+      TABLE: ${{ needs.backend-setup.outputs.table }}
+      KEY: ${{ needs.backend-setup.outputs.key }}
+      PIPELINE_NAME: ${{ needs.backend-setup.outputs.pipeline-name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Export AWS Credentials
+        run: |
+          export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
+          export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
+          export AWS_SESSION_TOKEN="${AWS_SESSION_TOKEN}"
           echo "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:0:4}****"
           echo "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:0:4}****"
           echo "AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:0:4}****"
       - name: Build network.auto.tfvars.json (from config)
+        uses: ./.github/actions/network-tfvars
+        with:
+          size: ${{ github.event.inputs.size || '' }}
+      - name: Terraform plan
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform plan -out=tfplan
+      - name: Terraform apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
+      - name: Terraform destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform destroy -auto-approve
+
         uses: ./.github/actions/network-tfvars
         with:
           size: ${{ github.event.inputs.size || '' }}
