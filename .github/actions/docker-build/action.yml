@@ -156,22 +156,6 @@ runs:
         set -euo pipefail
         az acr login -n "${{ inputs.acr_name }}"
 
-    - name: Docker metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: |
-          ${{ steps.ecr-image.outputs.image || steps.resolve.outputs.image }}
-        tags: |
-          type=sha
-          type=ref,event=branch
-          ${{ steps.extra-tags.outputs.extra_tags }}
-        labels: |
-          org.opencontainers.image.source=${{ github.repositoryUrl }}
-          org.opencontainers.image.revision=${{ github.sha }}
-          org.opencontainers.image.created=${{ github.run_id }}
-          ${{ inputs.labels }}
-
     - name: Prepare extra tags
       id: extra-tags
       shell: bash
@@ -188,6 +172,22 @@ runs:
         echo "extra_tags<<EOF" >> "$GITHUB_OUTPUT"
         cat "$RUNNER_TEMP/extra_tags.txt" >> "$GITHUB_OUTPUT"
         echo "EOF" >> "$GITHUB_OUTPUT"
+
+    - name: Docker metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: |
+          ${{ steps.ecr-image.outputs.image || steps.resolve.outputs.image }}
+        tags: |
+          type=sha
+          type=ref,event=branch
+          ${{ steps.extra-tags.outputs.extra_tags }}
+        labels: |
+          org.opencontainers.image.source=${{ github.repositoryUrl }}
+          org.opencontainers.image.revision=${{ github.sha }}
+          org.opencontainers.image.created=${{ github.run_id }}
+          ${{ inputs.labels }}
 
     - name: Build and push
       uses: docker/build-push-action@v6
