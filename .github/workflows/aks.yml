@@ -47,7 +47,7 @@ on:
         required: false
         default: false
         type: boolean
-            destroy_scope:
+      destroy_scope:
         description: Destroy scope when action=destroy
         required: false
         default: aks_only
