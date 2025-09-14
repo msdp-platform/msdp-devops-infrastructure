@@ -80,9 +80,9 @@ jobs:
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
           if [ -n "${INPUT_TEAM:-}" ]; then
-            MATRIX=$( python3 ./.github/scripts/aks.py gen-matrix --cfg-env "$CFG_ENV" --team "$INPUT_TEAM" --env-id "${{ inputs.env }}" )
+            MATRIX=$( python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" gen-matrix --cfg-env "$CFG_ENV" --team "$INPUT_TEAM" --env-id "${{ inputs.env }}" )
           else
-            MATRIX=$( python3 ./.github/scripts/aks.py gen-matrix --cfg-env "$CFG_ENV" )
+            MATRIX=$( python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" gen-matrix --cfg-env "$CFG_ENV" )
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
         env:
@@ -168,7 +168,7 @@ jobs:
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
           if [ -n "${INPUT_TEAM:-}" ]; then
-            python3 ./.github/scripts/aks.py build-tfvars \
+            python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" build-tfvars \
               --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" \
               --env-id "${{ inputs.env }}" --team "$INPUT_TEAM" \
               ${INPUT_REGION:+--region "$INPUT_REGION"} \
@@ -177,7 +177,7 @@ jobs:
               --create-rg "${{ inputs.create_rg || false }}" \
               --out aks.auto.tfvars.json --outputs-file "$GITHUB_OUTPUT"
           else
-            python3 ./.github/scripts/aks.py build-tfvars \
+            python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" build-tfvars \
               --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" \
               --name "${{ matrix.name }}" \
               ${INPUT_REGION:+--region "$INPUT_REGION"} \
@@ -192,11 +192,12 @@ jobs:
           INPUT_SIZE: ${{ inputs.size || '' }}
 
       - name: Update env config and push changes
+        working-directory: infrastructure/environment/azure/aks
         shell: bash
         run: |
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          python3 ./.github/scripts/aks.py update-config \
+          python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" update-config \
             --cfg-env "$CFG_ENV" \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
@@ -238,7 +239,7 @@ jobs:
           DEL_RG=false; DEL_NET=false
           if [ "$DEL_SCOPE" = "resource_group" ]; then DEL_RG=true; fi
           if [ "$DEL_SCOPE" = "aks_and_network" ]; then DEL_NET=true; fi
-          python3 ./.github/scripts/aks.py destroy \
+          python3 "$GITHUB_WORKSPACE/.github/scripts/aks.py" destroy \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
             --subnet '${{ steps.build.outputs.subnet }}' \
