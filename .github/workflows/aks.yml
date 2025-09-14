@@ -54,16 +54,12 @@ on:
         required: false
         default: true
         type: boolean
-      delete_network:
-        description: On destroy, also delete VNet/Subnet via Azure CLI after AKS destroy
+      destroy_scope:
+        description: Destroy scope when action=destroy
         required: false
-        default: false
-        type: boolean
-      delete_rg:
-        description: On destroy, delete the entire Resource Group via Azure CLI (skips Terraform destroy)
-        required: false
-        default: false
-        type: boolean
+        default: aks_only
+        type: choice
+        options: [aks_only, aks_and_network, resource_group]
 
 permissions:
   id-token: write
@@ -230,9 +226,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          DEL_SCOPE='${{ inputs.destroy_scope || 'aks_only' }}'
+          DEL_RG=false; DEL_NET=false
+          if [ "$DEL_SCOPE" = "resource_group" ]; then DEL_RG=true; fi
+          if [ "$DEL_SCOPE" = "aks_and_network" ]; then DEL_NET=true; fi
           ./.github/scripts/aks.sh destroy \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
             --subnet '${{ steps.build.outputs.subnet }}' \
-            --delete-rg '${{ inputs.delete_rg || false }}' \
-            --delete-network '${{ inputs.delete_network || false }}'
+            --delete-rg "$DEL_RG" \
+            --delete-network "$DEL_NET"
