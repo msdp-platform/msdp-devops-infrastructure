@@ -43,6 +43,13 @@ jobs:
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          audience: sts.amazonaws.com
+          output-env-credentials: true
       - name: Build network.auto.tfvars.json (from config)
         uses: ./.github/actions/network-tfvars
         with:
