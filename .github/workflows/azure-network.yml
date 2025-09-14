@@ -2,6 +2,7 @@
 # - infrastructure/config/globals.yaml (global defaults)
 # - config/envs/<env>.yaml (environment specifics)
 # Only input is action; no interactive network inputs.
+
 name: azure-network
 on:
   push:
@@ -9,7 +10,7 @@ on:
     paths:
       - "infrastructure/environment/azure/network/**"
       - "config/**"
-      - "infrastructure/config/**" # include if globals live here
+      - "infrastructure/config/**"
   workflow_dispatch:
     inputs:
       action:
@@ -27,78 +28,85 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  TF_INPUT: "false"
-  ARM_USE_OIDC: "true"
-
 jobs:
-  apply:
+  shared-terraform:
+    uses: ./.github/workflows/shared-terraform.yaml
+    with:
+      env: dev
+      cloud: azure
+      app: network
+      action: ${{ github.event.inputs.action || 'plan' }}
+      kubernetes_version: ""
+
+  network-logic:
+    needs: shared-terraform
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Azure OIDC (for azurerm provider)
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
+      - name: Build network.auto.tfvars.json (from config)
+        uses: ./.github/actions/network-tfvars
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          size: ${{ github.event.inputs.size || '' }}
 
-      - name: Export ARM env
-        run: |
-          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+      - name: Terraform plan
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform plan -out=tfplan
 
-      # AWS OIDC (for S3/DynamoDB backend)
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-west-1
+      - name: Terraform apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
 
-      - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap-env
-        with:
-          env: dev
+      - name: Terraform destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform destroy -auto-approve
+# NOTE: Config-driven workflow. Values are read from
+# - infrastructure/config/globals.yaml (global defaults)
+# - config/envs/<env>.yaml (environment specifics)
+# Only input is action; no interactive network inputs.
+jobs:
 
-      # --- BACKEND: create/ensure S3+DDB and write backend-config.json ---
-      - name: Terraform Backend (AWS)
-        uses: ./.github/actions/terraform-backend
-        with:
-          repo-shortname: infra
-          project: msdp
-          env: dev
-          cloud: aws
-          cloud-segment: azure # key path segment; keeps state per cloud segment
-          app: network # stack name
-          function: tfstate
-          key-salt: infrastructure/environment/azure/network
-          aws-region: eu-west-1
-          # optional: pipeline-name: custom-name-here
-          # optional: allow-key-mutation: "false"
-          use-shared-lock-table: "true"
-          # optional: lock-table-name:
+name: azure-network
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/azure/network/**"
+      - "config/**"
+      - "infrastructure/config/**"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: plan | apply | destroy
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      size:
+        description: Optional subnet size override (large|medium|small)
+        required: false
+        default: ""
 
-      # --- INIT using the generated backend-config.json (safe) ---
-      - name: Terraform Init (Reusable)
-        uses: ./.github/actions/terraform-init
-        with:
-          working-directory: infrastructure/environment/azure/network
-          terraform-version: 1.13.2
-          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+permissions:
+  id-token: write
+  contents: read
 
-      - name: Show backend state key
-        shell: bash
-        run: |
-          set -euo pipefail
-          CONFIG="${{ env.TF_BACKEND_CONFIG_FILE }}"
-          if [ -f "$CONFIG" ]; then
-            echo "Backend state key: $(jq -r '.key' "$CONFIG")"
-          else
-            echo "Backend config file not found: $CONFIG" >&2
-          fi
+  shared-terraform:
+    uses: ./.github/workflows/shared-terraform.yaml
+    with:
+      env: dev
+      cloud: azure
+      app: network
+      action: ${{ github.event.inputs.action || 'plan' }}
+      kubernetes_version: ""
+
+  network-logic:
+    needs: shared-terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Build network.auto.tfvars.json (from config)
         working-directory: infrastructure/environment/azure/network
@@ -119,22 +127,17 @@ jobs:
           cfg_rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
           cfg_vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
           cfg_vnet_cidr=$(get_yaml "$CFG_ENV" '.azure.vnetCidr')
-          # Try multi-cluster spec from azure.aksClusters; fallback to single-subnet config
           clusters_json="{}"
           if command -v yq >/dev/null 2>&1; then
             clusters_json=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV")
           fi
           addrs=$(jq -nc --arg cidr "$cfg_vnet_cidr" '$cidr|[.]')
-          # Normalize clusters to array of {name, subnetName, size}
           clusters_arr=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key)), size: (.value.size // "medium")} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name)), size: (.size // "medium")} ] else [] end' <<< "$clusters_json")
           if [ "$(jq -r 'length' <<< "$clusters_arr")" -gt 0 ]; then
-            # Map size label to newbits
             map_size() { case "$1" in large) echo 8;; medium) echo 9;; small) echo 10;; *) echo 9;; esac }
-            # Build computed_subnets_spec from clusters
             spec='[]'
             for row in $(echo "$clusters_arr" | jq -c '.[]'); do
               sname=$(echo "$row" | jq -r '.subnetName')
-              # Apply pipeline size override if provided
               size_in='${{ github.event.inputs.size || '' }}'
               if [ -n "$size_in" ]; then
                 size="$size_in"
@@ -164,12 +167,12 @@ jobs:
           fi
 
       - name: Terraform plan
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform plan -out=tfplan
 
       - name: Terraform apply
-        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
+        if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
 
@@ -177,3 +180,4 @@ jobs:
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform destroy -auto-approve
+          cfg_vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')

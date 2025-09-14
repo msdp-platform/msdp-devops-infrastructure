@@ -2,6 +2,38 @@
 
 Production-ready, parameterized Terraform for AKS with flexible subnet resolution and optional RG management. Defaults mirror dev behavior and won’t break existing pipelines.
 
+## Architecture Diagram
+
+Below is a diagram showing how global, local, and environment config flow into the Network and AKS stacks, and how AKS depends on network outputs:
+
+```mermaid
+graph TD
+  subgraph Config
+    globals[Global Config]
+    local[Local Config]
+    env[Environment Config]
+  end
+  subgraph Network
+    vnet[VNet]
+    subnets[Subnets]
+    nsg[NSGs]
+  end
+  subgraph AKS
+    aks[AKS Cluster]
+    nodepools[Node Pools]
+  end
+  globals -->|defaults, naming| Network
+  globals -->|defaults, naming| AKS
+  local -->|env/app overrides| Network
+  local -->|env/app overrides| AKS
+  env -->|resource specifics| Network
+  env -->|resource specifics| AKS
+  Network -->|subnet ID output| AKS
+  vnet --> subnets
+  subnets --> nsg
+  aks --> nodepools
+```
+
 ## Subnet Resolution
 Remote state only: the module reads the subnet ID from the Network stack's Terraform outputs in S3/DynamoDB and fails fast if it cannot resolve.
 

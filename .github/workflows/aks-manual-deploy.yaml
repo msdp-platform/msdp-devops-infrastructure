@@ -1,63 +1,5 @@
-name: AKS Manual Deploy
-run-name: "AKS Deploy — env=${{ inputs.env || 'dev' }}"
-
 on:
-  workflow_dispatch:
-    inputs:
-      env:
-        description: "Environment (dev/sit/prod)"
-        required: true
-        default: "dev"
-        type: choice
-        options:
-          - dev
-          - stg
-          - prod
-      action:
-        description: "Action to perform"
-        required: true
-        default: "plan"
-        type: choice
-        options:
-          - plan
-          - apply
-      kubernetes_version:
-        description: "Kubernetes version (leave empty for latest stable)"
-        required: false
-        type: string
-
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
-  aks:
-    name: "Deploy AKS — ${{ inputs.env }}"
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify S3 backend is declared
-        run: bash scripts/ci/verify_s3_backend.sh
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.13.2
-
-      - name: Cloud Login (AWS + Azure)
-        uses: ./.github/actions/cloud-login
-        with:
-          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-west-1
-          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Ensure Terraform backend
-        uses: ./.github/actions/terraform-backend
         with:
           repo-shortname: infra
           project: msdp
@@ -79,23 +21,10 @@ jobs:
           working-directory: infrastructure/environment/${{ inputs.env }}/azure/aks
           backend-config-file: infrastructure/environment/${{ inputs.env }}/backend/backend-config.json
 
-      - name: Terraform Format Check
-        run: |
-          cd infrastructure/environment/${{ inputs.env }}/azure/aks
-          terraform fmt -check -recursive
-          if [ $? -ne 0 ]; then
-            echo "❌ Terraform files are not properly formatted"
-            echo "Run 'terraform fmt -recursive' to fix formatting issues"
-            terraform fmt -recursive -diff
-            exit 1
-          fi
-          echo "✅ Terraform formatting check passed"
-
-      - name: Terraform Validate
-        run: |
-          cd infrastructure/environment/${{ inputs.env }}/azure/aks
-          terraform validate
-          echo "✅ Terraform validation passed"
+      - name: Terraform Format & Validate (Python)
+        uses: ./.github/actions/terraform-checks
+        with:
+          working-directory: infrastructure/environment/${{ inputs.env }}/azure/aks
 
       - name: Terraform Plan
         run: |
