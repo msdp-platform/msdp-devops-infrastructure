@@ -165,12 +165,29 @@ runs:
         tags: |
           type=sha
           type=ref,event=branch
-          ${{ inputs.tags }}
+          ${{ steps.extra-tags.outputs.extra_tags }}
         labels: |
           org.opencontainers.image.source=${{ github.repositoryUrl }}
           org.opencontainers.image.revision=${{ github.sha }}
           org.opencontainers.image.created=${{ github.run_id }}
           ${{ inputs.labels }}
+
+    - name: Prepare extra tags
+      id: extra-tags
+      shell: bash
+      run: |
+        set -euo pipefail
+        RAW="${{ inputs.tags }}"
+        OUT=""
+        # split on commas and whitespace
+        echo "$RAW" | tr ', ' '\n' | sed '/^$/d' | while read -r t; do
+          t=$(echo -n "$t" | xargs)
+          [ -z "$t" ] && continue
+          printf 'type=raw,value=%s\n' "$t"
+        done > "$RUNNER_TEMP/extra_tags.txt"
+        echo "extra_tags<<EOF" >> "$GITHUB_OUTPUT"
+        cat "$RUNNER_TEMP/extra_tags.txt" >> "$GITHUB_OUTPUT"
+        echo "EOF" >> "$GITHUB_OUTPUT"
 
     - name: Build and push
       uses: docker/build-push-action@v6
