@@ -1,21 +1,12 @@
-# State configuration removed - using Azure data sources instead of remote state
 azure:
-  subscriptionId: "<SUBSCRIPTION_ID_DEV>"
-  resourceGroup: "rg-shared-dev"
-  aksName: "aks-dev-01"
-  vnetName: "vnet-shared-dev"
-  subnetName: "snet-aks-dev"
-  vnetCidr: "10.60.0.0/16" # REQUIRED
-  subnetCidr: "10.60.1.0/24" # REQUIRED
-
-  # Optional: deploy multiple AKS clusters via matrix
-  # aksClusters:
-  #   - name: aks-dev-a          # required; cluster and backend state name suffix
-  #     size: medium             # optional; affects subnet size in Network (large|medium|small)
-  #     # subnetName: snet-aks-dev-a  # optional override; defaults to "snet-<name>"
-  #   - name: aks-dev-b
-  #     size: large
-
-# The AKS workflow uses Network remote state; ensure the key is set here:
-# state:
-#   networkKey: network/dev.tfstate
+  subscriptionId: <SUBSCRIPTION_ID_DEV>
+  resourceGroup: dev-ops
+  aksName: aks-dev-01
+  vnetName: dev-ops
+  subnetName: snet-aks-dev
+  vnetCidr: 10.60.0.0/16
+  subnetCidr: 10.60.1.0/24
+  aksClusters:
+  - name: dev-ops-01
+    size: large
+  location: uksouth
