@@ -1,23 +1,25 @@
-name: azure-network-stack
+name: Azure Network Infrastructure
+
 on:
   push:
     branches: [main]
     paths:
       - "infrastructure/environment/azure/network/**"
-      - "config/**"
-      - "infrastructure/config/**"
+      - "config/dev.yaml"
   workflow_dispatch:
     inputs:
       action:
-        description: plan | apply | destroy
+        description: "Action to perform"
         required: true
         default: plan
         type: choice
         options: [plan, apply, destroy]
-      size:
-        description: Optional subnet size override (large|medium|small)
-        required: false
-        default: ""
+      environment:
+        description: "Environment"
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
 
 permissions:
   id-token: write
@@ -28,18 +30,29 @@ env:
   ARM_USE_OIDC: "true"
 
 jobs:
-  network-infrastructure:
+  network:
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'dev' }}
+    
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+    
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Step 1: Authentication
-      - name: Cloud Login (AWS + Azure)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
         uses: ./.github/actions/cloud-login
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
@@ -48,32 +61,47 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Step 2: Environment Bootstrap
-      - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap-env
-        with:
-          env: dev
+      - name: Generate Terraform Variables
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          
+          # Load configuration
+          with open('../../../../config/${{ env.ENVIRONMENT }}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+          
+          # Extract network configuration
+          network_config = config['azure']['network']
+          tags = config.get('tags', {})
+          
+          # Generate terraform.tfvars.json
+          tfvars = {
+              'resource_group_name': network_config['resource_group_name'],
+              'location': config['azure']['location'],
+              'vnet_name': network_config['vnet_name'],
+              'vnet_cidr': network_config['vnet_cidr'],
+              'subnets': network_config['subnets'],
+              'tags': tags
+          }
+          
+          with open('terraform.tfvars.json', 'w') as f:
+              json.dump(tfvars, f, indent=2)
+          
+          print("Generated terraform.tfvars.json:")
+          print(json.dumps(tfvars, indent=2))
+          EOF
 
-      # Step 3: Generate Network Configuration
-      - name: Generate network.auto.tfvars.json
-        uses: ./.github/actions/network-tfvars
-        with:
-          size: ${{ github.event.inputs.size || '' }}
-
-      - name: Move tfvars to working directory
-        run: mv network.auto.tfvars.json infrastructure/environment/azure/network/
-
-      # Step 4: Backend Setup (Enhanced with Naming Convention)
       - name: Setup Terraform Backend
         uses: ./.github/actions/terraform-backend-enhanced
         with:
-          environment: dev
+          environment: ${{ env.ENVIRONMENT }}
           platform: azure
           component: network
           aws_region: eu-west-1
           create_resources: "true"
 
-      # Step 5: Terraform Initialization
       - name: Terraform Init
         uses: ./.github/actions/terraform-init
         with:
@@ -81,48 +109,31 @@ jobs:
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
           terraform-version: 1.9.5
 
-      # Step 6: Show Configuration
-      - name: Show backend state key and config
-        working-directory: infrastructure/environment/azure/network
-        run: |
-          echo "=== Backend Configuration ==="
-          if [ -f "${{ env.TF_BACKEND_CONFIG_FILE }}" ]; then
-            echo "State key: $(jq -r '.key' "${{ env.TF_BACKEND_CONFIG_FILE }}")"
-            echo "Bucket: $(jq -r '.bucket' "${{ env.TF_BACKEND_CONFIG_FILE }}")"
-          fi
-          echo ""
-          echo "=== Network Configuration ==="
-          cat network.auto.tfvars.json | jq .
-
-      # Step 7: Terraform Plan
       - name: Terraform Plan
         if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: |
           terraform plan -out=tfplan
-          echo "Plan completed successfully"
+          echo "✅ Terraform plan completed successfully"
 
-      # Step 8: Terraform Apply
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: |
           terraform apply -auto-approve tfplan
-          echo "Apply completed successfully"
+          echo "✅ Terraform apply completed successfully"
 
-      # Step 9: Show Outputs
-      - name: Show Network Outputs
+      - name: Show Outputs
         if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
         run: |
           echo "=== Network Infrastructure Outputs ==="
           terraform output -json | jq .
 
-      # Step 10: Terraform Destroy (Network Only)
       - name: Terraform Destroy
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/network
         run: |
-          echo "⚠️  WARNING: This will destroy shared network infrastructure!"
-          echo "Ensure no AKS clusters are using this network before proceeding."
+          echo "⚠️  WARNING: This will destroy the network infrastructure!"
+          echo "Make sure no AKS clusters are using this network."
           terraform destroy -auto-approve

@@ -1,0 +1,54 @@
+# Development Environment Configuration
+# Clean, simple configuration for Azure infrastructure
+
+environment: dev
+
+# Azure Configuration
+azure:
+  # Location
+  location: uksouth
+  
+  # Network Configuration
+  network:
+    resource_group_name: rg-msdp-network-dev
+    vnet_name: vnet-msdp-dev
+    vnet_cidr: 10.60.0.0/16
+    
+    subnets:
+      - name: snet-aks-system-dev
+        cidr: 10.60.1.0/24
+        create_nsg: true
+      - name: snet-aks-user-dev
+        cidr: 10.60.2.0/24
+        create_nsg: true
+  
+  # AKS Configuration
+  aks:
+    clusters:
+      - name: aks-msdp-dev-01
+        subnet_name: snet-aks-system-dev
+        kubernetes_version: "1.29.7"
+        system_node_count: 2
+        system_vm_size: Standard_D2s_v3
+        user_vm_size: Standard_D4s_v3
+        user_min_count: 1
+        user_max_count: 5
+        user_spot_enabled: false
+      
+      - name: aks-msdp-dev-02
+        subnet_name: snet-aks-user-dev
+        kubernetes_version: "1.29.7"
+        system_node_count: 1
+        system_vm_size: Standard_D2s_v3
+        user_vm_size: Standard_D2s_v3
+        user_min_count: 0
+        user_max_count: 3
+        user_spot_enabled: true
+
+# Global Tags
+tags:
+  Environment: dev
+  Project: msdp
+  ManagedBy: terraform
+  Owner: platform-team
+  CostCenter: engineering

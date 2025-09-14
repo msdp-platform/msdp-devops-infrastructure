@@ -1,48 +1,92 @@
-resource "azurerm_resource_group" "rg" {
-  count    = var.manage_resource_group ? 1 : 0
-  name     = var.resource_group
+# Azure Network Infrastructure
+# Clean, modern implementation following best practices
+
+terraform {
+  required_version = ">= 1.9"
+  required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.9"
+    }
+  }
+  backend "s3" {}
+}
+
+provider "azurerm" {
+  features {}
+}
+
+# Resource Group
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
   location = var.location
   tags     = var.tags
 }
 
-data "azurerm_resource_group" "rg" {
-  count = var.manage_resource_group ? 0 : 1
-  name  = var.resource_group
-}
-
-resource "azurerm_virtual_network" "vnet" {
-  count               = var.manage_vnet ? 1 : 0
+# Virtual Network
+resource "azurerm_virtual_network" "main" {
   name                = var.vnet_name
-  location            = var.manage_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
-  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  address_space       = local.normalized_address_space
+  address_space       = [var.vnet_cidr]
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
   tags                = var.tags
 }
 
-data "azurerm_virtual_network" "vnet" {
-  count               = var.manage_vnet ? 0 : 1
-  name                = var.vnet_name
-  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-}
-
-resource "azurerm_network_security_group" "nsg" {
-  for_each            = { for s in local.effective_subnets : s.name => s if try(s.nsg_name != null && s.nsg_name != "", false) }
-  name                = each.value.nsg_name
-  location            = var.manage_resource_group ? azurerm_resource_group.rg[0].location : data.azurerm_resource_group.rg[0].location
-  resource_group_name = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  tags                = var.tags
-}
-
+# Subnets - dynamically created from configuration
 resource "azurerm_subnet" "subnets" {
-  for_each             = { for s in local.effective_subnets : s.name => s }
+  for_each = { for subnet in var.subnets : subnet.name => subnet }
+  
   name                 = each.value.name
-  resource_group_name  = var.manage_resource_group ? azurerm_resource_group.rg[0].name : data.azurerm_resource_group.rg[0].name
-  virtual_network_name = var.manage_vnet ? azurerm_virtual_network.vnet[0].name : data.azurerm_virtual_network.vnet[0].name
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [each.value.cidr]
+  
+  # Enable service endpoints if specified
+  service_endpoints = try(each.value.service_endpoints, [])
+  
+  # Delegation for specific services (like AKS)
+  dynamic "delegation" {
+    for_each = try(each.value.delegations, [])
+    content {
+      name = delegation.value.name
+      service_delegation {
+        name    = delegation.value.service
+        actions = delegation.value.actions
+      }
+    }
+  }
 }
 
-resource "azurerm_subnet_network_security_group_association" "assoc" {
-  for_each                  = { for s in local.effective_subnets : s.name => s if try(s.nsg_name != null && s.nsg_name != "", false) }
+# Network Security Groups (optional)
+resource "azurerm_network_security_group" "subnets" {
+  for_each = { for subnet in var.subnets : subnet.name => subnet if try(subnet.create_nsg, false) }
+  
+  name                = "${each.value.name}-nsg"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  tags                = var.tags
+  
+  # Default security rules can be added here
+  dynamic "security_rule" {
+    for_each = try(each.value.security_rules, [])
+    content {
+      name                       = security_rule.value.name
+      priority                   = security_rule.value.priority
+      direction                  = security_rule.value.direction
+      access                     = security_rule.value.access
+      protocol                   = security_rule.value.protocol
+      source_port_range          = security_rule.value.source_port_range
+      destination_port_range     = security_rule.value.destination_port_range
+      source_address_prefix      = security_rule.value.source_address_prefix
+      destination_address_prefix = security_rule.value.destination_address_prefix
+    }
+  }
+}
+
+# Associate NSGs with subnets
+resource "azurerm_subnet_network_security_group_association" "subnets" {
+  for_each = { for subnet in var.subnets : subnet.name => subnet if try(subnet.create_nsg, false) }
+  
   subnet_id                 = azurerm_subnet.subnets[each.key].id
-  network_security_group_id = azurerm_network_security_group.nsg[each.key].id
+  network_security_group_id = azurerm_network_security_group.subnets[each.key].id
 }

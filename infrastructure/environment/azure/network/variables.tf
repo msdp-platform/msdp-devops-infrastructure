@@ -1,111 +1,64 @@
-variable "resource_group" {
+# Azure Network Module Variables
+
+variable "resource_group_name" {
   type        = string
-  description = "Azure resource group name"
-  default     = "rg-shared-dev"
+  description = "Name of the resource group"
 }
 
 variable "location" {
   type        = string
-  description = "Azure region"
-  default     = "uksouth"
+  description = "Azure region where resources will be created"
 }
 
 variable "vnet_name" {
   type        = string
-  description = "Virtual network name"
-  default     = "vnet-shared-dev"
+  description = "Name of the virtual network"
 }
 
-variable "manage_resource_group" {
-  type        = bool
-  description = "When true, create/manage the Resource Group. When false, use existing RG by name."
-  default     = true
-}
-
-variable "manage_vnet" {
-  type        = bool
-  description = "When true, create/manage the VNet. When false, use existing VNet by name in the given RG."
-  default     = true
-}
-
-variable "address_space" {
-  type        = list(string)
-  description = "Explicit VNet CIDRs (explicit mode). If empty, base_cidr mode is used."
-  default     = ["10.60.0.0/16"]
+variable "vnet_cidr" {
+  type        = string
+  description = "CIDR block for the virtual network"
   validation {
-    condition     = length(var.address_space) == 0 || alltrue([for c in var.address_space : can(cidrhost(c, 0))])
-    error_message = "address_space must be valid CIDR(s)."
+    condition     = can(cidrhost(var.vnet_cidr, 0))
+    error_message = "The vnet_cidr must be a valid CIDR block."
   }
 }
 
 variable "subnets" {
-  description = "Explicit subnets (explicit mode). Each: { name, cidr, nsg_name? }"
   type = list(object({
-    name     = string
-    cidr     = string
-    nsg_name = optional(string)
+    name                = string
+    cidr                = string
+    create_nsg          = optional(bool, false)
+    service_endpoints   = optional(list(string), [])
+    delegations         = optional(list(object({
+      name    = string
+      service = string
+      actions = list(string)
+    })), [])
+    security_rules      = optional(list(object({
+      name                       = string
+      priority                   = number
+      direction                  = string
+      access                     = string
+      protocol                   = string
+      source_port_range          = string
+      destination_port_range     = string
+      source_address_prefix      = string
+      destination_address_prefix = string
+    })), [])
   }))
-  default = [
-    {
-      name = "snet-aks-dev"
-      cidr = "10.60.1.0/24"
-    }
-  ]
+  description = "List of subnets to create"
+  
   validation {
-    condition     = length(var.subnets) == 0 || alltrue([for s in var.subnets : can(cidrhost(s.cidr, 0))])
-    error_message = "subnets[*].cidr must be valid CIDR."
+    condition = alltrue([
+      for subnet in var.subnets : can(cidrhost(subnet.cidr, 0))
+    ])
+    error_message = "All subnet CIDRs must be valid CIDR blocks."
   }
-}
-
-variable "base_cidr" {
-  type        = string
-  description = "Base CIDR (computed mode). Used when address_space is empty."
-  default     = ""
-  validation {
-    condition     = var.base_cidr == "" || can(cidrhost(var.base_cidr, 0))
-    error_message = "base_cidr must be a valid CIDR."
-  }
-}
-
-variable "subnet_count" {
-  type        = number
-  description = "Number of subnets to derive (computed mode)"
-  default     = 0
-  validation {
-    condition     = var.base_cidr == "" || var.subnet_count >= 0
-    error_message = "subnet_count must be > 0 when base_cidr is provided."
-  }
-}
-
-variable "subnet_newbits" {
-  type        = number
-  description = "Number of new bits for cidrsubnet() (computed mode)"
-  default     = 8
-}
-
-variable "computed_subnets_spec" {
-  description = "Computed mode: per-subnet size spec list. Each: { name, newbits }"
-  type = list(object({
-    name    = string
-    newbits = number
-  }))
-  default = []
-}
-
-variable "subnet_names" {
-  type        = list(string)
-  description = "Subnet names (computed mode). If fewer than subnet_count, remaining are auto-named."
-  default     = []
-}
-
-variable "nsg_prefix" {
-  type        = string
-  description = "Prefix for NSG names in computed mode (e.g., nsg-prd). If empty, NSGs are not created."
-  default     = ""
 }
 
 variable "tags" {
   type        = map(string)
-  description = "Resource tags"
+  description = "Tags to apply to all resources"
   default     = {}
 }

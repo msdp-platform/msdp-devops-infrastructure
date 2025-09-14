@@ -1,49 +1,93 @@
+# Azure AKS Module Outputs
+
 output "cluster_id" {
-  value = azurerm_kubernetes_cluster.this.id
+  description = "ID of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.main.id
 }
 
 output "cluster_name" {
-  value = azurerm_kubernetes_cluster.this.name
+  description = "Name of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.main.name
 }
 
-output "fqdn" {
-  value = azurerm_kubernetes_cluster.this.fqdn
+output "cluster_fqdn" {
+  description = "FQDN of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.main.fqdn
 }
 
-output "kube_config_raw" {
-  value     = azurerm_kubernetes_cluster.this.kube_config_raw
-  sensitive = true
+output "cluster_endpoint" {
+  description = "Endpoint of the AKS cluster"
+  value       = azurerm_kubernetes_cluster.main.kube_config[0].host
+  sensitive   = true
 }
 
-output "kubelet_identity_object_id" {
-  value = azurerm_kubernetes_cluster.this.kubelet_identity[0].object_id
+output "kube_config" {
+  description = "Kubernetes configuration"
+  value       = azurerm_kubernetes_cluster.main.kube_config_raw
+  sensitive   = true
 }
 
-output "kubelet_identity_client_id" {
-  value = azurerm_kubernetes_cluster.this.kubelet_identity[0].client_id
+output "cluster_ca_certificate" {
+  description = "Cluster CA certificate"
+  value       = azurerm_kubernetes_cluster.main.kube_config[0].cluster_ca_certificate
+  sensitive   = true
+}
+
+output "client_certificate" {
+  description = "Client certificate"
+  value       = azurerm_kubernetes_cluster.main.kube_config[0].client_certificate
+  sensitive   = true
+}
+
+output "client_key" {
+  description = "Client key"
+  value       = azurerm_kubernetes_cluster.main.kube_config[0].client_key
+  sensitive   = true
+}
+
+output "cluster_identity" {
+  description = "Cluster managed identity"
+  value = {
+    principal_id = azurerm_kubernetes_cluster.main.identity[0].principal_id
+    tenant_id    = azurerm_kubernetes_cluster.main.identity[0].tenant_id
+  }
+}
+
+output "kubelet_identity" {
+  description = "Kubelet managed identity"
+  value = {
+    client_id   = azurerm_kubernetes_cluster.main.kubelet_identity[0].client_id
+    object_id   = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+    user_assigned_identity_id = azurerm_kubernetes_cluster.main.kubelet_identity[0].user_assigned_identity_id
+  }
 }
 
 output "oidc_issuer_url" {
-  value = azurerm_kubernetes_cluster.this.oidc_issuer_url
+  description = "OIDC issuer URL for workload identity"
+  value       = azurerm_kubernetes_cluster.main.oidc_issuer_url
 }
 
 output "node_resource_group" {
-  value = azurerm_kubernetes_cluster.this.node_resource_group
+  description = "Resource group containing the cluster nodes"
+  value       = azurerm_kubernetes_cluster.main.node_resource_group
 }
 
-output "principal_id" {
-  value = azurerm_kubernetes_cluster.this.identity[0].principal_id
+output "system_node_pool" {
+  description = "System node pool details"
+  value = {
+    name      = azurerm_kubernetes_cluster.main.default_node_pool[0].name
+    vm_size   = azurerm_kubernetes_cluster.main.default_node_pool[0].vm_size
+    node_count = azurerm_kubernetes_cluster.main.default_node_pool[0].node_count
+  }
 }
 
-output "kubernetes_version" {
-  value = azurerm_kubernetes_cluster.this.kubernetes_version
+output "user_node_pool" {
+  description = "User node pool details"
+  value = {
+    name       = azurerm_kubernetes_cluster_node_pool.user.name
+    vm_size    = azurerm_kubernetes_cluster_node_pool.user.vm_size
+    min_count  = azurerm_kubernetes_cluster_node_pool.user.min_count
+    max_count  = azurerm_kubernetes_cluster_node_pool.user.max_count
+    node_count = azurerm_kubernetes_cluster_node_pool.user.node_count
+  }
 }
-
-output "system_pool_name" {
-  value = azurerm_kubernetes_cluster.this.default_node_pool[0].name
-}
-
-output "apps_pool_name" {
-  value = azurerm_kubernetes_cluster_node_pool.apps.name
-}
-

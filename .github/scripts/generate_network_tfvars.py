@@ -24,11 +24,21 @@ def main():
     cfg_env = os.environ.get('TF_VAR_env_config_path', 'config/envs/dev.yaml')
     size_in = os.environ.get('INPUT_SIZE', '')
 
-    cfg_loc = get_yaml(cfg_global, 'azure.location')
-    cfg_rg = get_yaml(cfg_env, 'azure.resourceGroup')
-    cfg_vnet = get_yaml(cfg_env, 'azure.vnetName')
-    cfg_vnet_cidr = get_yaml(cfg_env, 'azure.vnetCidr')
-    clusters_json = get_yaml(cfg_env, 'azure.aksClusters')
+    # Try new consolidated environment config first
+    consolidated_env = 'config/environments/dev.yaml'
+    if os.path.exists(consolidated_env):
+        cfg_loc = get_yaml(consolidated_env, 'azure.location')
+        cfg_rg = get_yaml(consolidated_env, 'azure.resource_group')
+        cfg_vnet = get_yaml(consolidated_env, 'azure.vnet_name')
+        cfg_vnet_cidr = get_yaml(consolidated_env, 'azure.vnet_cidr')
+        clusters_json = get_yaml(consolidated_env, 'azure.aks_clusters')
+    else:
+        # Use old structure - location is in env config, not global
+        cfg_loc = get_yaml(cfg_env, 'azure.location') or get_yaml(cfg_global, 'azure.location')
+        cfg_rg = get_yaml(cfg_env, 'azure.resourceGroup')
+        cfg_vnet = get_yaml(cfg_env, 'azure.vnetName')
+        cfg_vnet_cidr = get_yaml(cfg_env, 'azure.vnetCidr')
+        clusters_json = get_yaml(cfg_env, 'azure.aksClusters')
 
     if clusters_json:
         clusters_arr = []
@@ -63,8 +73,14 @@ def main():
             json.dump(result, f, indent=2)
         print(f"Wrote {os.path.abspath('network.auto.tfvars.json')} (computed_subnets_spec from aksClusters)")
     else:
-        cfg_subnet = get_yaml(cfg_env, 'azure.subnetName')
-        cfg_subnet_cidr = get_yaml(cfg_env, 'azure.subnetCidr')
+        # Try new consolidated config first, then fallback to old
+        if os.path.exists(consolidated_env):
+            cfg_subnet = get_yaml(consolidated_env, 'azure.subnet_name')
+            cfg_subnet_cidr = get_yaml(consolidated_env, 'azure.subnet_cidr')
+        else:
+            cfg_subnet = get_yaml(cfg_env, 'azure.subnetName')
+            cfg_subnet_cidr = get_yaml(cfg_env, 'azure.subnetCidr')
+        
         if not all([cfg_rg, cfg_loc, cfg_vnet, cfg_vnet_cidr, cfg_subnet, cfg_subnet_cidr]):
             print("::error ::Missing required config values for network (resourceGroup, location, vnetName, vnetCidr, subnetName, subnetCidr).", file=sys.stderr)
             sys.exit(1)

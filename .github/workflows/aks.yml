@@ -1,32 +1,29 @@
-# NOTE: Config-driven workflow. Values are read from
-# - infrastructure/config/globals.yaml (global defaults)
-# - config/envs/<env>.yaml (environment specifics)
-# Only input is action; matrix is derived from azure.aksClusters.
-name: aks
+name: Azure AKS Clusters
+
 on:
   push:
-    branches: [dev, main]
+    branches: [main]
     paths:
       - "infrastructure/environment/azure/aks/**"
-      - "config/**"
-      - "infrastructure/config/**"
+      - "config/dev.yaml"
   workflow_dispatch:
     inputs:
       action:
-        description: plan | apply | destroy
+        description: "Action to perform"
         required: true
         default: plan
         type: choice
         options: [plan, apply, destroy]
-      size:
-        description: Optional cluster size (small|medium|large)
+      environment:
+        description: "Environment"
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+      cluster_name:
+        description: "Specific cluster name (optional, deploys all if empty)"
         required: false
         default: ""
-      manage_network:
-        description: Auto-create VNet/Subnet if they don't exist
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   id-token: write
@@ -40,79 +37,136 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.gen.outputs.matrix }}
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap-env
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          env: dev
-      - name: Generate cluster matrix from config
-        id: gen
-        shell: bash
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Generate cluster matrix
+        id: generate-matrix
         run: |
-          set -euo pipefail
-          CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
-          if command -v yq >/dev/null 2>&1; then
-            raw=$(yq -r '.azure.aksClusters // {}' "$CFG_ENV")
-          else
-            raw="{}"
-          fi
-          # Normalize: support map form {clusterName: {size, subnetName?}} or array form
-          clusters=$(jq -c 'if type=="object" then [ to_entries[] | {name: .key, subnetName: (.value.subnetName // ("snet-" + .key))} ] elif type=="array" then [ .[] | {name: .name, subnetName: (.subnetName // ("snet-" + .name))} ] else [] end' <<< "$raw")
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+          
+          # Load configuration
+          env = "${{ github.event.inputs.environment || 'dev' }}"
+          cluster_filter = "${{ github.event.inputs.cluster_name }}"
+          
+          with open(f'config/{env}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+          
+          # Extract AKS clusters
+          clusters = config['azure']['aks']['clusters']
+          
+          # Filter by cluster name if specified
+          if cluster_filter:
+              clusters = [c for c in clusters if c['name'] == cluster_filter]
+          
+          # Add environment and network info to each cluster
+          network_config = config['azure']['network']
+          for cluster in clusters:
+              cluster['environment'] = env
+              cluster['location'] = config['azure']['location']
+              cluster['network_resource_group_name'] = network_config['resource_group_name']
+              cluster['vnet_name'] = network_config['vnet_name']
+              cluster['tenant_id'] = "${{ secrets.AZURE_TENANT_ID }}"
+          
+          matrix = {"include": clusters}
+          print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"matrix={json.dumps(matrix)}\n")
+          EOF
 
-          # Fallback to single cluster from aksName/subnetName if aksClusters is empty
-          if [ "$(jq -r 'length' <<< "$clusters")" -eq 0 ]; then
-            name=$(grep -E '^\s*aksName\s*:' -n "$CFG_ENV" | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true)
-            sname=$(grep -E '^\s*subnetName\s*:' -n "$CFG_ENV" | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true)
-            if [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
-              echo "::error ::No azure.aksClusters and missing azure.aksName/subnetName in env config"; exit 1
-            fi
-            clusters=$(jq -nc --arg n "$name" --arg s "$sname" '[{name:$n, subnetName:$s}]')
-          fi
-          echo "matrix=$clusters" >> $GITHUB_OUTPUT
-
-  plan-apply:
+  deploy:
     needs: prepare
     runs-on: ubuntu-latest
+    if: ${{ fromJson(needs.prepare.outputs.matrix).include[0] != null }}
     strategy:
       fail-fast: false
-      matrix:
-        include: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    
+    environment: ${{ matrix.environment }}
+    
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Azure OIDC
-      - name: Azure login (OIDC)
-        uses: azure/login@v2
+      - name: Setup Python
+        uses: actions/setup-python@v4
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          python-version: '3.11'
 
-      - name: Export ARM env
-        run: |
-          echo "ARM_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
-          echo "ARM_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-          echo "ARM_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: pip install PyYAML
 
-      # AWS OIDC for S3 backend of AKS state
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Bootstrap environment
-        uses: ./.github/actions/bootstrap-env
-        with:
-          env: dev
+      - name: Generate Terraform Variables
+        working-directory: infrastructure/environment/azure/aks
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          
+          # Load configuration
+          with open('../../../../config/${{ matrix.environment }}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+          
+          # Extract cluster-specific configuration
+          cluster_config = ${{ toJson(matrix) }}
+          tags = config.get('tags', {})
+          
+          # Generate terraform.tfvars.json
+          tfvars = {
+              'cluster_name': cluster_config['name'],
+              'kubernetes_version': cluster_config['kubernetes_version'],
+              'network_resource_group_name': cluster_config['network_resource_group_name'],
+              'vnet_name': cluster_config['vnet_name'],
+              'subnet_name': cluster_config['subnet_name'],
+              'tenant_id': cluster_config['tenant_id'],
+              'system_node_count': cluster_config['system_node_count'],
+              'system_vm_size': cluster_config['system_vm_size'],
+              'user_vm_size': cluster_config['user_vm_size'],
+              'user_min_count': cluster_config['user_min_count'],
+              'user_max_count': cluster_config['user_max_count'],
+              'user_spot_enabled': cluster_config['user_spot_enabled'],
+              'tags': tags
+          }
+          
+          with open('terraform.tfvars.json', 'w') as f:
+              json.dump(tfvars, f, indent=2)
+          
+          print("Generated terraform.tfvars.json:")
+          print(json.dumps(tfvars, indent=2))
+          EOF
 
-      # Backend creation + config (Enhanced with Naming Convention)
       - name: Setup Terraform Backend
         uses: ./.github/actions/terraform-backend-enhanced
         with:
-          environment: dev
+          environment: ${{ matrix.environment }}
           platform: azure
           component: aks
           instance: ${{ matrix.name }}
@@ -123,115 +177,33 @@ jobs:
         uses: ./.github/actions/terraform-init
         with:
           working-directory: infrastructure/environment/azure/aks
-          terraform-version: 1.9.5
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: 1.9.5
 
-      - name: Show backend state key
-        shell: bash
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
         run: |
-          set -euo pipefail
-          CONFIG="${{ env.TF_BACKEND_CONFIG_FILE }}"
-          if [ -f "$CONFIG" ]; then
-            echo "Backend state key: $(jq -r '.key' "$CONFIG")"
-          else
-            echo "Backend config file not found: $CONFIG" >&2
-          fi
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed successfully for ${{ matrix.name }}"
 
-      - name: Build aks.auto.tfvars.json (using data sources)
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
-        shell: bash
         run: |
-          set -euo pipefail
-          # Config-driven using Azure data sources instead of remote state
-          CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
-          CFG_ENV="${TF_VAR_env_config_path:-config/envs/dev.yaml}"
-          
-          # Install yq if not available
-          if ! command -v yq >/dev/null 2>&1; then
-            echo "Installing yq..."
-            sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-            sudo chmod +x /usr/local/bin/yq
-          fi
-          
-          get_yaml() {
-            local file="$1" key="$2"
-            if command -v yq >/dev/null 2>&1; then
-              yq -r "$key" "$file" 2>/dev/null || true
-            else
-              grep -E "^\s*${key//./\\.}\s*:\s*" "$file" | head -n1 | sed 's/.*:\s*//' | tr -d '"' | tr -d "'" || true
-            fi
-          }
-          
-          # Get configuration values
-          rg=$(get_yaml "$CFG_ENV" '.azure.resourceGroup')
-          vnet=$(get_yaml "$CFG_ENV" '.azure.vnetName')
-          location=$(get_yaml "$CFG_GLOBAL" '.azure.location')
-          name='${{ matrix.name }}'
-          sname='${{ matrix.subnetName }}'
-          
-          # Validate required config
-          if [ -z "${rg:-}" ] || [ -z "${vnet:-}" ] || [ -z "${name:-}" ] || [ -z "${sname:-}" ]; then
-            echo "::error ::Missing required config: azure.resourceGroup, azure.vnetName, matrix.name, and matrix.subnetName are required."; exit 1
-          fi
-          
-          # Optional size mapping for node pools (cost-optimized defaults for Visual Studio subscriptions)
-          size_in='${{ github.event.inputs.size || '' }}'
-          # Default to "small" profile when no size provided
-          sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2; user_spot=false
-          if [ -n "$size_in" ]; then
-            case "$size_in" in
-              small)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=2
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=2 ;;
-              medium)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=4
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=4 ;;
-              large)
-                # system: B2s min=1 max=2 ; app: B2s min=0 max=8
-                sys_count=1; sys_vm="Standard_B2s"; user_vm="Standard_B2s"; user_min=0; user_max=8 ;;
-              *) : ;; # leave defaults
-            esac
-          fi
+          terraform apply -auto-approve tfplan
+          echo "✅ Terraform apply completed successfully for ${{ matrix.name }}"
 
-          # Build tfvars with VNet name for data source lookup
-          manage_network='${{ github.event.inputs.manage_network || false }}'
-          create_rg='false'
-          jq -n --arg rg "$rg" --arg vnet "$vnet" --arg location "$location" \
-                --arg name "$name" --arg sname "$sname" \
-                --argjson sys_count "$sys_count" --arg sys_vm "$sys_vm" --arg user_vm "$user_vm" \
-                --argjson user_min "$user_min" --argjson user_max "$user_max" --argjson user_spot "$user_spot" \
-                --argjson manage_network "$manage_network" --argjson create_rg "$create_rg" \
-                '{resource_group:$rg, vnet_name:$vnet, location:$location, aks_name:$name, subnet_name:$sname, system_node_count:$sys_count, system_vm_size:$sys_vm, user_vm_size:$user_vm, user_min_count:$user_min, user_max_count:$user_max, user_spot:$user_spot, manage_network:$manage_network, create_resource_group:$create_rg}' \
-            > aks.auto.tfvars.json
-          echo "Wrote $(pwd)/aks.auto.tfvars.json (using Azure data sources)"
-          cat aks.auto.tfvars.json
-
-      - name: Terraform plan
-        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+      - name: Show Outputs
+        if: ${{ github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
-        run: terraform plan -out=tfplan
+        run: |
+          echo "=== AKS Cluster ${{ matrix.name }} Outputs ==="
+          terraform output -json | jq .
 
-      - name: Terraform apply
-        if: ${{ (github.event_name != 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request') || github.event.inputs.action == 'apply' }}
-        working-directory: infrastructure/environment/azure/aks
-        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
-
-      - name: Terraform destroy (AKS-only, preserve network)
+      - name: Terraform Destroy
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/aks
-        shell: bash
         run: |
-          set -euo pipefail
-          # Detach shared network resources from state to avoid prevent_destroy errors and preserve them
-          if terraform state list >/dev/null 2>&1; then
-            terraform state list | grep -E '^(module\.network_auto_create(\[[0-9]+\])?\.azurerm_(subnet\.this|virtual_network\.this|resource_group\.this)(\[[0-9]+\])?)$' | while read -r addr; do
-              if [ -n "$addr" ]; then
-                echo "Detaching from state: $addr"
-                terraform state rm "$addr" || true
-              fi
-            done
-          fi
-          # Destroy AKS resources only
-          terraform destroy -auto-approve \
-            -target=azurerm_kubernetes_cluster_node_pool.apps \
-            -target=azurerm_kubernetes_cluster.this
+          echo "⚠️  WARNING: This will destroy AKS cluster ${{ matrix.name }}!"
+          terraform destroy -auto-approve
