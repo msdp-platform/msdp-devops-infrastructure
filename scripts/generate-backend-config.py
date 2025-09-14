@@ -29,15 +29,48 @@ class BackendConfigGenerator:
     def load_global_config(self):
         """Load global configuration files"""
         try:
-            with open(self.config_dir / "global" / "naming.yaml") as f:
-                self.naming = yaml.safe_load(f)
-            
-            with open(self.config_dir / "global" / "accounts.yaml") as f:
-                self.accounts = yaml.safe_load(f)
+            # Try new structure first
+            if (self.config_dir / "global" / "naming.yaml").exists():
+                with open(self.config_dir / "global" / "naming.yaml") as f:
+                    self.naming = yaml.safe_load(f)
+                
+                with open(self.config_dir / "global" / "accounts.yaml") as f:
+                    self.accounts = yaml.safe_load(f)
+            else:
+                # Fallback to old structure
+                print("Warning: Using legacy configuration structure")
+                with open(self.config_dir / "global" / "naming.yaml") as f:
+                    self.naming = yaml.safe_load(f)
+                
+                # Create minimal accounts config from old globals.yaml if it exists
+                old_globals_path = Path("infrastructure/config/globals.yaml")
+                if old_globals_path.exists():
+                    with open(old_globals_path) as f:
+                        old_config = yaml.safe_load(f)
+                    
+                    # Convert old format to new format
+                    self.accounts = {
+                        "accounts": {
+                            "aws": {
+                                "dev": {
+                                    "account_id": old_config.get("accounts", {}).get("aws_account_id", ""),
+                                    "region": "eu-west-1"
+                                }
+                            }
+                        },
+                        "environment_account_mapping": {
+                            "dev": "dev",
+                            "staging": "staging", 
+                            "prod": "prod"
+                        }
+                    }
+                else:
+                    raise FileNotFoundError("No configuration files found")
                 
         except FileNotFoundError as e:
             print(f"Error: Configuration file not found: {e}")
             print("Please ensure config/global/naming.yaml and config/global/accounts.yaml exist")
+            print("Or run the migration script to convert from old format")
             sys.exit(1)
     
     def validate_inputs(self, environment, platform, component):
