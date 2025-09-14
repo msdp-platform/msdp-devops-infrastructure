@@ -226,8 +226,11 @@ runs:
           ADMIN_FLAG="--admin"
         fi
         # Prefer explicitly provided inputs, else use derived values
-        AKS_NAME="${{ inputs.azure-aks-name }}"; [ -z "$AKS_NAME" ] && AKS_NAME="${AKS_NAME:-${{ steps.derive-aks.outputs.aks_name }} }"
-        AKS_RG="${{ inputs.azure-resource-group }}"; [ -z "$AKS_RG" ] && AKS_RG="${AKS_RG:-${{ steps.derive-aks.outputs.aks_rg }} }"
+        AKS_NAME="${{ inputs.azure-aks-name }}"; [ -z "$AKS_NAME" ] && AKS_NAME="${AKS_NAME:-${{ steps.derive-aks.outputs.aks_name }}}"
+        AKS_RG="${{ inputs.azure-resource-group }}"; [ -z "$AKS_RG" ] && AKS_RG="${AKS_RG:-${{ steps.derive-aks.outputs.aks_rg }}}"
+        # Normalize whitespace just in case
+        AKS_NAME="$(echo -n "$AKS_NAME" | xargs)"
+        AKS_RG="$(echo -n "$AKS_RG" | xargs)"
         if [ -z "$AKS_NAME" ] || [ -z "$AKS_RG" ]; then
           echo "AKS name/resource group unresolved. Provide azure-aks-name/azure-resource-group or cluster-name for discovery." >&2
           exit 1
@@ -242,8 +245,10 @@ runs:
         KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
       run: |
         set -euo pipefail
-        EKS_NAME="${{ inputs.eks-cluster-name }}"; [ -z "$EKS_NAME" ] && EKS_NAME="${EKS_NAME:-${{ steps.derive-eks.outputs.eks_name }} }"
-        REGION="${{ inputs.eks-region }}"; [ -z "$REGION" ] && REGION="${REGION:-${{ steps.derive-eks.outputs.eks_region }} }"
+        EKS_NAME="${{ inputs.eks-cluster-name }}"; [ -z "$EKS_NAME" ] && EKS_NAME="${EKS_NAME:-${{ steps.derive-eks.outputs.eks_name }}}"
+        REGION="${{ inputs.eks-region }}"; [ -z "$REGION" ] && REGION="${REGION:-${{ steps.derive-eks.outputs.eks_region }}}"
+        EKS_NAME="$(echo -n "$EKS_NAME" | xargs)"
+        REGION="$(echo -n "$REGION" | xargs)"
         if [ -z "$EKS_NAME" ] || [ -z "$REGION" ]; then
           echo "EKS name/region unresolved. Provide eks-cluster-name/eks-region or cluster-name with AWS_REGION set." >&2
           exit 1
