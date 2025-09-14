@@ -1,103 +1,186 @@
-# Azure Network Stack
+# Azure Network Infrastructure
 
-Production-ready, parameterized Terraform for Azure VNet and subnets with two modes: explicit (user-provided CIDRs) and computed (derived subnets from a base CIDR).
+This module manages shared Azure network infrastructure including Virtual Networks, Subnets, and Network Security Groups.
 
-Defaults match current dev behavior so `terraform plan` in dev remains unchanged.
+## Overview
 
-## Prerequisites
-- Terraform >= 1.6
-- Azure OIDC auth available to the workflow or CLI session
-- S3/DynamoDB backend is configured via the reusable backend action (workflow)
+The Azure Network module is designed to create and manage shared network infrastructure that can be referenced by other components (like AKS clusters) using Azure data sources rather than Terraform remote state.
 
-## Variables (high level)
-- resource_group, location, vnet_name
-- address_space: list of CIDRs (explicit mode). If set with `subnets`, computed mode is disabled.
-- subnets: list of objects `{ name, cidr, nsg_name? }` (explicit mode)
-- base_cidr, subnet_count, subnet_newbits, subnet_names (computed mode)
-- nsg_enabled, nsg_prefix (optional; only used to auto-name NSGs in computed mode)
-- tags: map(string)
+## Architecture
 
-## Usage
-
-### Explicit mode example
-Example `network.auto.tfvars.json`:
-
-```json
-{
-  "resource_group": "rg-shared-dev",
-  "location": "uksouth",
-  "vnet_name": "vnet-shared-dev",
-  "address_space": ["10.60.0.0/16"],
-  "subnets": [
-    { "name": "snet-aks-dev", "cidr": "10.60.1.0/24" },
-    { "name": "snet-db",     "cidr": "10.60.2.0/24", "nsg_name": "nsg-db" }
-  ]
-}
+```
+Network Infrastructure:
+├── Resource Group (optional, can use existing)
+├── Virtual Network
+├── Subnets (computed from AKS cluster requirements)
+└── Network Security Groups (optional)
 ```
 
-### Computed mode example
-Derive subnets deterministically with `cidrsubnet()`:
+## Configuration
 
-```json
-{
-  "resource_group": "rg-network-prod",
-  "location": "westeurope",
-  "vnet_name": "msdp-prod-vnet",
-  "base_cidr": "10.20.0.0/16",
-  "subnet_count": 3,
-  "subnet_newbits": 8,
-  "subnet_names": ["app", "db", "ops"],
-  "nsg_prefix": "nsg-prod"
-}
-```
+The module supports two configuration modes:
 
-## Outputs
-- vnet_name: Name of the VNet
-- address_space: List of VNet CIDRs
-- subnets: Map of `{ name -> { id, cidr } }`
-
-## Notes
-- Explicit mode is used when both `address_space` and `subnets` are provided and non-empty.
-- Computed mode is used otherwise; `base_cidr` and `subnet_count` are required for useful results.
-- If `nsg_name` is provided for a subnet (or computed when `nsg_enabled=true`), an NSG is created and associated to that subnet.
-
-## Multi-Cluster Subnet Sizing (Config-Driven)
-
-When `azure.aksClusters` is present in `config/envs/<env>.yaml`, the workflow builds `computed_subnets_spec` automatically from that list and `azure.vnetCidr`. Each cluster gets its own subnet, sized by the `size` label:
-
-- Size mapping (for a `base_cidr` like /16):
-  - `large` → `newbits=8` → `/24`
-  - `medium` → `newbits=9` → `/25`
-  - `small` → `newbits=10` → `/26`
-
-Example (env config):
+### 1. Computed Mode (Recommended)
+Automatically generates subnets based on AKS cluster definitions in `config/envs/dev.yaml`:
 
 ```yaml
 azure:
-  resourceGroup: msdp-aks-eu
-  vnetName: msdp-prod-vnet
+  resourceGroup: dev-ops
+  vnetName: dev-ops
   vnetCidr: 10.60.0.0/16
   aksClusters:
-    - name: aks-dev-a   # subnet defaults to snet-aks-dev-a
-      size: medium
-    - name: aks-dev-b
+    - name: dev-ops-01
       size: large
-      subnetName: snet-custom-b  # optional override
+    - name: dev-ops-02
+      size: large
 ```
 
-The network workflow writes `network.auto.tfvars.json` with:
+This generates subnets with appropriate sizing:
+- `large` → /24 subnets (254 IPs)
+- `medium` → /25 subnets (126 IPs)  
+- `small` → /26 subnets (62 IPs)
+
+### 2. Explicit Mode
+Manually define subnets in tfvars:
 
 ```json
 {
-  "resource_group": "msdp-aks-eu",
-  "location": "westeurope",
-  "vnet_name": "msdp-prod-vnet",
-  "base_cidr": "10.60.0.0/16",
-  "computed_subnets_spec": [
-    {"name":"snet-aks-dev-a","newbits":9},
-    {"name":"snet-custom-b","newbits":8}
+  "resource_group": "dev-ops",
+  "location": "uksouth",
+  "vnet_name": "dev-ops",
+  "address_space": ["10.60.0.0/16"],
+  "subnets": [
+    {
+      "name": "snet-aks-dev",
+      "cidr": "10.60.1.0/24"
+    }
   ]
 }
 ```
 
-Downstream (AKS) selects the proper subnet by name via remote state.
+## Variables
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `resource_group` | string | `"rg-shared-dev"` | Azure resource group name |
+| `location` | string | `"uksouth"` | Azure region |
+| `vnet_name` | string | `"vnet-shared-dev"` | Virtual network name |
+| `manage_resource_group` | bool | `true` | Create/manage RG or use existing |
+| `manage_vnet` | bool | `true` | Create/manage VNet or use existing |
+| `address_space` | list(string) | `["10.60.0.0/16"]` | VNet CIDR blocks (explicit mode) |
+| `subnets` | list(object) | `[]` | Subnet definitions (explicit mode) |
+| `base_cidr` | string | `""` | Base CIDR for computed mode |
+| `computed_subnets_spec` | list(object) | `[]` | Per-subnet sizing spec (computed mode) |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| `vnet_name` | Virtual network name |
+| `address_space` | VNet address space |
+| `subnets` | Map of subnet names to {id, cidr} |
+
+## Usage
+
+### Via GitHub Actions Workflow
+
+1. **Plan**: Review changes before applying
+   ```bash
+   gh workflow run azure-network.yml -f action=plan
+   ```
+
+2. **Apply**: Create/update infrastructure
+   ```bash
+   gh workflow run azure-network.yml -f action=apply
+   ```
+
+3. **Destroy**: Remove infrastructure (⚠️ Use with caution)
+   ```bash
+   gh workflow run azure-network.yml -f action=destroy
+   ```
+
+### Local Development
+
+1. **Generate tfvars**:
+   ```bash
+   python3 .github/scripts/generate_network_tfvars.py
+   mv network.auto.tfvars.json infrastructure/environment/azure/network/
+   ```
+
+2. **Initialize Terraform**:
+   ```bash
+   cd infrastructure/environment/azure/network
+   terraform init
+   ```
+
+3. **Plan and Apply**:
+   ```bash
+   terraform plan -out=tfplan
+   terraform apply tfplan
+   ```
+
+## Integration with AKS
+
+The AKS workflow references this network infrastructure using Azure data sources:
+
+```hcl
+data "azurerm_subnet" "aks" {
+  name                 = var.subnet_name
+  virtual_network_name = var.vnet_name
+  resource_group_name  = var.resource_group
+}
+
+resource "azurerm_kubernetes_cluster" "this" {
+  default_node_pool {
+    vnet_subnet_id = data.azurerm_subnet.aks.id
+  }
+}
+```
+
+This approach provides:
+- **Loose coupling**: No Terraform remote state dependencies
+- **Flexibility**: Network can be updated independently
+- **Reliability**: AKS clusters reference current network state
+
+## State Management
+
+The network infrastructure uses an isolated Terraform state:
+- **State Key**: `infra/msdp/dev/azure/network/azure-network-stack.tfstate`
+- **Backend**: S3 with DynamoDB locking
+- **Isolation**: Separate from AKS cluster states
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Resource Already Exists**
+   - Set `manage_resource_group = false` if RG exists
+   - Set `manage_vnet = false` if VNet exists
+   - Use `terraform import` for existing resources
+
+2. **Subnet Size Issues**
+   - Adjust cluster `size` in config (large/medium/small)
+   - Or override with workflow input parameter
+
+3. **State Lock Errors**
+   - Ensure AWS credentials have DynamoDB permissions
+   - Check if another workflow is running
+
+### Validation
+
+Run the validation script to check configuration:
+```bash
+./scripts/validate-network-config.sh
+```
+
+## Security
+
+- Uses GitHub OIDC for authentication (no long-lived credentials)
+- Requires Azure permissions: Network Contributor on subscription
+- State stored in encrypted S3 bucket with versioning
+
+## Dependencies
+
+- **GitHub Secrets**: `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AWS_ROLE_ARN`, `AWS_ACCOUNT_ID`
+- **Composite Actions**: `cloud-login`, `network-tfvars`, `terraform-backend`, `terraform-init`
+- **Configuration Files**: `infrastructure/config/globals.yaml`, `config/envs/dev.yaml`

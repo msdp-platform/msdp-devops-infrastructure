@@ -1,0 +1,83 @@
+organization:
+  name: msdp
+  full_name: "Microsoft Developer Platform"
+  
+naming_conventions:
+  s3_bucket:
+    prefix: "tf-state"
+    pattern: "{prefix}-{org}-{account_type}-{region_code}-{suffix}"
+    max_length: 63
+    
+  dynamodb_table:
+    prefix: "tf-locks"
+    pattern: "{prefix}-{org}-{account_type}-{region_code}"
+    
+  state_key:
+    pattern: "{platform}/{component}/{environment}/{region?}/{instance?}/terraform.tfstate"
+    
+  pipeline:
+    pattern: "{platform}-{component}-{environment}"
+
+platforms:
+  - azure
+  - aws
+  - gcp
+  - shared
+
+components:
+  azure:
+    - network
+    - aks
+    - storage
+    - keyvault
+    - appgateway
+    - firewall
+  aws:
+    - vpc
+    - eks
+    - s3
+    - iam
+    - alb
+    - route53
+  shared:
+    - monitoring
+    - dns
+    - backup
+    - security
+    - logging
+
+environments:
+  - dev
+  - staging
+  - prod
+  - sandbox
+  - test
+
+account_types:
+  - dev
+  - staging
+  - prod
+  - shared
+  - sandbox
+  - security
+
+region_codes:
+  # AWS Regions
+  eu-west-1: euw1
+  eu-west-2: euw2
+  eu-central-1: euc1
+  us-east-1: use1
+  us-east-2: use2
+  us-west-1: usw1
+  us-west-2: usw2
+  ap-south-1: aps1
+  ap-southeast-1: apse1
+  ap-southeast-2: apse2
+  
+  # Azure Regions (for reference)
+  uksouth: uks
+  ukwest: ukw
+  westeurope: weu
+  northeurope: neu
+  eastus: eus
+  westus2: wus2
