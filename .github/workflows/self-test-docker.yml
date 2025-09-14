@@ -1,5 +1,4 @@
 name: self-test-docker
-# retrigger at end 2025-09-14T10:00:34.680321Z
 
 on:
   push:
@@ -24,6 +23,7 @@ jobs:
       GHCR_REPO: infra-docker-build-test
       AWS_REGION: eu-west-1
       ACR_NAME: ${{ vars.ACR_NAME }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,6 +58,7 @@ jobs:
           docker run --rm "$IMAGE" | tee -a "$RUN_DIR/ghcr.txt"
 
       - name: Cloud Login (AWS OIDC)
+        if: ${{ env.AWS_ROLE_ARN != '' }}
         uses: ./.github/actions/cloud-login
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
@@ -67,6 +68,7 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure ECR repository exists
+        if: ${{ env.AWS_ROLE_ARN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -74,6 +76,7 @@ jobs:
             aws ecr create-repository --repository-name "$ECR_REPO" >/dev/null
 
       - name: ECR build/push via composite
+        if: ${{ env.AWS_ROLE_ARN != '' }}
         id: ecr
         uses: ./.github/actions/docker-build
         with:
@@ -89,6 +92,7 @@ jobs:
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
 
       - name: ECR run and capture output
+        if: ${{ env.AWS_ROLE_ARN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -124,6 +128,13 @@ jobs:
           [ -f "$RUN_DIR/ghcr.txt" ] && echo "- GHCR: $RUN_DIR/ghcr.txt" >> "$RUN_DIR/summary.txt"
           [ -f "$RUN_DIR/ecr.txt" ] && echo "- ECR:  $RUN_DIR/ecr.txt" >> "$RUN_DIR/summary.txt"
 
+      - name: Upload logs artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-self-test-${{ github.run_id }}
+          path: ${{ env.RUN_DIR }}
+
       - name: Commit logs to repo
         shell: bash
         run: |
@@ -133,4 +144,3 @@ jobs:
           git add "$RUN_DIR"
           git commit -m "Self-test docker logs for run ${{ github.run_id }}"
           git push
-
