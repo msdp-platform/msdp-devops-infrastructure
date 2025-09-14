@@ -31,7 +31,6 @@ jobs:
       cloud: azure
       app: network
       action: ${{ github.event.inputs.action || 'plan' }}
-      pipeline-name: azure-network-stack
       kubernetes_version: ""
 
   network-logic:
