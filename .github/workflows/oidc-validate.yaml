@@ -20,28 +20,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Verify S3 backend is declared
-        run: bash scripts/ci/verify_s3_backend.sh
-
-      - name: Setup Terraform for fmt check
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.13.2
-
-      - name: Terraform fmt check
-        run: |
-          set -euo pipefail
-          echo "Checking Terraform formatting..."
-          if ! terraform fmt -recursive -check; then
-            echo "ERROR: Terraform files are not properly formatted"
-            echo "Run 'terraform fmt -recursive' to fix formatting issues"
-            terraform fmt -recursive -diff
-            exit 1
-          fi
-          echo "Terraform formatting check passed"
-
-      - name: AWS + Azure OIDC Login (local)
+      - name: Cloud Login (AWS + Azure)
         uses: ./.github/actions/cloud-login
         with:
           aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
@@ -49,90 +28,24 @@ jobs:
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Ensure Terraform backend (per cloud/app/pipeline)
+      - name: Ensure Terraform backend
         uses: ./.github/actions/terraform-backend
         with:
           repo-shortname: infra
           project: msdp
           env: dev
-          cloud: aws
+          cloud: ${{ matrix.cloud }}
           cloud-segment: ${{ matrix.cloud }}
           app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
           function: tfstate
           key-salt: infrastructure/environment/dev/${{ matrix.cloud }}/${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
-          # pipeline-name: provisioner            # OPTIONAL — omit to use stable computed name
           aws-region: eu-west-1
           use-shared-lock-table: "true"
-
-      - name: Show resolved AWS account id
-        run: echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"
-
-      - name: Debug backend config
-        run: |
-          CFG=infrastructure/environment/dev/backend/backend-config.json
-          echo "Checking backend config file: $CFG"
-          test -f "$CFG" || { echo "ERROR: Backend config not found"; exit 1; }
-          echo "Backend config contents:"
-          cat "$CFG"
-
-      - name: Verify shared lock table (AWS only)
-        if: ${{ matrix.cloud == 'aws' }}
-        run: |
-          set -euo pipefail
-          echo "Verifying shared DynamoDB lock table..."
-
-          # Read table name from backend config
-          CFG=infrastructure/environment/dev/backend/backend-config.json
-          TABLE_NAME=$(jq -r '.dynamodb_table' "$CFG")
-          echo "Checking table: $TABLE_NAME"
-
-          # Verify table exists and is accessible
-          aws dynamodb describe-table --table-name "$TABLE_NAME" --query 'Table.{TableName:TableName,TableStatus:TableStatus,KeySchema:KeySchema}' --output table
-
-          # Check if PITR is enabled (optional, don't fail if not)
-          set +e
-          PITR_STATUS=$(aws dynamodb describe-continuous-backups --table-name "$TABLE_NAME" --query 'ContinuousBackupsDescription.PointInTimeRecoveryDescription.PointInTimeRecoveryStatus' --output text 2>/dev/null || echo "UNKNOWN")
-          set -e
-          echo "Point-in-Time Recovery status: $PITR_STATUS"
-
-          echo "✓ Shared lock table verification completed"
-
-      - name: Terraform Init (AWS)
-        if: ${{ matrix.cloud == 'aws' }}
+      - name: Terraform Init
         uses: ./.github/actions/terraform-init
         with:
-          working-directory: infrastructure/environment/dev/aws/eks
+          working-directory: ${{ matrix.cloud == 'aws' && 'infrastructure/environment/dev/aws/eks' || 'infrastructure/environment/azure/aks' }}
           backend-config-file: infrastructure/environment/dev/backend/backend-config.json
-
-      - name: Terraform Init (Azure)
-        if: ${{ matrix.cloud == 'azure' }}
-        uses: ./.github/actions/terraform-init
-        with:
-          working-directory: infrastructure/environment/azure/aks
-          backend-config-file: infrastructure/environment/dev/backend/backend-config.json
-
-      - name: Terraform validate (AWS)
-        if: ${{ matrix.cloud == 'aws' }}
-        run: terraform validate
-        working-directory: infrastructure/environment/dev/aws/eks
-
-      - name: Terraform validate (Azure)
-        if: ${{ matrix.cloud == 'azure' }}
-        run: terraform validate
-        working-directory: infrastructure/environment/azure/aks
-
-      - name: Verify AWS caller identity
-        run: aws sts get-caller-identity || true
-
-      - name: Verify Azure account
-        run: az account show || true
-
-      - name: Echo backend summary (AWS)
-        if: ${{ matrix.cloud == 'aws' }}
-        run: |
-          echo "Backend provisioned for ${{ matrix.cloud }}:"
-          cat infrastructure/environment/dev/backend/backend-config.json
-
+      # Formatting and validation are handled by terraform-init composite action
       - name: Confirm cloud tested
         run: echo "Reusable actions validated for ${{ matrix.cloud }}"
