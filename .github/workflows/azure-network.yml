@@ -76,6 +76,14 @@ jobs:
       PIPELINE_NAME: ${{ needs.backend-setup.outputs.pipeline-name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Cloud Login (AWS + Azure)
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       - name: Export AWS Credentials
         run: |
           export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
@@ -88,6 +96,18 @@ jobs:
         uses: ./.github/actions/network-tfvars
         with:
           size: ${{ github.event.inputs.size || '' }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+      - name: Terraform init (S3 backend)
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ env.BUCKET }}" \
+            -backend-config="key=${{ env.KEY }}" \
+            -backend-config="region=eu-west-1" \
+            -backend-config="dynamodb_table=${{ env.TABLE }}"
       - name: Terraform plan
         if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
         working-directory: infrastructure/environment/azure/network
