@@ -47,12 +47,7 @@ on:
         required: false
         default: false
         type: boolean
-      push_changes:
-        description: Commit and push config updates (env file) to the current branch
-        required: false
-        default: true
-        type: boolean
-      destroy_scope:
+            destroy_scope:
         description: Destroy scope when action=destroy
         required: false
         default: aks_only
@@ -197,7 +192,6 @@ jobs:
           INPUT_SIZE: ${{ inputs.size || '' }}
 
       - name: Update env config and push changes
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.push_changes == true }}
         shell: bash
         run: |
           set -euo pipefail
