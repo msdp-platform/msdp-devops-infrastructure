@@ -213,7 +213,7 @@ runs:
           [ -z "$ref" ] && continue
           echo "Inspecting manifest for $ref"
           docker buildx imagetools inspect "$ref" >/dev/null
-        done << 'EOF'
-${{ steps.meta.outputs.tags }}
-EOF
+        done <<EOF
+        ${{ steps.meta.outputs.tags }}
+        EOF
         echo "All image manifests are present."
