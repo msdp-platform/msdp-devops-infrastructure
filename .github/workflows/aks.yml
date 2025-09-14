@@ -25,12 +25,8 @@ on:
         default: dev
         type: choice
         options: [dev, test, prod]
-      aks_name:
-        description: AKS cluster name (when provided, overrides env config)
-        required: false
-        default: ""
-      rg_name:
-        description: Resource Group name (when provided, overrides env config)
+      team:
+        description: Team name used for naming (e.g., red, blue, green)
         required: false
         default: ""
       region:
@@ -88,10 +84,14 @@ jobs:
         run: |
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          MATRIX=$( bash ./.github/scripts/aks.sh gen-matrix --cfg-env "$CFG_ENV" ${INPUT_NAME:+--name "$INPUT_NAME"} )
+          if [ -n "${INPUT_TEAM:-}" ]; then
+            MATRIX=$( python3 ./.github/scripts/aks.py gen-matrix --cfg-env "$CFG_ENV" --team "$INPUT_TEAM" --env-id "${{ inputs.env }}" )
+          else
+            MATRIX=$( python3 ./.github/scripts/aks.py gen-matrix --cfg-env "$CFG_ENV" )
+          fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
         env:
-          INPUT_NAME: ${{ inputs.aks_name || '' }}
+          INPUT_TEAM: ${{ inputs.team || '' }}
 
   plan-apply:
     needs: prepare
@@ -172,18 +172,27 @@ jobs:
           set -euo pipefail
           CFG_GLOBAL="${TF_VAR_global_config_path:-infrastructure/config/globals.yaml}"
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          bash ./.github/scripts/aks.sh build-tfvars \
-            --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" --name "${{ matrix.name }}" \
-            ${INPUT_AKS_NAME:+--aks-name "$INPUT_AKS_NAME"} \
-            ${INPUT_RG_NAME:+--rg-name "$INPUT_RG_NAME"} \
-            ${INPUT_REGION:+--region "$INPUT_REGION"} \
-            ${INPUT_SIZE:+--size "$INPUT_SIZE"} \
-            --manage-network "${{ inputs.manage_network || false }}" \
-            --create-rg "${{ inputs.create_rg || false }}" \
-            --out aks.auto.tfvars.json --outputs-file "$GITHUB_OUTPUT"
+          if [ -n "${INPUT_TEAM:-}" ]; then
+            python3 ./.github/scripts/aks.py build-tfvars \
+              --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" \
+              --env-id "${{ inputs.env }}" --team "$INPUT_TEAM" \
+              ${INPUT_REGION:+--region "$INPUT_REGION"} \
+              ${INPUT_SIZE:+--size "$INPUT_SIZE"} \
+              --manage-network "${{ inputs.manage_network || false }}" \
+              --create-rg "${{ inputs.create_rg || false }}" \
+              --out aks.auto.tfvars.json --outputs-file "$GITHUB_OUTPUT"
+          else
+            python3 ./.github/scripts/aks.py build-tfvars \
+              --cfg-global "$CFG_GLOBAL" --cfg-env "$CFG_ENV" \
+              --name "${{ matrix.name }}" \
+              ${INPUT_REGION:+--region "$INPUT_REGION"} \
+              ${INPUT_SIZE:+--size "$INPUT_SIZE"} \
+              --manage-network "${{ inputs.manage_network || false }}" \
+              --create-rg "${{ inputs.create_rg || false }}" \
+              --out aks.auto.tfvars.json --outputs-file "$GITHUB_OUTPUT"
+          fi
         env:
-          INPUT_AKS_NAME: ${{ inputs.aks_name || '' }}
-          INPUT_RG_NAME: ${{ inputs.rg_name || '' }}
+          INPUT_TEAM: ${{ inputs.team || '' }}
           INPUT_REGION: ${{ inputs.region || '' }}
           INPUT_SIZE: ${{ inputs.size || '' }}
 
@@ -193,13 +202,14 @@ jobs:
         run: |
           set -euo pipefail
           CFG_ENV="${TF_VAR_env_config_path:-config/envs/${{ inputs.env || 'dev' }}.yaml}"
-          bash ./.github/scripts/aks.sh update-config \
+          python3 ./.github/scripts/aks.py update-config \
             --cfg-env "$CFG_ENV" \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
             --subnet '${{ steps.build.outputs.subnet }}' \
             --aks '${{ steps.build.outputs.aks }}' \
-            --location '${{ steps.build.outputs.location }}'
+            --location '${{ steps.build.outputs.location }}' \
+            ${INPUT_SIZE:+--size "$INPUT_SIZE"}
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$CFG_ENV"
@@ -209,6 +219,8 @@ jobs:
           else
             echo "No changes to commit"
           fi
+        env:
+          INPUT_SIZE: ${{ inputs.size || '' }}
 
       - name: Terraform plan
         if: ${{ inputs.action == 'plan' || inputs.action == 'apply' || github.event_name == 'push' }}
@@ -232,7 +244,7 @@ jobs:
           DEL_RG=false; DEL_NET=false
           if [ "$DEL_SCOPE" = "resource_group" ]; then DEL_RG=true; fi
           if [ "$DEL_SCOPE" = "aks_and_network" ]; then DEL_NET=true; fi
-          bash ./.github/scripts/aks.sh destroy \
+          python3 ./.github/scripts/aks.py destroy \
             --rg '${{ steps.build.outputs.rg }}' \
             --vnet '${{ steps.build.outputs.vnet }}' \
             --subnet '${{ steps.build.outputs.subnet }}' \
