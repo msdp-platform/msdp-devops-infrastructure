@@ -1,0 +1,138 @@
+name: k8s-validate
+
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: "Kubernetes provider to validate"
+        required: true
+        type: choice
+        options: [aks, eks, kubeconfig]
+        default: aks
+      env:
+        description: "Environment hint for discovery (e.g., dev/test/prod)"
+        required: false
+        type: choice
+        options: [dev, test, prod]
+        default: dev
+      cluster_name:
+        description: "Cluster name (required for AKS/EKS minimal discovery)"
+        required: false
+        default: ""
+      aws_region:
+        description: "AWS region (used when provider=eks if AWS_REGION is not set)"
+        required: false
+        default: eu-west-1
+      kubeconfig_base64:
+        description: "Base64 kubeconfig content (used when provider=kubeconfig)"
+        required: false
+        default: ""
+      context_name:
+        description: "Optional kubectl context name"
+        required: false
+        default: ""
+      namespace:
+        description: "Optional namespace to create/set"
+        required: false
+        default: ""
+      validate_extra:
+        description: "Run extra validation checks"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  id-token: write   # for OIDC to clouds
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Kubernetes access and health
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Conditional cloud logins based on provider
+      - name: Azure Login (OIDC)
+        if: ${{ inputs.provider == 'aks' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ inputs.provider == 'eks' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Kubernetes Setup
+        id: k8s
+        uses: ./.github/actions/kubernetes-setup
+        with:
+          provider: ${{ inputs.provider }}
+          cluster-name: ${{ inputs.cluster_name }}
+          environment: ${{ inputs.env }}
+          eks-region: ${{ inputs.aws_region }}
+          kubeconfig-base64: ${{ inputs.kubeconfig_base64 }}
+          context-name: ${{ inputs.context_name }}
+          namespace: ${{ inputs.namespace }}
+          validate: "true"
+
+      - name: Show derived identifiers
+        shell: bash
+        run: |
+          echo "Provider            : ${{ inputs.provider }}"
+          echo "Kubeconfig path     : ${{ steps.k8s.outputs.kubeconfig-path }}"
+          echo "Context             : ${{ steps.k8s.outputs.context }}"
+          echo "Namespace           : ${{ steps.k8s.outputs.namespace }}"
+          echo "AKS Resource ID     : ${{ steps.k8s.outputs.aks-resource-id }}"
+          echo "EKS Cluster ARN     : ${{ steps.k8s.outputs.eks-cluster-arn }}"
+
+      - name: Extra validation suite
+        if: ${{ inputs.validate_extra }}
+        shell: bash
+        env:
+          PROVIDER: ${{ inputs.provider }}
+        run: |
+          set -euo pipefail
+          echo "== Cluster Version and Info =="
+          kubectl version --short || true
+          kubectl cluster-info || true
+
+          echo "\n== Nodes =="
+          kubectl get nodes -o wide
+          NODE_COUNT=$(kubectl get nodes --no-headers | wc -l | tr -d ' ')
+          if [ "$NODE_COUNT" -lt 1 ]; then
+            echo "No nodes found in the cluster" >&2
+            exit 2
+          fi
+
+          echo "\n== API Server Health (readyz/livez) =="
+          # These endpoints may be partially restricted depending on cluster version/flags
+          kubectl get --raw='/readyz?verbose' || true
+          kubectl get --raw='/livez?verbose' || true
+
+          echo "\n== Namespaces =="
+          kubectl get ns
+          kubectl get ns kube-system >/dev/null 2>&1 || { echo "kube-system namespace missing" >&2; exit 3; }
+
+          echo "\n== CoreDNS presence (best-effort) =="
+          if ! kubectl -n kube-system get deploy -l k8s-app=kube-dns >/dev/null 2>&1 && \
+             ! kubectl -n kube-system get deploy coredns >/dev/null 2>&1; then
+            echo "Warning: Could not find CoreDNS/kube-dns deployment in kube-system" >&2
+          fi
+
+          echo "\n== RBAC quick checks =="
+          kubectl auth can-i list pods --all-namespaces || true
+          kubectl auth can-i get nodes || true
+          kubectl auth can-i create pods -n default || true
+
+          echo "\n== Top resources (best-effort) =="
+          kubectl get pods -A --no-headers | wc -l | xargs echo "Total pods:" || true
+          kubectl -n kube-system get pods || true
+
+          echo "\nValidation complete."
