@@ -100,19 +100,3 @@ jobs:
         if: ${{ github.event.inputs.action == 'destroy' }}
         working-directory: infrastructure/environment/azure/network
         run: terraform destroy -auto-approve
-
-        uses: ./.github/actions/network-tfvars
-        with:
-          size: ${{ github.event.inputs.size || '' }}
-      - name: Terraform plan
-        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
-        working-directory: infrastructure/environment/azure/network
-        run: terraform plan -out=tfplan
-      - name: Terraform apply
-        if: ${{ github.event.inputs.action == 'apply' }}
-        working-directory: infrastructure/environment/azure/network
-        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
-      - name: Terraform destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
-        working-directory: infrastructure/environment/azure/network
-        run: terraform destroy -auto-approve
