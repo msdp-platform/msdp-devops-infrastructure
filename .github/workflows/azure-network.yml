@@ -1,58 +1,57 @@
-
 name: azure-network-stack
 on:
-	push:
-		branches: [main]
-		paths:
-			- "infrastructure/environment/azure/network/**"
-			- "config/**"
-			- "infrastructure/config/**"
-	workflow_dispatch:
-		inputs:
-			action:
-				description: plan | apply | destroy
-				required: true
-				default: plan
-				type: choice
-				options: [plan, apply, destroy]
-			size:
-				description: Optional subnet size override (large|medium|small)
-				required: false
-				default: ""
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/azure/network/**"
+      - "config/**"
+      - "infrastructure/config/**"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: plan | apply | destroy
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      size:
+        description: Optional subnet size override (large|medium|small)
+        required: false
+        default: ""
 
 permissions:
-	id-token: write
-	contents: read
+  id-token: write
+  contents: read
 
 jobs:
-	shared-terraform:
-		uses: ./.github/workflows/shared-terraform.yaml
-		with:
-			env: dev
-			cloud: azure
-			app: network
-			action: ${{ github.event.inputs.action || 'plan' }}
-			pipeline-name: azure-network-stack
-			kubernetes_version: ""
+  shared-terraform:
+    uses: ./.github/workflows/shared-terraform.yaml
+    with:
+      env: dev
+      cloud: azure
+      app: network
+      action: ${{ github.event.inputs.action || 'plan' }}
+      pipeline-name: azure-network-stack
+      kubernetes_version: ""
 
-	network-logic:
-		needs: shared-terraform
-		runs-on: ubuntu-latest
-		steps:
-			- uses: actions/checkout@v4
-			- name: Build network.auto.tfvars.json (from config)
-				uses: ./.github/actions/network-tfvars
-				with:
-					size: ${{ github.event.inputs.size || '' }}
-			- name: Terraform plan
-				if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
-				working-directory: infrastructure/environment/azure/network
-				run: terraform plan -out=tfplan
-			- name: Terraform apply
-				if: ${{ github.event.inputs.action == 'apply' }}
-				working-directory: infrastructure/environment/azure/network
-				run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
-			- name: Terraform destroy
-				if: ${{ github.event.inputs.action == 'destroy' }}
-				working-directory: infrastructure/environment/azure/network
-				run: terraform destroy -auto-approve
+  network-logic:
+    needs: shared-terraform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build network.auto.tfvars.json (from config)
+        uses: ./.github/actions/network-tfvars
+        with:
+          size: ${{ github.event.inputs.size || '' }}
+      - name: Terraform plan
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform plan -out=tfplan
+      - name: Terraform apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform apply -auto-approve tfplan || { terraform plan -out=tfplan && terraform apply -auto-approve tfplan; }
+      - name: Terraform destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/network
+        run: terraform destroy -auto-approve
