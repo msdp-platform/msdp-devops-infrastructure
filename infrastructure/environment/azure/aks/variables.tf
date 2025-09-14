@@ -81,3 +81,15 @@ variable "tags" {
   description = "Resource tags"
   default     = {}
 }
+
+variable "manage_network" {
+  type        = bool
+  description = "Whether to create network resources or use existing ones"
+  default     = false
+}
+
+variable "create_resource_group" {
+  type        = bool
+  description = "Whether to create the resource group or use existing one"
+  default     = false
+}

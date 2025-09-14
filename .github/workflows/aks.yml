@@ -108,27 +108,22 @@ jobs:
         with:
           env: dev
 
-      # Backend creation + config (reusable, S3+DDB)
-      - name: Terraform Backend (AWS)
-        uses: ./.github/actions/terraform-backend
+      # Backend creation + config (Enhanced with Naming Convention)
+      - name: Setup Terraform Backend
+        uses: ./.github/actions/terraform-backend-enhanced
         with:
-          repo-shortname: infra
-          project: msdp
-          env: dev
-          cloud: aws
-          cloud-segment: azure
-          app: aks
-          function: tfstate
-          key-salt: infrastructure/environment/azure/aks
-          aws-region: eu-west-1
-          use-shared-lock-table: "true"
-          pipeline-name: aks-${{ matrix.name }}
+          environment: dev
+          platform: azure
+          component: aks
+          instance: ${{ matrix.name }}
+          aws_region: eu-west-1
+          create_resources: "true"
 
-      - name: Terraform Init (Reusable)
+      - name: Terraform Init
         uses: ./.github/actions/terraform-init
         with:
           working-directory: infrastructure/environment/azure/aks
-          terraform-version: 1.13.2
+          terraform-version: 1.9.5
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
 
       - name: Show backend state key
