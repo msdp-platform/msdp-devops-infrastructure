@@ -1,0 +1,59 @@
+name: test-aks-smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: "AKS cluster name"
+        required: true
+      resource_group:
+        description: "Resource Group of the cluster (optional)"
+        required: false
+        default: ""
+      environment:
+        description: "Env hint for discovery (optional)"
+        required: false
+        default: ""
+      image:
+        description: "Full image reference to run"
+        required: true
+      namespace:
+        description: "Namespace to run the job"
+        required: false
+        default: smoke-test
+      admin:
+        description: "Use AKS --admin context"
+        required: false
+        type: boolean
+        default: false
+      cleanup:
+        description: "Delete Job after run"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AKS smoke deploy
+        uses: ./.github/workflows/aks-smoke-deploy.yml
+        with:
+          cluster_name: ${{ inputs.cluster_name }}
+          resource_group: ${{ inputs.resource_group }}
+          environment: ${{ inputs.environment }}
+          image: ${{ inputs.image }}
+          namespace: ${{ inputs.namespace }}
+          admin: ${{ inputs.admin }}
+          cleanup: ${{ inputs.cleanup }}
+        secrets:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
