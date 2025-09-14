@@ -28,13 +28,13 @@ jobs:
           azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Ensure Terraform backend
+      - name: Ensure Terraform backend (S3/DynamoDB for all clouds)
         uses: ./.github/actions/terraform-backend
         with:
           repo-shortname: infra
           project: msdp
           env: dev
-          cloud: ${{ matrix.cloud }}
+          cloud: aws
           cloud-segment: ${{ matrix.cloud }}
           app: ${{ matrix.cloud == 'aws' && 'eks' || 'aks' }}
           function: tfstate
