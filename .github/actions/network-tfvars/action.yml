@@ -15,4 +15,4 @@ runs:
       shell: bash
       env:
         INPUT_SIZE: ${{ inputs.size || '' }}
-      run: python .github/scripts/network/generate_network_tfvars.py
+      run: python .github/scripts/generate_network_tfvars.py
