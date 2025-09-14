@@ -68,7 +68,7 @@ jobs:
   network-logic:
     needs: backend-setup
     runs-on: ubuntu-latest
-        steps:
+    steps:
       - uses: actions/checkout@v4
       - name: Cloud Login (AWS + Azure)
         uses: ./.github/actions/cloud-login
