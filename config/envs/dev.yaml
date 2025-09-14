@@ -9,4 +9,6 @@ azure:
   aksClusters:
   - name: dev-ops-01
     size: large
+  - name: dev-ops-02
+    size: large
   location: uksouth
