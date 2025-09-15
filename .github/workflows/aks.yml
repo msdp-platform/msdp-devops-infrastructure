@@ -84,7 +84,7 @@ jobs:
 
   deploy-network:
     needs: check-network
-    if: ${{ needs.check-network.outputs.should-deploy == 'true' }}
+    if: ${{ needs.check-network.outputs.should-deploy == 'true' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == '') }}
     runs-on: ubuntu-latest
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
@@ -92,6 +92,7 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_USE_OIDC: "true"
       ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      ACTION: ${{ github.event.inputs.action || 'plan' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -161,12 +162,21 @@ jobs:
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
           terraform-version: 1.9.5
 
-      - name: Terraform Apply Network
+      - name: Terraform Plan/Apply Network
         working-directory: infrastructure/environment/azure/network
         run: |
-          echo "🚀 Deploying network infrastructure..."
-          terraform apply -auto-approve
-          echo "✅ Network infrastructure deployed successfully"
+          ACTION="${{ env.ACTION }}"
+          echo "🚀 Running network infrastructure: $ACTION"
+          
+          if [ "$ACTION" == "apply" ]; then
+            terraform apply -auto-approve
+            echo "✅ Network infrastructure deployed successfully"
+          else
+            terraform plan
+            echo "✅ Network infrastructure plan completed"
+            echo "⚠️ Note: Network must be applied before AKS can be deployed"
+            echo "   Run with action=apply to create the network"
+          fi
 
   prepare:
     needs: [check-network, deploy-network]
