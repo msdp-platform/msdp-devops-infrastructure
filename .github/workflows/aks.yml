@@ -71,20 +71,50 @@ jobs:
               echo "✅ VNet exists"
               echo "exists=true" >> $GITHUB_OUTPUT
               echo "should-deploy=false" >> $GITHUB_OUTPUT
+              echo "Network deployment will be SKIPPED"
             else
               echo "⚠️ VNet not found"
               echo "exists=false" >> $GITHUB_OUTPUT
               echo "should-deploy=true" >> $GITHUB_OUTPUT
+              echo "Network deployment will be TRIGGERED"
             fi
           else
             echo "⚠️ Resource group not found"
             echo "exists=false" >> $GITHUB_OUTPUT
             echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "Network deployment will be TRIGGERED"
+          fi
+          
+          # Debug output
+          echo "=== Output values set ==="
+          echo "exists=$(grep exists $GITHUB_OUTPUT | cut -d= -f2)"
+          echo "should-deploy=$(grep should-deploy $GITHUB_OUTPUT | cut -d= -f2)"
+
+  debug-network-check:
+    needs: check-network
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Debug outputs
+        run: |
+          echo "=== Debug Network Check Outputs ==="
+          echo "network-exists: '${{ needs.check-network.outputs.network-exists }}'"
+          echo "should-deploy-network: '${{ needs.check-network.outputs.should-deploy-network }}'"
+          echo "action: '${{ github.event.inputs.action }}'"
+          echo ""
+          echo "Condition evaluation:"
+          echo "should-deploy == 'true': ${{ needs.check-network.outputs.should-deploy-network == 'true' }}"
+          echo "action check: ${{ (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == '') }}"
+          echo ""
+          if [ "${{ needs.check-network.outputs.should-deploy-network }}" == "true" ]; then
+            echo "✅ Network deployment SHOULD run"
+          else
+            echo "❌ Network deployment will be SKIPPED"
           fi
 
   deploy-network:
     needs: check-network
-    if: ${{ needs.check-network.outputs.should-deploy == 'true' && (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == '') }}
+    if: ${{ needs.check-network.outputs.should-deploy-network == 'true' }}
     runs-on: ubuntu-latest
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
