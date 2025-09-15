@@ -26,18 +26,16 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Default node pool (system)
   default_node_pool {
-    name                        = "system"
-    node_count                  = var.system_node_count
-    vm_size                     = var.system_vm_size
-    vnet_subnet_id              = data.azurerm_subnet.aks.id
-    temporary_name_for_rotation = "systemtemp"
+    name           = "system"
+    node_count     = var.system_node_count
+    vm_size        = var.system_vm_size
+    vnet_subnet_id = data.azurerm_subnet.aks.id
 
     # Node pool configuration
     max_pods        = var.max_pods_per_node
     os_disk_size_gb = var.os_disk_size_gb
-    os_disk_type    = "Managed"
 
-    # Availability and scaling
+    # Availability zones
     zones = var.availability_zones
   }
 
@@ -112,18 +110,14 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.user_vm_size
-  vnet_subnet_id        = data.azurerm_subnet.aks.id
-
-  # Scaling configuration
-  auto_scale = true
-  min_count  = var.user_min_count
-  max_count  = var.user_max_count
+  
+  # Node count (fixed for now, will add auto-scaling later)
+  node_count = var.user_min_count
 
   # Node configuration
   max_pods        = var.max_pods_per_node
   os_disk_size_gb = var.os_disk_size_gb
-  os_disk_type    = "Managed"
-
+  
   # Availability
   zones = var.availability_zones
 
@@ -131,18 +125,6 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   priority        = var.user_spot_enabled ? "Spot" : "Regular"
   eviction_policy = var.user_spot_enabled ? "Delete" : null
   spot_max_price  = var.user_spot_enabled ? var.user_spot_max_price : null
-
-  # Labels
-  node_labels = merge(
-    {
-      "node-type" = "user"
-      "workload"  = "application"
-    },
-    var.user_node_labels
-  )
-
-  # Taints (optional)
-  node_taints = var.user_node_taints
 
   tags = var.tags
 }
