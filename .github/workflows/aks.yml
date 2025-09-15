@@ -97,7 +97,7 @@ jobs:
                           cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
                           cluster['network_resource_group_name'] = network_config.get('resource_group_name', '')
                           cluster['vnet_name'] = network_config.get('vnet_name', '')
-                          cluster['tenant_id'] = "${{ secrets.AZURE_TENANT_ID }}"
+                          # Don't include secrets in the matrix - they'll be accessed directly in the job
                           
                           # Ensure all required fields have defaults
                           cluster.setdefault('kubernetes_version', '1.29.7')
@@ -187,6 +187,7 @@ jobs:
           python3 << 'EOF'
           import yaml
           import json
+          import os
           
           # Load configuration
           with open('../../../../config/${{ matrix.environment }}.yaml', 'r') as f:
@@ -196,20 +197,23 @@ jobs:
           cluster_config = ${{ toJson(matrix) }}
           tags = config.get('tags', {})
           
+          # Get tenant ID from environment (set by GitHub secrets)
+          tenant_id = os.environ.get('ARM_TENANT_ID', '')
+          
           # Generate terraform.tfvars.json
           tfvars = {
               'cluster_name': cluster_config['name'],
-              'kubernetes_version': cluster_config['kubernetes_version'],
-              'network_resource_group_name': cluster_config['network_resource_group_name'],
-              'vnet_name': cluster_config['vnet_name'],
-              'subnet_name': cluster_config['subnet_name'],
-              'tenant_id': cluster_config['tenant_id'],
-              'system_node_count': cluster_config['system_node_count'],
-              'system_vm_size': cluster_config['system_vm_size'],
-              'user_vm_size': cluster_config['user_vm_size'],
-              'user_min_count': cluster_config['user_min_count'],
-              'user_max_count': cluster_config['user_max_count'],
-              'user_spot_enabled': cluster_config['user_spot_enabled'],
+              'kubernetes_version': cluster_config.get('kubernetes_version', '1.29.7'),
+              'network_resource_group_name': cluster_config.get('network_resource_group_name', ''),
+              'vnet_name': cluster_config.get('vnet_name', ''),
+              'subnet_name': cluster_config.get('subnet_name', ''),
+              'tenant_id': tenant_id,  # Use the secret value from environment
+              'system_node_count': cluster_config.get('system_node_count', 2),
+              'system_vm_size': cluster_config.get('system_vm_size', 'Standard_D2s_v3'),
+              'user_vm_size': cluster_config.get('user_vm_size', 'Standard_D4s_v3'),
+              'user_min_count': cluster_config.get('user_min_count', 1),
+              'user_max_count': cluster_config.get('user_max_count', 5),
+              'user_spot_enabled': cluster_config.get('user_spot_enabled', False),
               'tags': tags
           }
           
@@ -217,7 +221,10 @@ jobs:
               json.dump(tfvars, f, indent=2)
           
           print("Generated terraform.tfvars.json:")
-          print(json.dumps(tfvars, indent=2))
+          # Don't print tenant_id in logs
+          tfvars_display = tfvars.copy()
+          tfvars_display['tenant_id'] = '***'
+          print(json.dumps(tfvars_display, indent=2))
           EOF
 
       - name: Setup Terraform Backend
