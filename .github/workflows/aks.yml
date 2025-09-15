@@ -34,7 +34,143 @@ env:
   ARM_USE_OIDC: "true"
 
 jobs:
+  check-network:
+    runs-on: ubuntu-latest
+    outputs:
+      network-exists: ${{ steps.check.outputs.exists }}
+      should-deploy-network: ${{ steps.check.outputs.should-deploy }}
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Check if network exists
+        id: check
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
+          RG_NAME="rg-msdp-network-${ENVIRONMENT}"
+          VNET_NAME="vnet-msdp-${ENVIRONMENT}"
+          
+          echo "Checking for resource group: $RG_NAME"
+          
+          if az group show --name "$RG_NAME" 2>/dev/null; then
+            echo "✅ Resource group exists"
+            
+            if az network vnet show --resource-group "$RG_NAME" --name "$VNET_NAME" 2>/dev/null; then
+              echo "✅ VNet exists"
+              echo "exists=true" >> $GITHUB_OUTPUT
+              echo "should-deploy=false" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ VNet not found"
+              echo "exists=false" >> $GITHUB_OUTPUT
+              echo "should-deploy=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️ Resource group not found"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-network:
+    needs: check-network
+    if: ${{ needs.check-network.outputs.should-deploy == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Network Terraform Variables
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          
+          # Load configuration
+          with open('../../../../config/${{ env.ENVIRONMENT }}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+          
+          # Extract network configuration
+          network_config = config['azure']['network']
+          tags = config.get('tags', {})
+          
+          # Generate terraform.tfvars.json
+          tfvars = {
+              'resource_group_name': network_config['resource_group_name'],
+              'location': config['azure']['location'],
+              'vnet_name': network_config['vnet_name'],
+              'vnet_cidr': network_config['vnet_cidr'],
+              'subnets': network_config['subnets'],
+              'tags': tags
+          }
+          
+          with open('terraform.tfvars.json', 'w') as f:
+              json.dump(tfvars, f, indent=2)
+          
+          print("Generated network terraform.tfvars.json:")
+          print(json.dumps(tfvars, indent=2))
+          EOF
+
+      - name: Setup Terraform Backend for Network
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          platform: azure
+          component: network
+          aws_region: eu-west-1
+          create_resources: "true"
+
+      - name: Terraform Init for Network
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/network
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: 1.9.5
+
+      - name: Terraform Apply Network
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          echo "🚀 Deploying network infrastructure..."
+          terraform apply -auto-approve
+          echo "✅ Network infrastructure deployed successfully"
+
   prepare:
+    needs: [check-network, deploy-network]
+    if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
