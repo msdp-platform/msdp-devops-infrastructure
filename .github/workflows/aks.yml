@@ -184,7 +184,7 @@ jobs:
       - name: Generate Terraform Variables
         working-directory: infrastructure/environment/azure/aks
         run: |
-          python3 << 'EOF'
+          cat << 'SCRIPT' > generate_tfvars.py
           import yaml
           import json
           import os
@@ -193,8 +193,9 @@ jobs:
           with open('../../../../config/${{ matrix.environment }}.yaml', 'r') as f:
               config = yaml.safe_load(f)
           
-          # Extract cluster-specific configuration
-          cluster_config = ${{ toJson(matrix) }}
+          # Extract cluster-specific configuration from JSON string
+          cluster_config_json = '''${{ toJson(matrix) }}'''
+          cluster_config = json.loads(cluster_config_json)
           tags = config.get('tags', {})
           
           # Get tenant ID from environment (set by GitHub secrets)
@@ -202,7 +203,7 @@ jobs:
           
           # Generate terraform.tfvars.json
           tfvars = {
-              'cluster_name': cluster_config['name'],
+              'cluster_name': cluster_config.get('name', ''),
               'kubernetes_version': cluster_config.get('kubernetes_version', '1.29.7'),
               'network_resource_group_name': cluster_config.get('network_resource_group_name', ''),
               'vnet_name': cluster_config.get('vnet_name', ''),
@@ -225,7 +226,9 @@ jobs:
           tfvars_display = tfvars.copy()
           tfvars_display['tenant_id'] = '***'
           print(json.dumps(tfvars_display, indent=2))
-          EOF
+          SCRIPT
+          
+          python3 generate_tfvars.py
 
       - name: Setup Terraform Backend
         uses: ./.github/actions/terraform-backend-enhanced
