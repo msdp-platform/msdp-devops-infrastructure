@@ -1,20 +1,5 @@
-#Azure AKS Infrastructure
+# Azure AKS Infrastructure
 # Clean, modern implementation following best practices
-
-terraform {
-  required_version = ">= 1.9"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.9"
-    }
-  }
-  backend "s3" {}
-}
-
-provider "azurerm" {
-  features {}
-}
 
 # Data sources for existing network resources
 data "azurerm_resource_group" "network" {
@@ -82,15 +67,19 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Azure AD integration
   azure_active_directory_role_based_access_control {
+    managed                = true
     tenant_id              = var.tenant_id
     admin_group_object_ids = var.admin_group_object_ids
     azure_rbac_enabled     = true
   }
 
-  # Monitoring
-  oms_agent {
-    log_analytics_workspace_id      = var.log_analytics_workspace_id
-    msi_auth_for_monitoring_enabled = true
+  # Monitoring (optional)
+  dynamic "oms_agent" {
+    for_each = var.log_analytics_workspace_id != null ? [1] : []
+    content {
+      log_analytics_workspace_id      = var.log_analytics_workspace_id
+      msi_auth_for_monitoring_enabled = true
+    }
   }
 
   # Key Vault secrets provider
