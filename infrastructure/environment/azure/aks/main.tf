@@ -1,4 +1,4 @@
-# Azure AKS Infrastructure
+#Azure AKS Infrastructure
 # Clean, modern implementation following best practices
 
 terraform {
@@ -38,7 +38,7 @@ resource "azurerm_kubernetes_cluster" "main" {
   # Enable important features
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
-  
+
   # Default node pool (system)
   default_node_pool {
     name                        = "system"
@@ -46,18 +46,15 @@ resource "azurerm_kubernetes_cluster" "main" {
     vm_size                     = var.system_vm_size
     vnet_subnet_id              = data.azurerm_subnet.aks.id
     temporary_name_for_rotation = "systemtemp"
-    
+
     # Node pool configuration
-    max_pods                = var.max_pods_per_node
-    os_disk_size_gb        = var.os_disk_size_gb
-    os_disk_type           = "Managed"
-    
+    max_pods        = var.max_pods_per_node
+    os_disk_size_gb = var.os_disk_size_gb
+    os_disk_type    = "Managed"
+
     # Availability and scaling
     zones = var.availability_zones
-    
-    # Taints for system workloads
-    node_taints = ["CriticalAddonsOnly=true:NoSchedule"]
-    
+
     # Labels
     node_labels = merge(
       {
@@ -75,17 +72,16 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Network profile
   network_profile {
-    network_plugin      = "azure"
-    network_policy      = "azure"
-    load_balancer_sku   = "standard"
-    outbound_type       = "loadBalancer"
-    dns_service_ip      = var.dns_service_ip
-    service_cidr        = var.service_cidr
+    network_plugin    = "azure"
+    network_policy    = "azure"
+    load_balancer_sku = "standard"
+    outbound_type     = "loadBalancer"
+    dns_service_ip    = var.dns_service_ip
+    service_cidr      = var.service_cidr
   }
 
   # Azure AD integration
   azure_active_directory_role_based_access_control {
-    managed                = true
     tenant_id              = var.tenant_id
     admin_group_object_ids = var.admin_group_object_ids
     azure_rbac_enabled     = true
@@ -106,18 +102,18 @@ resource "azurerm_kubernetes_cluster" "main" {
   # Auto-scaler profile
   auto_scaler_profile {
     balance_similar_node_groups      = true
-    expander                        = "random"
-    max_graceful_termination_sec    = "600"
-    max_node_provisioning_time      = "15m"
-    max_unready_nodes               = 3
-    max_unready_percentage          = 45
-    new_pod_scale_up_delay          = "10s"
-    scale_down_delay_after_add      = "10m"
-    scale_down_delay_after_delete   = "10s"
-    scale_down_delay_after_failure  = "3m"
-    scan_interval                   = "10s"
-    scale_down_unneeded             = "10m"
-    scale_down_unready              = "20m"
+    expander                         = "random"
+    max_graceful_termination_sec     = "600"
+    max_node_provisioning_time       = "15m"
+    max_unready_nodes                = 3
+    max_unready_percentage           = 45
+    new_pod_scale_up_delay           = "10s"
+    scale_down_delay_after_add       = "10m"
+    scale_down_delay_after_delete    = "10s"
+    scale_down_delay_after_failure   = "3m"
+    scan_interval                    = "10s"
+    scale_down_unneeded              = "10m"
+    scale_down_unready               = "20m"
     scale_down_utilization_threshold = "0.5"
   }
 
@@ -138,26 +134,26 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.user_vm_size
   vnet_subnet_id        = data.azurerm_subnet.aks.id
-  
+
   # Scaling configuration
-  enable_auto_scaling = true
-  min_count          = var.user_min_count
-  max_count          = var.user_max_count
-  node_count         = var.user_min_count
-  
+  auto_scaling_enabled = true
+  min_count            = var.user_min_count
+  max_count            = var.user_max_count
+  node_count           = var.user_min_count
+
   # Node configuration
   max_pods        = var.max_pods_per_node
   os_disk_size_gb = var.os_disk_size_gb
   os_disk_type    = "Managed"
-  
+
   # Availability
   zones = var.availability_zones
-  
+
   # Spot instances (optional)
   priority        = var.user_spot_enabled ? "Spot" : "Regular"
   eviction_policy = var.user_spot_enabled ? "Delete" : null
   spot_max_price  = var.user_spot_enabled ? var.user_spot_max_price : null
-  
+
   # Labels
   node_labels = merge(
     {
@@ -166,7 +162,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
     },
     var.user_node_labels
   )
-  
+
   # Taints (optional)
   node_taints = var.user_node_taints
 
