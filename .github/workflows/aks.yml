@@ -57,41 +57,99 @@ jobs:
           import yaml
           import json
           import os
+          import sys
           
-          # Load configuration
-          env = "${{ github.event.inputs.environment || 'dev' }}"
-          cluster_filter = "${{ github.event.inputs.cluster_name }}"
-          
-          with open(f'config/{env}.yaml', 'r') as f:
-              config = yaml.safe_load(f)
-          
-          # Extract AKS clusters
-          clusters = config['azure']['aks']['clusters']
-          
-          # Filter by cluster name if specified
-          if cluster_filter:
-              clusters = [c for c in clusters if c['name'] == cluster_filter]
-          
-          # Add environment and network info to each cluster
-          network_config = config['azure']['network']
-          for cluster in clusters:
-              cluster['environment'] = env
-              cluster['location'] = config['azure']['location']
-              cluster['network_resource_group_name'] = network_config['resource_group_name']
-              cluster['vnet_name'] = network_config['vnet_name']
-              cluster['tenant_id'] = "${{ secrets.AZURE_TENANT_ID }}"
-          
-          matrix = {"include": clusters}
-          print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
-          
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write(f"matrix={json.dumps(matrix)}\n")
+          try:
+              # Load configuration
+              env = "${{ github.event.inputs.environment || 'dev' }}"
+              cluster_filter = "${{ github.event.inputs.cluster_name }}"
+              
+              print(f"Loading configuration for environment: {env}")
+              config_file = f'config/{env}.yaml'
+              
+              if not os.path.exists(config_file):
+                  print(f"ERROR: Configuration file not found: {config_file}")
+                  # Return empty matrix if config doesn't exist
+                  matrix = {"include": []}
+              else:
+                  with open(config_file, 'r') as f:
+                      config = yaml.safe_load(f)
+                  
+                  # Extract AKS clusters
+                  clusters = config.get('azure', {}).get('aks', {}).get('clusters', [])
+                  
+                  if not clusters:
+                      print(f"WARNING: No AKS clusters defined in {config_file}")
+                      matrix = {"include": []}
+                  else:
+                      print(f"Found {len(clusters)} clusters in configuration")
+                      
+                      # Filter by cluster name if specified
+                      if cluster_filter:
+                          clusters = [c for c in clusters if c.get('name') == cluster_filter]
+                          print(f"Filtered to {len(clusters)} clusters matching '{cluster_filter}'")
+                      
+                      # Add environment and network info to each cluster
+                      network_config = config.get('azure', {}).get('network', {})
+                      
+                      for cluster in clusters:
+                          cluster['environment'] = env
+                          cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
+                          cluster['network_resource_group_name'] = network_config.get('resource_group_name', '')
+                          cluster['vnet_name'] = network_config.get('vnet_name', '')
+                          cluster['tenant_id'] = "${{ secrets.AZURE_TENANT_ID }}"
+                          
+                          # Ensure all required fields have defaults
+                          cluster.setdefault('kubernetes_version', '1.29.7')
+                          cluster.setdefault('system_node_count', 2)
+                          cluster.setdefault('system_vm_size', 'Standard_D2s_v3')
+                          cluster.setdefault('user_vm_size', 'Standard_D4s_v3')
+                          cluster.setdefault('user_min_count', 1)
+                          cluster.setdefault('user_max_count', 5)
+                          cluster.setdefault('user_spot_enabled', False)
+                      
+                      matrix = {"include": clusters}
+              
+              print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
+              
+              # Write to GitHub output
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"matrix={json.dumps(matrix)}\n")
+                  
+          except Exception as e:
+              print(f"ERROR generating matrix: {e}")
+              # Return empty matrix on error
+              matrix = {"include": []}
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"matrix={json.dumps(matrix)}\n")
+              sys.exit(1)
           EOF
 
-  deploy:
+  check-matrix:
     needs: prepare
     runs-on: ubuntu-latest
-    if: ${{ fromJson(needs.prepare.outputs.matrix).include[0] != null }}
+    outputs:
+      has-clusters: ${{ steps.check.outputs.has-clusters }}
+    steps:
+      - name: Check if matrix has clusters
+        id: check
+        run: |
+          MATRIX='${{ needs.prepare.outputs.matrix }}'
+          echo "Matrix content: $MATRIX"
+          
+          # Check if matrix has any clusters
+          if [ "$MATRIX" = '{"include":[]}' ] || [ -z "$MATRIX" ]; then
+            echo "No clusters found in matrix"
+            echo "has-clusters=false" >> $GITHUB_OUTPUT
+          else
+            echo "Clusters found in matrix"
+            echo "has-clusters=true" >> $GITHUB_OUTPUT
+          fi
+
+  deploy:
+    needs: [prepare, check-matrix]
+    runs-on: ubuntu-latest
+    if: ${{ needs.check-matrix.outputs.has-clusters == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
