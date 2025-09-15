@@ -309,18 +309,27 @@ jobs:
     steps:
       - name: Check if matrix has clusters
         id: check
+        env:
+          MATRIX: ${{ needs.prepare.outputs.matrix }}
         run: |
-          MATRIX='${{ needs.prepare.outputs.matrix }}'
           echo "Matrix content: $MATRIX"
-          
-          # Check if matrix has any clusters
-          if [ "$MATRIX" = '{"include":[]}' ] || [ -z "$MATRIX" ]; then
-            echo "No clusters found in matrix"
-            echo "has-clusters=false" >> $GITHUB_OUTPUT
-          else
-            echo "Clusters found in matrix"
-            echo "has-clusters=true" >> $GITHUB_OUTPUT
-          fi
+          python3 - << 'PY'
+import json, os, sys
+s = os.environ.get('MATRIX') or ''
+print('Raw MATRIX:', s)
+
+has = False
+try:
+    data = json.loads(s)
+    incl = data.get('include')
+    has = isinstance(incl, list) and len(incl) > 0
+except Exception as e:
+    print('Matrix parse error:', e)
+
+print('Has clusters:', has)
+with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+    f.write(f"has-clusters={'true' if has else 'false'}\n")
+PY
 
   deploy:
     needs: [prepare, check-matrix]
