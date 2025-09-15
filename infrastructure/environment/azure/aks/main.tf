@@ -115,10 +115,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   vnet_subnet_id        = data.azurerm_subnet.aks.id
 
   # Scaling configuration
-  enable_auto_scaling = true
-  min_count          = var.user_min_count
-  max_count          = var.user_max_count
-  node_count         = var.user_min_count
+  auto_scale = true
+  min_count  = var.user_min_count
+  max_count  = var.user_max_count
 
   # Node configuration
   max_pods        = var.max_pods_per_node
