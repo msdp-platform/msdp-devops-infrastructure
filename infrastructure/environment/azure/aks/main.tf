@@ -39,15 +39,6 @@ resource "azurerm_kubernetes_cluster" "main" {
 
     # Availability and scaling
     zones = var.availability_zones
-
-    # Labels
-    node_labels = merge(
-      {
-        "node-type" = "system"
-        "workload"  = "system"
-      },
-      var.system_node_labels
-    )
   }
 
   # Identity
@@ -67,7 +58,6 @@ resource "azurerm_kubernetes_cluster" "main" {
 
   # Azure AD integration
   azure_active_directory_role_based_access_control {
-    managed                = true
     tenant_id              = var.tenant_id
     admin_group_object_ids = var.admin_group_object_ids
     azure_rbac_enabled     = true
@@ -125,10 +115,10 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   vnet_subnet_id        = data.azurerm_subnet.aks.id
 
   # Scaling configuration
-  auto_scaling_enabled = true
-  min_count            = var.user_min_count
-  max_count            = var.user_max_count
-  node_count           = var.user_min_count
+  enable_auto_scaling = true
+  min_count          = var.user_min_count
+  max_count          = var.user_max_count
+  node_count         = var.user_min_count
 
   # Node configuration
   max_pods        = var.max_pods_per_node
