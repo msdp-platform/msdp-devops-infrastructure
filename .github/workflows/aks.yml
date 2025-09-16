@@ -280,7 +280,7 @@ jobs:
                           # Don't include secrets in the matrix - they'll be accessed directly in the job
                           
                           # Ensure all required fields have defaults
-                          cluster.setdefault('kubernetes_version', '1.29.7')
+                          cluster.setdefault('kubernetes_version', '1.31.2')
                           cluster.setdefault('system_node_count', 2)
                           cluster.setdefault('system_vm_size', 'Standard_D2s_v3')
                           cluster.setdefault('user_vm_size', 'Standard_D4s_v3')
@@ -393,7 +393,7 @@ jobs:
           # Generate terraform.tfvars.json
           tfvars = {
               'cluster_name': cluster_config.get('name', ''),
-              'kubernetes_version': cluster_config.get('kubernetes_version', '1.29.7'),
+              'kubernetes_version': cluster_config.get('kubernetes_version', '1.31.2'),
               'network_resource_group_name': cluster_config.get('network_resource_group_name', ''),
               'vnet_name': cluster_config.get('vnet_name', ''),
               'subnet_name': cluster_config.get('subnet_name', ''),
