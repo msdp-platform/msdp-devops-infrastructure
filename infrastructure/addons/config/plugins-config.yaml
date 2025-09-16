@@ -33,7 +33,7 @@ plugins:
     description: "NGINX Ingress Controller for HTTP/HTTPS traffic management"
     
   aws-load-balancer-controller:
-    enabled: false
+    enabled: true
     priority: 4
     category: ingress
     dependencies: []
@@ -41,7 +41,7 @@ plugins:
     description: "AWS Load Balancer Controller for ALB/NLB integration"
     
   azure-application-gateway:
-    enabled: false
+    enabled: true
     priority: 4
     category: ingress
     dependencies: []
@@ -71,7 +71,7 @@ plugins:
     description: "Fluent Bit log forwarding and processing"
     
   jaeger:
-    enabled: false
+    enabled: true
     priority: 8
     category: observability
     dependencies: []
@@ -79,14 +79,14 @@ plugins:
     
   # Security Plugins
   gatekeeper:
-    enabled: false
+    enabled: true
     priority: 9
     category: security
     dependencies: []
     description: "OPA Gatekeeper for policy enforcement"
     
   trivy-operator:
-    enabled: false
+    enabled: true
     priority: 10
     category: security
     dependencies: []
@@ -94,7 +94,7 @@ plugins:
     
   # GitOps and CI/CD
   argocd:
-    enabled: false
+    enabled: true
     priority: 11
     category: gitops
     dependencies: ["nginx-ingress", "cert-manager"]
@@ -102,7 +102,7 @@ plugins:
     
   # Backup and Storage
   velero:
-    enabled: false
+    enabled: true
     priority: 12
     category: backup
     dependencies: []

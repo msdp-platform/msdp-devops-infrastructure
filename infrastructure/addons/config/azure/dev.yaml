@@ -16,10 +16,11 @@ azure:
 plugins:
   external-dns:
     config:
-      provider: azure
-      azure_resource_group: "rg-msdp-network-dev"
-      domain_filters: ["dev.msdp.io"]
+      provider: aws
+      aws_zone_type: public
+      domain_filters: ["aztech-msdp.com"]
       txt_owner_id: "aks-msdp-dev-01"
+      aws_region: eu-west-1
       policy: sync
       registry: txt
       txt_prefix: "external-dns-"
@@ -27,12 +28,11 @@ plugins:
   cert-manager:
     config:
       cluster_issuer: letsencrypt-staging  # Use staging for dev
-      email: "devops@msdp.io"
+      email: "devops@aztech-msdp.com"
       dns_challenge: true
-      dns_provider: azuredns
-      azure_subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
-      azure_resource_group: "rg-msdp-network-dev"
-      azure_hosted_zone_name: "dev.msdp.io"
+      dns_provider: route53
+      aws_region: eu-west-1
+      hosted_zone_id: "Z0581458B5QGVNLDPESN"
       
   external-secrets:
     config:
@@ -78,7 +78,7 @@ plugins:
       storage_class: managed-premium
       storage_size: 10Gi
       ingress_enabled: true
-      hostname: "grafana-dev.msdp.io"
+      hostname: "grafana-dev.aztech-msdp.com"
       datasources:
         - name: Prometheus
           url: "http://prometheus-stack-prometheus:9090"
@@ -96,13 +96,13 @@ plugins:
       storage_type: elasticsearch
       elasticsearch_url: "http://elasticsearch:9200"
       ingress_enabled: true
-      hostname: "jaeger-dev.msdp.io"
+      hostname: "jaeger-dev.aztech-msdp.com"
       
   argocd:
     config:
       admin_password: "{{ ARGOCD_ADMIN_PASSWORD }}"
       ingress_enabled: true
-      hostname: "argocd-dev.msdp.io"
+      hostname: "argocd-dev.aztech-msdp.com"
       repositories:
         - url: "https://github.com/msdp-platform/msdp-applications"
           type: git
