@@ -106,17 +106,29 @@ variable "aws_role_arn" {
 }
 
 variable "aws_access_key_id" {
-  description = "AWS access key ID (for Azure clusters)"
+  description = "AWS access key ID (for Azure clusters - legacy)"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "aws_secret_access_key" {
-  description = "AWS secret access key (for Azure clusters)"
+  description = "AWS secret access key (for Azure clusters - legacy)"
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "aws_web_identity_token_file" {
+  description = "Path to the web identity token file for OIDC authentication"
+  type        = string
+  default     = ""
+}
+
+variable "use_oidc" {
+  description = "Use OIDC authentication instead of static credentials"
+  type        = bool
+  default     = false
 }
 
 # Application Configuration

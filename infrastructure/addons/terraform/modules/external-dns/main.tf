@@ -29,9 +29,9 @@ resource "kubernetes_namespace" "external_dns" {
   }
 }
 
-# Create AWS credentials secret for cross-cloud access (Azure clusters)
+# Create AWS credentials secret for cross-cloud access (Azure clusters - legacy)
 resource "kubernetes_secret" "aws_credentials" {
-  count = var.enabled && var.cloud_provider == "azure" ? 1 : 0
+  count = var.enabled && var.cloud_provider == "azure" && !var.use_oidc && var.aws_access_key_id != "" ? 1 : 0
   
   metadata {
     name      = "aws-credentials"
@@ -111,8 +111,13 @@ resource "helm_release" "external_dns" {
       security_context = jsonencode(var.security_context)
       
       # AWS credentials (for Azure clusters)
-      use_aws_credentials = var.cloud_provider == "azure"
-      aws_credentials_secret = var.cloud_provider == "azure" ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      use_aws_credentials = var.cloud_provider == "azure" && !var.use_oidc
+      aws_credentials_secret = var.cloud_provider == "azure" && !var.use_oidc && length(kubernetes_secret.aws_credentials) > 0 ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      
+      # OIDC configuration
+      use_oidc = var.use_oidc
+      aws_role_arn = var.aws_role_arn
+      aws_web_identity_token_file = var.aws_web_identity_token_file
     })
   ]
   

@@ -144,9 +144,30 @@ jobs:
             echo "TF_VAR_azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
             echo "TF_VAR_azure_resource_group=rg-msdp-network-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
             
-            # Set AWS credentials for cross-cloud DNS access
-            echo "TF_VAR_aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_FOR_AZURE }}" >> $GITHUB_ENV
-            echo "TF_VAR_aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY_FOR_AZURE }}" >> $GITHUB_ENV
+            # Set AWS OIDC configuration for cross-cloud DNS access
+            echo "TF_VAR_aws_role_arn_for_azure=${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" >> $GITHUB_ENV
+            echo "TF_VAR_azure_workload_identity_client_id=${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" >> $GITHUB_ENV
+          fi
+
+      - name: Check Environment Directory
+        run: |
+          ENVIRONMENT_DIR="infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}"
+          
+          if [[ ! -d "$ENVIRONMENT_DIR" ]]; then
+            echo "❌ Environment directory not found: $ENVIRONMENT_DIR"
+            echo ""
+            echo "Available environments:"
+            ls -la infrastructure/addons/terraform/environments/ || echo "No environments directory found"
+            echo ""
+            echo "Please ensure the environment directory exists with the following files:"
+            echo "  - main.tf"
+            echo "  - variables.tf" 
+            echo "  - terraform.tfvars"
+            exit 1
+          else
+            echo "✅ Environment directory found: $ENVIRONMENT_DIR"
+            echo "Files in directory:"
+            ls -la "$ENVIRONMENT_DIR"
           fi
 
       - name: Terraform Init
