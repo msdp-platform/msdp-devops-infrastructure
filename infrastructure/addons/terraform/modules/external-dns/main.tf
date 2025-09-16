@@ -95,7 +95,7 @@ resource "helm_release" "external_dns" {
       log_level        = var.log_level
       
       # Cloud-specific configuration
-      provider         = var.provider
+      dns_provider     = var.dns_provider
       aws_region       = var.aws_region
       aws_zone_type    = var.aws_zone_type
       hosted_zone_id   = var.hosted_zone_id

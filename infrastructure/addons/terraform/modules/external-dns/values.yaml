@@ -8,7 +8,7 @@ image:
   pullPolicy: IfNotPresent
 
 # DNS Provider configuration
-provider: ${provider}
+provider: ${dns_provider}
 
 # Domain configuration
 domainFilters: ${domain_filters}

@@ -1,0 +1,196 @@
+# NGINX Ingress Controller Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Controller configuration
+controller:
+  # Image configuration
+  image:
+    repository: registry.k8s.io/ingress-nginx/controller
+    tag: "v1.9.4"
+    pullPolicy: IfNotPresent
+  
+  # Replica configuration
+  replicaCount: ${replica_count}
+  
+  # Resource configuration
+  resources: ${resources}
+  
+  # Security context
+  securityContext: ${security_context}
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 82
+  
+  # Service configuration
+  service:
+    enabled: true
+    type: ${service_type}
+    annotations: ${service_annotations}
+    externalTrafficPolicy: Local
+    
+    ports:
+      http: 80
+      https: 443
+    
+    targetPorts:
+      http: http
+      https: https
+  
+  # Ingress class configuration
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: true
+    controllerValue: "k8s.io/ingress-nginx"
+  
+  # Configuration options
+  config:
+    # SSL configuration
+    ssl-redirect: "${enable_ssl_redirect}"
+    force-ssl-redirect: "false"
+    ssl-protocols: "TLSv1.2 TLSv1.3"
+    ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384"
+    
+    # Performance tuning
+    worker-processes: "auto"
+    worker-connections: "16384"
+    max-worker-connections: "16384"
+    
+    # Proxy configuration
+    proxy-connect-timeout: "15"
+    proxy-send-timeout: "600"
+    proxy-read-timeout: "600"
+    proxy-body-size: "1m"
+    
+    # Rate limiting
+    rate-limit-rps: "0"
+    
+    # Logging
+    log-format-escape-json: "true"
+    log-format-upstream: '{"time": "$time_iso8601", "remote_addr": "$proxy_protocol_addr", "x_forwarded_for": "$proxy_add_x_forwarded_for", "request_id": "$req_id", "remote_user": "$remote_user", "bytes_sent": $bytes_sent, "request_time": $request_time, "status": $status, "vhost": "$host", "request_proto": "$server_protocol", "path": "$uri", "request_query": "$args", "request_length": $request_length, "duration": $request_time,"method": "$request_method", "http_referrer": "$http_referer", "http_user_agent": "$http_user_agent"}'
+    
+    # Custom headers
+    add-headers: "nginx-ingress/custom-headers"
+    
+    %{if default_ssl_certificate != ""}
+    # Default SSL certificate
+    default-ssl-certificate: "${default_ssl_certificate}"
+    %{endif}
+  
+  # Metrics configuration
+  metrics:
+    enabled: ${metrics_enabled}
+    port: ${metrics_port}
+    
+    serviceMonitor:
+      enabled: false
+      additionalLabels: {}
+      namespace: ""
+      namespaceSelector: {}
+      scrapeInterval: 30s
+      targetLabels: []
+      relabelings: []
+      metricRelabelings: []
+  
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: "/healthz"
+      port: ${metrics_port}
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 5
+  
+  readinessProbe:
+    httpGet:
+      path: "/healthz"
+      port: ${metrics_port}
+      scheme: HTTP
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 1
+    successThreshold: 1
+    failureThreshold: 3
+  
+  # Node selector and tolerations
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  # Pod annotations
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+  
+  # Pod labels
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+  
+  # Admission webhooks
+  admissionWebhooks:
+    enabled: true
+    failurePolicy: Fail
+    port: 8443
+    certificate: "/usr/local/certificates/cert"
+    key: "/usr/local/certificates/key"
+    namespaceSelector: {}
+    objectSelector: {}
+    
+    service:
+      annotations: {}
+      externalIPs: []
+      loadBalancerSourceRanges: []
+      servicePort: 443
+      type: ClusterIP
+    
+    createSecretJob:
+      resources: ${webhook_resources}
+    
+    patchWebhookJob:
+      resources: ${webhook_resources}
+  
+  # Autoscaling
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+# Default backend (optional)
+defaultBackend:
+  enabled: false
+
+# RBAC configuration
+rbac:
+  create: true
+  scope: false
+
+# Service account configuration
+serviceAccount:
+  create: false  # We create it via Terraform
+  name: ${service_account_name}
+  automountServiceAccountToken: true
+  annotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false
+
+# Custom headers ConfigMap
+customHeaders:
+  enabled: true
+  data:
+    X-Frame-Options: "SAMEORIGIN"
+    X-Content-Type-Options: "nosniff"
+    X-XSS-Protection: "1; mode=block"
+    Referrer-Policy: "strict-origin-when-cross-origin"

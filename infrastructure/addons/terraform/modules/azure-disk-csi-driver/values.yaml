@@ -1,0 +1,169 @@
+# Azure Disk CSI Driver Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Image configuration
+image:
+  baseRepo: mcr.microsoft.com
+  azuredisk:
+    repository: /oss/kubernetes-csi/azuredisk-csi
+    tag: v1.29.2
+    pullPolicy: IfNotPresent
+
+# Controller configuration
+controller:
+  name: csi-azuredisk-controller
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
+  allowEmptyCloudConfig: false
+  replicas: 2
+  metricsPort: ${metrics_port}
+  livenessProbe:
+    healthPort: 29602
+  runOnMaster: false
+  runOnControlPlane: true
+  disableAvailabilitySetNodes: false
+  vmType: ""
+  provisionerWorkerThreads: 100
+  attacherWorkerThreads: 1000
+  vmssCacheTTLInSeconds: -1
+  logLevel: 5
+  tolerations:
+    - key: "node-role.kubernetes.io/master"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/controlplane"
+      operator: "Exists"
+      effect: "NoSchedule"
+    - key: "node-role.kubernetes.io/control-plane"
+      operator: "Exists"
+      effect: "NoSchedule"
+  hostNetwork: true
+  labels: {}
+  annotations: {}
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+  podAnnotations: {}
+  resources: ${controller_resources}
+  nodeSelector: {}
+  affinity: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+
+# Node configuration
+node:
+  cloudConfigSecretName: azure-cloud-provider
+  cloudConfigSecretNamespace: kube-system
+  supportZone: true
+  allowEmptyCloudConfig: true
+  maxUnavailable: 1
+  logLevel: 5
+  livenessProbe:
+    healthPort: 29603
+  tolerations:
+    - operator: "Exists"
+  hostNetwork: true
+  labels: {}
+  annotations: {}
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+  podAnnotations: {}
+  resources: ${node_resources}
+  nodeSelector: {}
+  affinity: {}
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+
+# Snapshot controller configuration
+snapshot:
+  enabled: false
+  name: csi-snapshot-controller
+  image:
+    csiSnapshotter:
+      repository: /oss/kubernetes-csi/csi-snapshotter
+      tag: v6.3.3
+      pullPolicy: IfNotPresent
+    csiSnapshotController:
+      repository: /oss/kubernetes-csi/snapshot-controller
+      tag: v6.3.3
+      pullPolicy: IfNotPresent
+  snapshotController:
+    name: csi-snapshot-controller
+    replicas: 2
+    labels: {}
+    annotations: {}
+    podLabels: {}
+    podAnnotations: {}
+    resources:
+      limits:
+        memory: 300Mi
+      requests:
+        cpu: 10m
+        memory: 20Mi
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+# Feature gates
+feature:
+  enableGetVolumeStats: true
+  enableVolumeMountGroup: true
+  enableFSGroupPolicy: true
+
+# Driver configuration
+driver:
+  name: disk.csi.azure.com
+  customUserAgent: ""
+  userAgentSuffix: "OSS-helm"
+  azureGoSDKLogLevel: ""
+  httpsProxy: ""
+  httpProxy: ""
+  noProxy: ""
+
+# Linux configuration
+linux:
+  enabled: true
+  dsName: csi-azuredisk-node
+  kubelet: /var/lib/kubelet
+  distro: debian
+  enablePerfOptimization: true
+
+# Windows configuration
+windows:
+  enabled: false
+  dsName: csi-azuredisk-node-win
+  kubelet: 'C:\var\lib\kubelet'
+  enablePerfOptimization: true
+
+# Cloud configuration
+cloud: AzurePublicCloud
+
+# Workload identity
+workloadIdentity:
+  clientID: ""
+  tenantID: ""
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: ${metrics_enabled}
+  labels: {}
+  interval: "30s"
+  scrapeTimeout: "10s"
+
+# Security context
+securityContext: ${security_context}
+
+# Custom labels and annotations
+customLabels: {}
+customAnnotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Priority class
+priorityClassName: system-cluster-critical

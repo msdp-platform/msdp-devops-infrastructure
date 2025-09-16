@@ -289,6 +289,15 @@ output "virtual_node_status" {
   }
 }
 
+output "azure_disk_csi_status" {
+  description = "Azure Disk CSI Driver deployment status"
+  value = {
+    enabled   = module.azure_disk_csi_driver.namespace != null
+    namespace = module.azure_disk_csi_driver.namespace
+    version   = module.azure_disk_csi_driver.helm_release_version
+  }
+}
+
 output "keda_status" {
   description = "KEDA deployment status"
   value = {
@@ -316,5 +325,14 @@ output "addons_summary" {
         { name = "keda", enabled = local.plugins.keda.enabled },
       ] : addon.name if addon.enabled
     ]
+    
+    dependencies = {
+      "external-dns" = "foundation"
+      "cert-manager" = "depends on external-dns"
+      "nginx-ingress" = "depends on cert-manager"
+      "virtual-node" = "independent"
+      "azure-disk-csi-driver" = "independent"
+      "keda" = "independent"
+    }
   }
 }

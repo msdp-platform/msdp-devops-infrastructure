@@ -69,7 +69,7 @@ variable "cloud_provider" {
   }
 }
 
-variable "provider" {
+variable "dns_provider" {
   description = "DNS provider (aws for Route53)"
   type        = string
   default     = "aws"
