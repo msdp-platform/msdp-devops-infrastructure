@@ -308,6 +308,7 @@ jobs:
   check-matrix:
     needs: prepare
     runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() }}
     outputs:
       has-clusters: ${{ steps.check.outputs.has-clusters }}
     steps:
@@ -327,11 +328,17 @@ jobs:
           else
             echo "has-clusters=false" >> $GITHUB_OUTPUT
           fi
+          
+          # Debug output
+          echo "=== Matrix Check Debug ==="
+          echo "Matrix: $MATRIX"
+          echo "Has clusters: $HAS"
+          echo "Output set to: $(grep has-clusters $GITHUB_OUTPUT | cut -d= -f2)"
 
   deploy:
     needs: [prepare, check-matrix]
     runs-on: ubuntu-latest
-    if: ${{ needs.check-matrix.outputs.has-clusters == 'true' }}
+    if: ${{ always() && !cancelled() && needs.check-matrix.outputs.has-clusters == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
