@@ -69,9 +69,16 @@ jobs:
           # Install Helm
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           
+          # Install kubelogin for Azure AKS AAD authentication
+          curl -LO "https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip"
+          unzip kubelogin-linux-amd64.zip
+          sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+          chmod +x /usr/local/bin/kubelogin
+          
           # Verify installations
           kubectl version --client
           helm version
+          kubelogin --version
 
       - name: Cloud Login
         uses: ./.github/actions/cloud-login
@@ -89,9 +96,18 @@ jobs:
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
             echo "Configuring AWS EKS context..."
             aws eks update-kubeconfig --region eu-west-1 --name ${{ env.CLUSTER_NAME }}
+            
           elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
             echo "Configuring Azure AKS context..."
-            az aks get-credentials --resource-group rg-msdp-network-${{ env.ENVIRONMENT }} --name ${{ env.CLUSTER_NAME }}
+            
+            # Get AKS credentials with admin access (bypasses AAD)
+            az aks get-credentials \
+              --resource-group rg-msdp-network-${{ env.ENVIRONMENT }} \
+              --name ${{ env.CLUSTER_NAME }} \
+              --admin \
+              --overwrite-existing
+            
+            echo "✅ Azure AKS admin credentials configured"
           fi
           
           # Verify connection
