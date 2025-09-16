@@ -33,6 +33,8 @@ permissions:
   contents: read
 
 env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
   CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
   ENVIRONMENT: ${{ github.event.inputs.environment }}
   CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
@@ -54,7 +56,7 @@ jobs:
           terraform_wrapper: false
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
@@ -174,11 +176,30 @@ jobs:
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🚀 Initializing Terraform..."
+          
+          # Use established naming conventions for backend
+          BUCKET_NAME="msdp-terraform-state-${{ env.ENVIRONMENT }}"
+          DYNAMODB_TABLE="msdp-terraform-locks-${{ env.ENVIRONMENT }}"
+          
+          # Set region code based on cloud provider
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            REGION_CODE="eu-west-1"
+            STATE_KEY="${{ env.CLOUD_PROVIDER }}/addons/${{ env.ENVIRONMENT }}/${REGION_CODE}/terraform.tfstate"
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            REGION_CODE="uksouth"
+            STATE_KEY="${{ env.CLOUD_PROVIDER }}/addons/${{ env.ENVIRONMENT }}/${REGION_CODE}/terraform.tfstate"
+          fi
+          
+          echo "Using backend configuration:"
+          echo "  Bucket: ${BUCKET_NAME}"
+          echo "  Key: ${STATE_KEY}"
+          echo "  DynamoDB Table: ${DYNAMODB_TABLE}"
+          
           terraform init \
-            -backend-config="bucket=msdp-terraform-state" \
-            -backend-config="key=addons/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="bucket=${BUCKET_NAME}" \
+            -backend-config="key=${STATE_KEY}" \
             -backend-config="region=eu-west-1" \
-            -backend-config="dynamodb_table=msdp-terraform-locks"
+            -backend-config="dynamodb_table=${DYNAMODB_TABLE}"
 
       - name: Terraform Validate
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}

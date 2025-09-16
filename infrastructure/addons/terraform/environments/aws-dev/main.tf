@@ -2,7 +2,7 @@
 # This configuration deploys all enabled add-ons to AWS EKS dev cluster
 
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.9"
   
   required_providers {
     helm = {
@@ -20,11 +20,11 @@ terraform {
   }
   
   backend "s3" {
-    bucket = "msdp-terraform-state"
-    key    = "addons/aws-dev/terraform.tfstate"
+    bucket = "msdp-terraform-state-dev"
+    key    = "aws/addons/dev/eu-west-1/terraform.tfstate"
     region = "eu-west-1"
     
-    dynamodb_table = "msdp-terraform-locks"
+    dynamodb_table = "msdp-terraform-locks-dev"
     encrypt        = true
   }
 }
