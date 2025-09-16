@@ -33,6 +33,7 @@ components:
     - appgateway
     - firewall
   aws:
+    - network
     - vpc
     - eks
     - s3
