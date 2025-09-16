@@ -161,8 +161,12 @@ resource "helm_release" "cert_manager" {
       security_context = jsonencode(var.security_context)
       
       # AWS credentials (for Azure clusters)
-      use_aws_credentials = var.cloud_provider == "azure"
-      aws_credentials_secret = var.cloud_provider == "azure" ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      use_aws_credentials = var.cloud_provider == "azure" && !var.use_oidc
+      aws_credentials_secret = var.cloud_provider == "azure" && !var.use_oidc && length(kubernetes_secret.aws_credentials) > 0 ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      
+      # Monitoring configuration
+      metrics_enabled = var.metrics_enabled
+      prometheus_servicemonitor_enabled = var.prometheus_servicemonitor_enabled
       
       # Webhook configuration
       webhook_resources = jsonencode(var.webhook_resources)

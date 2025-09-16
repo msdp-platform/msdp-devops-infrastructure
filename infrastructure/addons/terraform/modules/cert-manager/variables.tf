@@ -104,6 +104,12 @@ variable "aws_web_identity_token_file" {
   default     = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
 }
 
+variable "use_oidc" {
+  description = "Use OIDC authentication instead of static credentials"
+  type        = bool
+  default     = false
+}
+
 # Azure Configuration
 variable "azure_subscription_id" {
   description = "Azure subscription ID"

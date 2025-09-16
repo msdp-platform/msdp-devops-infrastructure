@@ -155,6 +155,7 @@ module "cert_manager" {
   aws_region             = var.aws_region
   aws_role_arn           = var.aws_role_arn_for_azure
   aws_web_identity_token_file = var.aws_web_identity_token_file
+  use_oidc               = true
   
   # Cloud configuration
   cloud_provider = "azure"
