@@ -9,19 +9,19 @@ on:
   workflow_dispatch:
     inputs:
       action:
-        description: "Action to perform"
+        description: "Action: plan (dry-run), apply (create/update), destroy (tear down). On push defaults to plan."
         required: true
         default: plan
         type: choice
         options: [plan, apply, destroy]
       environment:
-        description: "Environment"
+        description: "Target environment (maps to config/<env>.yaml). On push defaults to dev."
         required: true
         default: dev
         type: choice
         options: [dev, staging, prod]
       cluster_name:
-        description: "Specific cluster name (optional, deploys all if empty)"
+        description: "Exact cluster name from config/<env>.yaml (e.g., aks-msdp-dev-01). Leave empty to deploy all. If no match, deployment is skipped."
         required: false
         default: ""
 
@@ -376,7 +376,7 @@ jobs:
               config = yaml.safe_load(f)
           
           # Extract cluster-specific configuration from JSON string
-          cluster_config_json = '''${{ toJson(matrix) }}''''
+          cluster_config_json = '''${{ toJson(matrix) }}'''
           cluster_config = json.loads(cluster_config_json)
           tags = config.get('tags', {})
           
