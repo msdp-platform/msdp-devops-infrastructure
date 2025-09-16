@@ -107,6 +107,88 @@ plugins:
     category: backup
     dependencies: []
     description: "Velero for cluster backup and disaster recovery"
+    
+  # AWS-Specific Add-ons
+  karpenter:
+    enabled: true
+    priority: 13
+    category: autoscaling
+    dependencies: []
+    cloud_provider: aws
+    description: "Advanced node autoscaling and provisioning for EKS"
+    
+  ebs-csi-driver:
+    enabled: true
+    priority: 2
+    category: storage
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon EBS Container Storage Interface (CSI) driver"
+    
+  efs-csi-driver:
+    enabled: true
+    priority: 14
+    category: storage
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon EFS Container Storage Interface (CSI) driver"
+    
+  aws-node-termination-handler:
+    enabled: true
+    priority: 15
+    category: reliability
+    dependencies: []
+    cloud_provider: aws
+    description: "Gracefully handle EC2 instance shutdown within Kubernetes"
+    
+  vpc-cni:
+    enabled: true
+    priority: 1
+    category: networking
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon VPC CNI plugin for Kubernetes"
+    
+  # Azure-Specific Add-ons
+  virtual-node:
+    enabled: true
+    priority: 13
+    category: autoscaling
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Container Instances virtual nodes for AKS"
+    
+  azure-disk-csi-driver:
+    enabled: true
+    priority: 2
+    category: storage
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Disk Container Storage Interface (CSI) driver"
+    
+  azure-file-csi-driver:
+    enabled: true
+    priority: 14
+    category: storage
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Files Container Storage Interface (CSI) driver"
+    
+  keda:
+    enabled: true
+    priority: 16
+    category: autoscaling
+    dependencies: []
+    cloud_provider: azure
+    description: "Kubernetes Event-Driven Autoscaling with Azure integration"
+    
+  azure-keyvault-csi-driver:
+    enabled: true
+    priority: 17
+    category: security
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Key Vault CSI driver for secret management"
 
 # Global Settings
 settings:
@@ -138,3 +220,15 @@ categories:
   backup:
     description: "Backup and disaster recovery"
     color: "orange"
+  autoscaling:
+    description: "Node and pod autoscaling solutions"
+    color: "cyan"
+  storage:
+    description: "Persistent and shared storage drivers"
+    color: "brown"
+  reliability:
+    description: "High availability and fault tolerance"
+    color: "gray"
+  networking:
+    description: "Advanced networking and service mesh"
+    color: "teal"

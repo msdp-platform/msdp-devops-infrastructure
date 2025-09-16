@@ -1,0 +1,320 @@
+name: Kubernetes Add-ons (Terraform)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: "Target cluster name"
+        required: true
+        type: string
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        options: [plan, apply, destroy, refresh]
+      auto_approve:
+        description: "Auto-approve Terraform apply"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+  TF_VAR_cluster_name: ${{ github.event.inputs.cluster_name }}
+  TF_VAR_environment: ${{ github.event.inputs.environment }}
+
+jobs:
+  terraform-addons:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.6"
+          terraform_wrapper: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install PyYAML requests
+          
+      - name: Setup Kubernetes tools
+        run: |
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          
+          # Install kubelogin for Azure AKS AAD authentication
+          curl -LO "https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip"
+          unzip kubelogin-linux-amd64.zip
+          sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
+          chmod +x /usr/local/bin/kubelogin
+          
+          # Verify installations
+          terraform version
+          kubectl version --client
+          helm version
+          kubelogin --version
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure Kubernetes Context
+        run: |
+          echo "🔧 Configuring Kubernetes context for ${{ env.CLOUD_PROVIDER }}..."
+          
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            echo "Configuring AWS EKS context..."
+            aws eks update-kubeconfig --region eu-west-1 --name ${{ env.CLUSTER_NAME }}
+            
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            echo "Configuring Azure AKS context..."
+            
+            # Get AKS credentials with admin access (bypasses AAD)
+            az aks get-credentials \
+              --resource-group rg-msdp-network-${{ env.ENVIRONMENT }} \
+              --name ${{ env.CLUSTER_NAME }} \
+              --admin \
+              --overwrite-existing
+            
+            echo "✅ Azure AKS admin credentials configured"
+          fi
+          
+          # Verify connection
+          echo "✅ Verifying Kubernetes connection..."
+          kubectl cluster-info
+          kubectl get nodes
+          
+          echo "📋 Current context:"
+          kubectl config current-context
+
+      - name: Set Terraform Variables
+        run: |
+          echo "🔧 Setting Terraform variables..."
+          
+          # Common variables
+          echo "TF_VAR_domain_name=aztech-msdp.com" >> $GITHUB_ENV
+          echo "TF_VAR_hosted_zone_id=Z0581458B5QGVNLDPESN" >> $GITHUB_ENV
+          echo "TF_VAR_cert_manager_email=devops@aztech-msdp.com" >> $GITHUB_ENV
+          
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            echo "TF_VAR_aws_region=eu-west-1" >> $GITHUB_ENV
+            echo "TF_VAR_aws_account_id=319422413814" >> $GITHUB_ENV
+            
+            # Get cluster endpoint
+            CLUSTER_ENDPOINT=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --query 'cluster.endpoint' --output text)
+            echo "TF_VAR_cluster_endpoint=$CLUSTER_ENDPOINT" >> $GITHUB_ENV
+            
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            echo "TF_VAR_azure_subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+            echo "TF_VAR_azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+            echo "TF_VAR_azure_resource_group=rg-msdp-network-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            
+            # Set AWS credentials for cross-cloud DNS access
+            echo "TF_VAR_aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID_FOR_AZURE }}" >> $GITHUB_ENV
+            echo "TF_VAR_aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY_FOR_AZURE }}" >> $GITHUB_ENV
+          fi
+
+      - name: Terraform Init
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "🚀 Initializing Terraform..."
+          terraform init \
+            -backend-config="bucket=msdp-terraform-state" \
+            -backend-config="key=addons/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform.tfstate" \
+            -backend-config="region=eu-west-1" \
+            -backend-config="dynamodb_table=msdp-terraform-locks"
+
+      - name: Terraform Validate
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "✅ Validating Terraform configuration..."
+          terraform validate
+
+      - name: Terraform Plan
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "📋 Planning Terraform changes..."
+          terraform plan \
+            -var-file="terraform.tfvars" \
+            -out=tfplan \
+            -detailed-exitcode
+        continue-on-error: true
+        id: plan
+
+      - name: Terraform Plan Status
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "❌ Terraform Plan Failed"
+          exit 1
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "🚀 Applying Terraform changes..."
+          
+          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+            terraform apply -auto-approve tfplan
+          else
+            echo "⚠️ Manual approval required. Run with auto_approve=true to apply automatically."
+            terraform show tfplan
+            exit 1
+          fi
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "🗑️ Destroying Terraform resources..."
+          
+          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+            terraform destroy -auto-approve -var-file="terraform.tfvars"
+          else
+            echo "⚠️ Manual approval required. Run with auto_approve=true to destroy automatically."
+            terraform plan -destroy -var-file="terraform.tfvars"
+            exit 1
+          fi
+
+      - name: Terraform Refresh
+        if: ${{ github.event.inputs.action == 'refresh' }}
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "🔄 Refreshing Terraform state..."
+          terraform refresh -var-file="terraform.tfvars"
+
+      - name: Generate Terraform Outputs
+        if: ${{ github.event.inputs.action == 'apply' || github.event.inputs.action == 'refresh' }}
+        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+        run: |
+          echo "📊 Terraform Outputs:"
+          terraform output -json > terraform-outputs.json
+          
+          echo "📋 Add-ons Summary:"
+          terraform output addons_summary
+
+      - name: Validate Deployments
+        if: ${{ github.event.inputs.action == 'apply' }}
+        run: |
+          echo "🔍 Validating deployed add-ons..."
+          
+          # Wait for deployments to be ready
+          sleep 30
+          
+          # Check common add-on namespaces
+          ADDON_NAMESPACES=(
+            "external-dns-system"
+            "cert-manager"
+            "nginx-ingress"
+            "karpenter"
+          )
+          
+          for ns in "${ADDON_NAMESPACES[@]}"; do
+            if kubectl get namespace "$ns" >/dev/null 2>&1; then
+              echo "✅ Namespace $ns exists"
+              
+              # Check pod status
+              pod_count=$(kubectl get pods -n "$ns" --no-headers 2>/dev/null | wc -l)
+              running_pods=$(kubectl get pods -n "$ns" --field-selector=status.phase=Running --no-headers 2>/dev/null | wc -l)
+              
+              echo "  Pods: $running_pods/$pod_count running"
+              
+              if [[ $pod_count -gt 0 && $running_pods -eq $pod_count ]]; then
+                echo "  ✅ All pods running"
+              else
+                echo "  ⚠️ Some pods not ready"
+                kubectl get pods -n "$ns"
+              fi
+            else
+              echo "❌ Namespace $ns not found"
+            fi
+          done
+
+      - name: Generate Status Report
+        if: always()
+        run: |
+          echo "📊 Kubernetes Add-ons Status Report"
+          echo "===================================="
+          echo ""
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Cloud Provider: ${{ env.CLOUD_PROVIDER }}"
+          echo "Cluster: ${{ env.CLUSTER_NAME }}"
+          echo "Action: ${{ github.event.inputs.action }}"
+          echo ""
+          
+          # Terraform state summary
+          if [[ -f "infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform-outputs.json" ]]; then
+            echo "📋 Terraform Managed Resources:"
+            cd "infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}"
+            terraform state list 2>/dev/null | head -20 || echo "No state found"
+            echo ""
+          fi
+          
+          # Kubernetes resources
+          echo "🎪 Kubernetes Resources:"
+          kubectl get namespaces -l app.kubernetes.io/managed-by=terraform --no-headers 2>/dev/null || echo "No Terraform-managed namespaces found"
+          echo ""
+          
+          # Helm releases
+          echo "📦 Helm Releases:"
+          helm list --all-namespaces --no-headers 2>/dev/null || echo "No Helm releases found"
+
+      - name: Upload Terraform Plan
+        if: ${{ github.event.inputs.action == 'plan' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+          path: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/tfplan
+          retention-days: 7
+
+      - name: Upload Terraform Outputs
+        if: ${{ github.event.inputs.action == 'apply' || github.event.inputs.action == 'refresh' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+          path: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform-outputs.json
+          retention-days: 30
+
+      - name: Upload Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-logs-${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+          path: |
+            infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/.terraform/
+            infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform.log
+          retention-days: 7

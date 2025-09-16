@@ -1,0 +1,149 @@
+# External DNS Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Image configuration
+image:
+  repository: registry.k8s.io/external-dns/external-dns
+  tag: v0.14.0
+  pullPolicy: IfNotPresent
+
+# DNS Provider configuration
+provider: ${provider}
+
+# Domain configuration
+domainFilters: ${domain_filters}
+
+# TXT record configuration
+txtOwnerId: ${txt_owner_id}
+txtPrefix: ${txt_prefix}
+
+# Policy configuration
+policy: ${policy}
+registry: ${registry}
+
+# AWS-specific configuration
+aws:
+  region: ${aws_region}
+  zoneType: ${aws_zone_type}
+  %{if hosted_zone_id != ""}
+  zoneIdFilters:
+    - ${hosted_zone_id}
+  %{endif}
+
+# Source configuration
+sources:
+  - service
+  - ingress
+  - istio-gateway
+  - istio-virtualservice
+
+# Deployment configuration
+replicaCount: ${replica_count}
+
+# Resource configuration
+resources: ${resources}
+
+# Security context
+securityContext: ${security_context}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 65534
+
+# Service account configuration
+serviceAccount:
+  create: false  # We create it via Terraform
+  name: ${service_account_name}
+
+# RBAC configuration
+rbac:
+  create: false  # We create it via Terraform
+
+# Monitoring configuration
+metrics:
+  enabled: true
+  port: 7979
+
+# Health check configuration
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+# Logging configuration
+logLevel: ${log_level}
+logFormat: text
+
+# Additional arguments
+extraArgs:
+  - --events
+  - --log-format=text
+
+# Environment variables
+%{if use_aws_credentials}
+extraEnv:
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-secret-access-key
+%{endif}
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/managed-by: terraform
+  app.kubernetes.io/part-of: kubernetes-addons
+
+# Service configuration
+service:
+  enabled: true
+  type: ClusterIP
+  port: 7979
+  annotations: {}
+
+# ServiceMonitor for Prometheus (if available)
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  labels: {}
+  annotations: {}
+  interval: 30s
+  scrapeTimeout: 10s
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false
