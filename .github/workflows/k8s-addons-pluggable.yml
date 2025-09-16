@@ -1,0 +1,277 @@
+name: Kubernetes Add-ons (Pluggable)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster_name:
+        description: "Target cluster name"
+        required: true
+        type: string
+      environment:
+        description: "Environment"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+      action:
+        description: "Action to perform"
+        required: true
+        type: choice
+        options: [install, uninstall, health-check, list-plugins]
+      plugins:
+        description: "Specific plugins (comma-separated, leave empty for all enabled)"
+        required: false
+        type: string
+      dry_run:
+        description: "Dry run mode"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+  DRY_RUN: ${{ github.event.inputs.dry_run }}
+
+jobs:
+  plugin-management:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: |
+          pip install PyYAML requests
+          
+      - name: Setup Kubernetes tools
+        run: |
+          # Install kubectl
+          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+          
+          # Install Helm
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          
+          # Verify installations
+          kubectl version --client
+          helm version
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure Kubernetes Context
+        run: |
+          echo "🔧 Configuring Kubernetes context for ${{ env.CLOUD_PROVIDER }}..."
+          
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            echo "Configuring AWS EKS context..."
+            aws eks update-kubeconfig --region eu-west-1 --name ${{ env.CLUSTER_NAME }}
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            echo "Configuring Azure AKS context..."
+            az aks get-credentials --resource-group rg-msdp-network-${{ env.ENVIRONMENT }} --name ${{ env.CLUSTER_NAME }}
+          fi
+          
+          # Verify connection
+          echo "✅ Verifying Kubernetes connection..."
+          kubectl cluster-info
+          kubectl get nodes
+          
+          echo "📋 Current context:"
+          kubectl config current-context
+
+      - name: Resolve Network Information
+        if: ${{ github.event.inputs.action == 'install' }}
+        run: |
+          echo "🔍 Resolving network information..."
+          
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            # Get VPC information from EKS cluster
+            VPC_ID=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --query 'cluster.resourcesVpcConfig.vpcId' --output text)
+            echo "VPC_ID=$VPC_ID" >> $GITHUB_ENV
+            
+            # Get subnet information
+            PRIVATE_SUBNET_IDS=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --query 'cluster.resourcesVpcConfig.subnetIds' --output text | tr '\t' ',')
+            echo "PRIVATE_SUBNET_IDS=$PRIVATE_SUBNET_IDS" >> $GITHUB_ENV
+            
+            echo "✅ AWS Network Info:"
+            echo "  VPC ID: $VPC_ID"
+            echo "  Subnet IDs: $PRIVATE_SUBNET_IDS"
+            
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            # Get Azure network information
+            RESOURCE_GROUP="rg-msdp-network-${{ env.ENVIRONMENT }}"
+            VNET_NAME="vnet-msdp-${{ env.ENVIRONMENT }}"
+            
+            echo "AZURE_RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+            echo "AZURE_VNET_NAME=$VNET_NAME" >> $GITHUB_ENV
+            
+            echo "✅ Azure Network Info:"
+            echo "  Resource Group: $RESOURCE_GROUP"
+            echo "  VNet Name: $VNET_NAME"
+          fi
+
+      - name: Set Plugin Secrets
+        if: ${{ github.event.inputs.action == 'install' }}
+        run: |
+          echo "🔐 Setting up plugin secrets..."
+          
+          # Set common secrets
+          echo "GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD || 'admin123' }}" >> $GITHUB_ENV
+          echo "ARGOCD_ADMIN_PASSWORD=${{ secrets.ARGOCD_ADMIN_PASSWORD || 'admin123' }}" >> $GITHUB_ENV
+          
+          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
+            echo "AWS_REGION=eu-west-1" >> $GITHUB_ENV
+            echo "AWS_ACCOUNT_ID=319422413814" >> $GITHUB_ENV
+            echo "ROUTE53_HOSTED_ZONE_ID=${{ secrets.ROUTE53_HOSTED_ZONE_ID }}" >> $GITHUB_ENV
+          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+            echo "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+            echo "AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          fi
+
+      - name: List Available Plugins
+        if: ${{ github.event.inputs.action == 'list-plugins' }}
+        run: |
+          echo "📋 Listing available plugins..."
+          python3 infrastructure/addons/orchestrator/plugin-manager.py \
+            infrastructure/addons/config/plugins-config.yaml \
+            ${{ env.ENVIRONMENT }} \
+            ${{ env.CLOUD_PROVIDER }} \
+            --action list
+
+      - name: Install Plugins
+        if: ${{ github.event.inputs.action == 'install' }}
+        run: |
+          echo "🚀 Installing Kubernetes Add-ons Plugins"
+          echo "========================================"
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Cloud Provider: ${{ env.CLOUD_PROVIDER }}"
+          echo "Cluster: ${{ env.CLUSTER_NAME }}"
+          echo "Dry Run: ${{ env.DRY_RUN }}"
+          echo "Specific Plugins: ${{ github.event.inputs.plugins || 'all enabled' }}"
+          echo ""
+          
+          # Prepare plugin manager arguments
+          PLUGIN_ARGS="infrastructure/addons/config/plugins-config.yaml ${{ env.ENVIRONMENT }} ${{ env.CLOUD_PROVIDER }} --action install"
+          
+          if [[ "${{ env.DRY_RUN }}" == "true" ]]; then
+            PLUGIN_ARGS="$PLUGIN_ARGS --dry-run"
+          fi
+          
+          if [[ -n "${{ github.event.inputs.plugins }}" ]]; then
+            PLUGIN_ARGS="$PLUGIN_ARGS --plugins ${{ github.event.inputs.plugins }}"
+          fi
+          
+          # Run plugin manager
+          python3 infrastructure/addons/orchestrator/plugin-manager.py $PLUGIN_ARGS
+
+      - name: Uninstall Plugins
+        if: ${{ github.event.inputs.action == 'uninstall' }}
+        run: |
+          echo "🗑️ Uninstalling Kubernetes Add-ons Plugins"
+          echo "==========================================="
+          
+          if [[ -z "${{ github.event.inputs.plugins }}" ]]; then
+            echo "❌ Error: --plugins is required for uninstall action"
+            exit 1
+          fi
+          
+          python3 infrastructure/addons/orchestrator/plugin-manager.py \
+            infrastructure/addons/config/plugins-config.yaml \
+            ${{ env.ENVIRONMENT }} \
+            ${{ env.CLOUD_PROVIDER }} \
+            --action uninstall \
+            --plugins "${{ github.event.inputs.plugins }}"
+
+      - name: Health Check Plugins
+        if: ${{ github.event.inputs.action == 'health-check' }}
+        run: |
+          echo "🔍 Performing Health Check on Plugins"
+          echo "====================================="
+          
+          PLUGIN_ARGS="infrastructure/addons/config/plugins-config.yaml ${{ env.ENVIRONMENT }} ${{ env.CLOUD_PROVIDER }} --action health-check"
+          
+          if [[ -n "${{ github.event.inputs.plugins }}" ]]; then
+            PLUGIN_ARGS="$PLUGIN_ARGS --plugins ${{ github.event.inputs.plugins }}"
+          fi
+          
+          python3 infrastructure/addons/orchestrator/plugin-manager.py $PLUGIN_ARGS
+
+      - name: Generate Plugin Status Report
+        if: always()
+        run: |
+          echo "📊 Plugin Status Report"
+          echo "======================"
+          echo ""
+          
+          # Get all namespaces managed by plugin-manager
+          echo "🏷️ Plugin-managed Namespaces:"
+          kubectl get namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin-managed namespaces found"
+          echo ""
+          
+          # Get plugin deployments status
+          echo "🚀 Plugin Deployments:"
+          kubectl get deployments --all-namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin deployments found"
+          echo ""
+          
+          # Get plugin services
+          echo "🌐 Plugin Services:"
+          kubectl get services --all-namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin services found"
+          echo ""
+          
+          # Get Helm releases
+          echo "📦 Helm Releases:"
+          helm list --all-namespaces --no-headers 2>/dev/null || echo "No Helm releases found"
+          echo ""
+          
+          # Check common plugin namespaces
+          PLUGIN_NAMESPACES=(
+            "external-dns-system"
+            "cert-manager"
+            "nginx-ingress"
+            "prometheus-stack"
+            "grafana"
+            "argocd"
+          )
+          
+          echo "🔍 Plugin Namespace Status:"
+          for ns in "${PLUGIN_NAMESPACES[@]}"; do
+            if kubectl get namespace "$ns" >/dev/null 2>&1; then
+              echo "  ✅ $ns"
+              kubectl get pods -n "$ns" --no-headers 2>/dev/null | head -3
+            else
+              echo "  ❌ $ns (not found)"
+            fi
+          done
+
+      - name: Upload Plugin Logs
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: plugin-logs-${{ env.CLUSTER_NAME }}-${{ env.ENVIRONMENT }}
+          path: |
+            /tmp/plugin-*.log
+            /tmp/*-values.yaml
+          retention-days: 7

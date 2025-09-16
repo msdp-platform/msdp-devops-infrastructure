@@ -1,0 +1,107 @@
+# Cert-Manager Plugin Specification
+plugin:
+  name: cert-manager
+  version: "1.13.2"
+  description: "Automatic TLS certificate management with Let's Encrypt"
+  category: core
+  priority: 2
+  
+  # Plugin capabilities
+  capabilities:
+    - certificate-management
+    - lets-encrypt-integration
+    - dns-challenge
+    - http-challenge
+    - certificate-renewal
+    
+  # Supported cloud providers
+  cloud_providers:
+    - aws
+    - azure
+    - gcp
+    - cloudflare
+    
+  # Dependencies
+  dependencies:
+    required: ["external-dns"]
+    optional: []
+    conflicts: []
+    
+  # Resource requirements
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    
+  # Installation method
+  installation:
+    method: helm
+    chart: "cert-manager/cert-manager"
+    version: "v1.13.2"
+    repository: "https://charts.jetstack.io"
+    namespace: "cert-manager"
+    create_namespace: true
+    
+  # Health check configuration
+  health_check:
+    type: "deployment"
+    deployments:
+      - "cert-manager"
+      - "cert-manager-cainjector"
+      - "cert-manager-webhook"
+    timeout: 60
+    retries: 5
+    
+  # Configuration schema
+  config_schema:
+    cluster_issuer:
+      type: string
+      required: true
+      enum: ["letsencrypt-staging", "letsencrypt-prod"]
+      description: "Default cluster issuer to create"
+    email:
+      type: string
+      required: true
+      description: "Email address for Let's Encrypt registration"
+    dns_challenge:
+      type: boolean
+      required: false
+      default: true
+      description: "Enable DNS-01 challenge"
+    dns_provider:
+      type: string
+      required: false
+      enum: ["route53", "azuredns", "cloudflare"]
+      description: "DNS provider for DNS-01 challenge"
+      
+  # Monitoring and observability
+  monitoring:
+    metrics:
+      enabled: true
+      port: 9402
+      path: "/metrics"
+    logs:
+      level: "info"
+      format: "text"
+      
+  # Security settings
+  security:
+    run_as_non_root: true
+    read_only_root_filesystem: true
+    drop_capabilities: ["ALL"]
+    
+# Plugin metadata
+metadata:
+  maintainer: "MSDP Platform Team"
+  documentation: "https://cert-manager.io/docs/"
+  source: "https://github.com/cert-manager/cert-manager"
+  license: "Apache-2.0"
+  tags:
+    - certificates
+    - tls
+    - lets-encrypt
+    - security
+    - core

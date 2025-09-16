@@ -1,0 +1,132 @@
+# Azure Development Environment Plugin Configuration
+environment: dev
+cloud_provider: azure
+cluster_name: aks-msdp-dev-01
+
+# Azure-specific settings
+azure:
+  subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+  tenant_id: "{{ AZURE_TENANT_ID }}"
+  resource_group: "rg-msdp-network-dev"
+  location: "uksouth"
+  vnet_name: "vnet-msdp-dev"
+  subnet_name: "snet-aks-system-dev"
+
+# Plugin-specific configurations
+plugins:
+  external-dns:
+    config:
+      provider: azure
+      azure_resource_group: "rg-msdp-network-dev"
+      domain_filters: ["dev.msdp.io"]
+      txt_owner_id: "aks-msdp-dev-01"
+      policy: sync
+      registry: txt
+      txt_prefix: "external-dns-"
+      
+  cert-manager:
+    config:
+      cluster_issuer: letsencrypt-staging  # Use staging for dev
+      email: "devops@msdp.io"
+      dns_challenge: true
+      dns_provider: azuredns
+      azure_subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+      azure_resource_group: "rg-msdp-network-dev"
+      azure_hosted_zone_name: "dev.msdp.io"
+      
+  external-secrets:
+    config:
+      provider: azure-keyvault
+      tenant_id: "{{ AZURE_TENANT_ID }}"
+      vault_url: "https://kv-msdp-dev.vault.azure.net/"
+      secret_stores:
+        - name: azure-keyvault
+          provider: azurekv
+          vault_url: "https://kv-msdp-dev.vault.azure.net/"
+          
+  nginx-ingress:
+    config:
+      replica_count: 2
+      service_type: LoadBalancer
+      service_annotations:
+        service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/healthz"
+      enable_ssl_redirect: true
+      default_ssl_certificate: "nginx-ingress/wildcard-tls"
+      
+  azure-application-gateway:
+    config:
+      application_gateway_name: "appgw-msdp-dev"
+      resource_group: "rg-msdp-network-dev"
+      subnet_name: "snet-appgw-dev"
+      identity_resource_id: "{{ APPGW_IDENTITY_RESOURCE_ID }}"
+      identity_client_id: "{{ APPGW_IDENTITY_CLIENT_ID }}"
+      
+  prometheus-stack:
+    config:
+      retention: 7d  # Shorter retention for dev
+      storage_class: managed-premium
+      storage_size: 20Gi
+      replica_count: 1
+      alertmanager_enabled: true
+      grafana_enabled: false  # Separate Grafana plugin
+      node_exporter_enabled: true
+      kube_state_metrics_enabled: true
+      
+  grafana:
+    config:
+      admin_password: "{{ GRAFANA_ADMIN_PASSWORD }}"
+      storage_class: managed-premium
+      storage_size: 10Gi
+      ingress_enabled: true
+      hostname: "grafana-dev.msdp.io"
+      datasources:
+        - name: Prometheus
+          url: "http://prometheus-stack-prometheus:9090"
+          type: prometheus
+          
+  fluent-bit:
+    config:
+      output_plugin: azure_logs
+      workspace_id: "{{ AZURE_LOG_ANALYTICS_WORKSPACE_ID }}"
+      shared_key: "{{ AZURE_LOG_ANALYTICS_SHARED_KEY }}"
+      log_type: "FluentBitLogs"
+      
+  jaeger:
+    config:
+      storage_type: elasticsearch
+      elasticsearch_url: "http://elasticsearch:9200"
+      ingress_enabled: true
+      hostname: "jaeger-dev.msdp.io"
+      
+  argocd:
+    config:
+      admin_password: "{{ ARGOCD_ADMIN_PASSWORD }}"
+      ingress_enabled: true
+      hostname: "argocd-dev.msdp.io"
+      repositories:
+        - url: "https://github.com/msdp-platform/msdp-applications"
+          type: git
+          
+  velero:
+    config:
+      provider: azure
+      storage_account: "msdpvelerobkpdev"
+      resource_group: "rg-msdp-backup-dev"
+      subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+      
+# Environment-specific overrides
+overrides:
+  # Use staging certificates for dev
+  cert_manager_cluster_issuer: letsencrypt-staging
+  
+  # Reduced resources for dev
+  resource_limits:
+    small:
+      cpu: "200m"
+      memory: "256Mi"
+    medium:
+      cpu: "500m"
+      memory: "512Mi"
+    large:
+      cpu: "1000m"
+      memory: "1Gi"

@@ -1,0 +1,229 @@
+# Cert-Manager Helm Values for AWS
+# This file contains AWS-specific configuration for Cert-Manager
+
+# Global configuration
+global:
+  leaderElection:
+    namespace: cert-manager
+
+# Image configuration
+image:
+  repository: quay.io/jetstack/cert-manager-controller
+  tag: v1.13.2
+  pullPolicy: IfNotPresent
+
+# Replica count
+replicaCount: 1
+
+# Resource configuration
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: cert-manager
+  annotations:
+    eks.amazonaws.com/role-arn: ${AWS_ROLE_ARN:-}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Install CRDs (set to false since we install them separately)
+installCRDs: false
+
+# Monitoring configuration
+prometheus:
+  enabled: true
+  servicemonitor:
+    enabled: false
+    prometheusInstance: default
+    targetPort: 9402
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s
+
+# Logging configuration
+logLevel: ${LOG_LEVEL:-2}
+
+# Feature gates
+featureGates: ""
+
+# Extra arguments
+extraArgs:
+  - --dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
+  - --dns01-recursive-nameservers-only
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/managed-by: plugin-manager
+  app.kubernetes.io/part-of: cert-manager
+
+# Webhook configuration
+webhook:
+  replicaCount: 1
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-webhook
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-webhook
+    annotations: {}
+  
+  # Webhook-specific configuration
+  config:
+    apiVersion: webhook.config.cert-manager.io/v1alpha1
+    kind: WebhookConfiguration
+    tlsConfig:
+      cipherSuites: []
+      minTLSVersion: "1.2"
+
+# CA Injector configuration
+cainjector:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-cainjector
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-cainjector
+    annotations: {}
+
+# Startup API check
+startupapicheck:
+  enabled: true
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-ctl
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-startupapicheck
+    annotations: {}
+
+# DNS configuration for AWS Route53
+dns01RecursiveNameservers: "8.8.8.8:53,1.1.1.1:53"
+dns01RecursiveNameserversOnly: true
+
+# Cluster resource namespace
+clusterResourceNamespace: cert-manager
+
+# Leader election configuration
+leaderElection:
+  namespace: cert-manager
+
+# Volume mounts for AWS credentials (if using static credentials)
+extraVolumes: []
+extraVolumeMounts: []
+
+# Environment variables
+extraEnv:
+  - name: AWS_REGION
+    value: ${AWS_REGION}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false
