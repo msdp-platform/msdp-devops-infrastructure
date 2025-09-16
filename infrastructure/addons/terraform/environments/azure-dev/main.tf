@@ -145,8 +145,8 @@ module "cert_manager" {
   enabled = local.plugins.cert_manager.enabled
   
   # Certificate configuration
-  email          = var.cert_manager_email
-  cluster_issuer = local.plugins.cert_manager.cluster_issuer
+  email               = var.cert_manager_email
+  cluster_issuer_name = local.plugins.cert_manager.cluster_issuer
   
   # DNS challenge configuration (using AWS Route53 with OIDC)
   dns_challenge           = true

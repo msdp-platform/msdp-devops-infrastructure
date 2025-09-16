@@ -41,6 +41,12 @@ variable "cluster_issuer_name" {
   }
 }
 
+variable "cluster_issuer" {
+  description = "Cluster issuer name (alias for cluster_issuer_name for compatibility)"
+  type        = string
+  default     = ""
+}
+
 # DNS Challenge Configuration
 variable "dns_challenge" {
   description = "Enable DNS-01 challenge"
@@ -90,6 +96,12 @@ variable "aws_secret_access_key" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "aws_web_identity_token_file" {
+  description = "Path to the web identity token file for OIDC authentication"
+  type        = string
+  default     = "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
 }
 
 # Azure Configuration
