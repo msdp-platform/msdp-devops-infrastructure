@@ -212,7 +212,6 @@ jobs:
         run: |
           echo "📋 Planning Terraform changes..."
           terraform plan \
-            -var-file="terraform.tfvars" \
             -out=tfplan \
             -detailed-exitcode
         continue-on-error: true
@@ -245,10 +244,10 @@ jobs:
           echo "🗑️ Destroying Terraform resources..."
           
           if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
-            terraform destroy -auto-approve -var-file="terraform.tfvars"
+            terraform destroy -auto-approve
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to destroy automatically."
-            terraform plan -destroy -var-file="terraform.tfvars"
+            terraform plan -destroy
             exit 1
           fi
 
@@ -257,7 +256,7 @@ jobs:
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🔄 Refreshing Terraform state..."
-          terraform refresh -var-file="terraform.tfvars"
+          terraform refresh
 
       - name: Generate Terraform Outputs
         if: ${{ github.event.inputs.action == 'apply' || github.event.inputs.action == 'refresh' }}
