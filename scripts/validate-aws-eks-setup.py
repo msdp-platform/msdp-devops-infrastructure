@@ -237,6 +237,9 @@ def main():
     # Validate additional files
     additional_files = [
         ('AWS_EKS_IMPLEMENTATION.md', 'AWS EKS documentation'),
+        ('.github/workflows/aws-network.yml', 'AWS Network workflow'),
+        ('infrastructure/environment/aws/diagram-eks-network.md', 'AWS Network diagram'),
+        ('infrastructure/environment/aws/network/terraform.tfvars.example', 'AWS Network example vars'),
         ('.github/actions/cloud-login', 'Cloud login action directory'),
         ('.github/actions/terraform-backend-enhanced', 'Terraform backend action directory'),
         ('.github/actions/terraform-init', 'Terraform init action directory')
