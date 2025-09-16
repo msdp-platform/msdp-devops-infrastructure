@@ -51,7 +51,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -268,7 +268,7 @@ jobs:
 
       - name: Upload Plugin Logs
         if: failure()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: plugin-logs-${{ env.CLUSTER_NAME }}-${{ env.ENVIRONMENT }}
           path: |
