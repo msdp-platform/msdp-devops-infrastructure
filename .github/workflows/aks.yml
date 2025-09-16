@@ -32,6 +32,9 @@ permissions:
 env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
+  # Resolved defaults for non-dispatch events (e.g., push)
+  ACTION: ${{ github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
 
 jobs:
   check-network:
@@ -101,10 +104,11 @@ jobs:
           echo "network-exists: '${{ needs.check-network.outputs.network-exists }}'"
           echo "should-deploy-network: '${{ needs.check-network.outputs.should-deploy-network }}'"
           echo "action: '${{ github.event.inputs.action }}'"
+          echo "resolved ACTION: '${{ env.ACTION }}'"
           echo ""
           echo "Condition evaluation:"
           echo "should-deploy == 'true': ${{ needs.check-network.outputs.should-deploy-network == 'true' }}"
-          echo "action check: ${{ (github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' || github.event.inputs.action == '') }}"
+          echo "action check (resolved): ${{ (env.ACTION == 'plan' || env.ACTION == 'apply') }}"
           echo ""
           if [ "${{ needs.check-network.outputs.should-deploy-network }}" == "true" ]; then
             echo "✅ Network deployment SHOULD run"
@@ -372,7 +376,7 @@ jobs:
               config = yaml.safe_load(f)
           
           # Extract cluster-specific configuration from JSON string
-          cluster_config_json = '''${{ toJson(matrix) }}'''
+          cluster_config_json = '''${{ toJson(matrix) }}''''
           cluster_config = json.loads(cluster_config_json)
           tags = config.get('tags', {})
           
@@ -426,28 +430,28 @@ jobs:
           terraform-version: 1.9.5
 
       - name: Terraform Plan
-        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
         run: |
           terraform plan -out=tfplan
           echo "✅ Terraform plan completed successfully for ${{ matrix.name }}"
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.action == 'apply' }}
+        if: ${{ env.ACTION == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
         run: |
           terraform apply -auto-approve tfplan
           echo "✅ Terraform apply completed successfully for ${{ matrix.name }}"
 
       - name: Show Outputs
-        if: ${{ github.event.inputs.action == 'apply' }}
+        if: ${{ env.ACTION == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
         run: |
           echo "=== AKS Cluster ${{ matrix.name }} Outputs ==="
           terraform output -json | jq .
 
       - name: Terraform Destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
+        if: ${{ env.ACTION == 'destroy' }}
         working-directory: infrastructure/environment/azure/aks
         run: |
           echo "⚠️  WARNING: This will destroy AKS cluster ${{ matrix.name }}!"
