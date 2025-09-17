@@ -168,20 +168,40 @@ jobs:
           terraform validate
 
       - name: Terraform Plan
+        id: plan
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "📋 Planning Terraform changes..."
+
+          set +e
           terraform plan \
             -out=tfplan \
             -detailed-exitcode
-        continue-on-error: true
-        id: plan
+          PLAN_EXIT_CODE=$?
+          set -e
 
-      - name: Terraform Plan Status
-        if: steps.plan.outcome == 'failure'
+          case "$PLAN_EXIT_CODE" in
+            0)
+              echo "✅ No changes required"
+              ;;
+            2)
+              echo "✅ Plan generated with changes"
+              ;;
+            *)
+              echo "❌ Terraform plan failed with exit code $PLAN_EXIT_CODE"
+              exit "$PLAN_EXIT_CODE"
+              ;;
+          esac
+
+          echo "plan-exitcode=$PLAN_EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform Plan Summary
         run: |
-          echo "❌ Terraform Plan Failed"
-          exit 1
+          if [[ "${{ steps.plan.outputs.plan-exitcode }}" == "0" ]]; then
+            echo "ℹ️ Terraform plan completed with no changes."
+          elif [[ "${{ steps.plan.outputs.plan-exitcode }}" == "2" ]]; then
+            echo "ℹ️ Terraform plan detected pending changes."
+          fi
 
       - name: Terraform Apply
         if: ${{ github.event.inputs.action == 'apply' }}
