@@ -26,7 +26,7 @@ variable "azure_tenant_id" {
 variable "azure_resource_group" {
   description = "Azure resource group name"
   type        = string
-  default     = "rg-msdp-network-dev"
+  default     = "rg-aks-msdp-dev-01"
 }
 
 variable "domain_name" {
@@ -125,7 +125,7 @@ variable "plugins" {
     external_dns              = { enabled = true }
     cert_manager             = { enabled = true }
     nginx_ingress            = { enabled = true }
-    virtual_node             = { enabled = true }
+    virtual_node             = { enabled = false }
     azure_disk_csi_driver    = { enabled = true }
     azure_file_csi_driver    = { enabled = false }
     keda                     = { enabled = true }

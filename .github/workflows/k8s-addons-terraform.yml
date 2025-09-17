@@ -64,28 +64,6 @@ jobs:
         run: |
           pip install PyYAML requests
           
-      - name: Setup Kubernetes tools
-        run: |
-          # Install kubectl
-          curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
-          
-          # Install Helm
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          
-          # Install kubelogin for Azure AKS AAD authentication
-          curl -LO "https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip"
-          unzip kubelogin-linux-amd64.zip
-          sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
-          chmod +x /usr/local/bin/kubelogin
-          
-          # Verify installations
-          terraform version
-          kubectl version --client
-          helm version
-          kubelogin --version
-
       - name: Cloud Login
         uses: ./.github/actions/cloud-login
         with:
@@ -95,34 +73,23 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Configure Kubernetes Context
+      - name: Resolve AKS resource group
+        if: ${{ env.CLOUD_PROVIDER == 'azure' }}
         run: |
-          echo "🔧 Configuring Kubernetes context for ${{ env.CLOUD_PROVIDER }}..."
-          
-          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
-            echo "Configuring AWS EKS context..."
-            aws eks update-kubeconfig --region eu-west-1 --name ${{ env.CLUSTER_NAME }}
-            
-          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
-            echo "Configuring Azure AKS context..."
-            
-            # Get AKS credentials with admin access (bypasses AAD)
-            az aks get-credentials \
-              --resource-group rg-msdp-network-${{ env.ENVIRONMENT }} \
-              --name ${{ env.CLUSTER_NAME }} \
-              --admin \
-              --overwrite-existing
-            
-            echo "✅ Azure AKS admin credentials configured"
-          fi
-          
-          # Verify connection
-          echo "✅ Verifying Kubernetes connection..."
-          kubectl cluster-info
-          kubectl get nodes
-          
-          echo "📋 Current context:"
-          kubectl config current-context
+          set -euo pipefail
+          RG="rg-${{ env.CLUSTER_NAME }}"
+          echo "K8S_AZURE_RESOURCE_GROUP=$RG" >> $GITHUB_ENV
+          echo "Resolved AKS resource group: $RG"
+
+      - name: Configure Kubernetes access
+        uses: ./.github/actions/kubernetes-setup
+        with:
+          provider: ${{ env.CLOUD_PROVIDER == 'aws' && 'eks' || 'aks' }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          environment: ${{ env.ENVIRONMENT }}
+          azure-resource-group: ${{ env.K8S_AZURE_RESOURCE_GROUP }}
+          azure-admin: true
+          eks-region: eu-west-1
 
       - name: Set Terraform Variables
         run: |
@@ -144,7 +111,7 @@ jobs:
           elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
             echo "TF_VAR_azure_subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
             echo "TF_VAR_azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-            echo "TF_VAR_azure_resource_group=rg-msdp-network-${{ env.ENVIRONMENT }}" >> $GITHUB_ENV
+            echo "TF_VAR_azure_resource_group=${{ env.K8S_AZURE_RESOURCE_GROUP }}" >> $GITHUB_ENV
             
             # Set AWS OIDC configuration for cross-cloud DNS access
             echo "TF_VAR_aws_role_arn_for_azure=${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" >> $GITHUB_ENV
