@@ -1,0 +1,81 @@
+name: Kubernetes Reachability Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      cloud_provider:
+        description: Cloud provider
+        type: choice
+        options: [azure, aws]
+        default: azure
+      cluster_name:
+        description: Cluster name
+        type: string
+        default: aks-msdp-dev-01
+      environment:
+        description: Environment tag used during discovery
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  connectivity:
+    runs-on: ubuntu-latest
+    env:
+      CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+      CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
+      ENVIRONMENT: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve AKS resource group
+        if: ${{ env.CLOUD_PROVIDER == 'azure' }}
+        run: |
+          set -euo pipefail
+          RG="rg-${{ env.CLUSTER_NAME }}"
+          echo "AKS_RESOURCE_GROUP=$RG" >> $GITHUB_ENV
+          echo "Resolved AKS resource group: $RG"
+
+      - name: Configure Kubernetes access
+        id: kube_setup
+        uses: ./.github/actions/kubernetes-setup
+        with:
+          provider: ${{ env.CLOUD_PROVIDER == 'aws' && 'eks' || 'aks' }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
+          environment: ${{ env.ENVIRONMENT }}
+          azure-resource-group: ${{ env.AKS_RESOURCE_GROUP }}
+          azure-admin: true
+          eks-region: eu-west-1
+          validate: false
+
+      - name: Export kubeconfig
+        run: echo "KUBECONFIG=${{ steps.kube_setup.outputs.kubeconfig-path }}" >> $GITHUB_ENV
+
+      - name: Smoke test cluster
+        run: |
+          echo "Current context:"
+          kubectl config current-context
+
+          echo "Cluster info:"
+          kubectl cluster-info
+
+          echo "Nodes:"
+          kubectl get nodes -o wide
+
+          echo "Core pods (non Succeeded):"
+          kubectl get pods -n kube-system --field-selector=status.phase!=Succeeded
