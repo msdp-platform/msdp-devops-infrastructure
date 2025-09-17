@@ -110,7 +110,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "user" {
   name                  = "user"
   kubernetes_cluster_id = azurerm_kubernetes_cluster.main.id
   vm_size               = var.user_vm_size
-  
+  temporary_name_for_rotation = "userswap"
+
   # Node count (fixed for now, will add auto-scaling later)
   node_count = var.user_min_count
 
