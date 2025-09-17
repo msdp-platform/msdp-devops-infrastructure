@@ -82,6 +82,7 @@ jobs:
           echo "Resolved AKS resource group: $RG"
 
       - name: Configure Kubernetes access
+        id: kube_setup
         uses: ./.github/actions/kubernetes-setup
         with:
           provider: ${{ env.CLOUD_PROVIDER == 'aws' && 'eks' || 'aks' }}
@@ -90,6 +91,11 @@ jobs:
           azure-resource-group: ${{ env.K8S_AZURE_RESOURCE_GROUP }}
           azure-admin: true
           eks-region: eu-west-1
+
+      - name: Export kubeconfig path
+        run: |
+          echo "KUBECONFIG=${{ steps.kube_setup.outputs.kubeconfig-path }}" >> $GITHUB_ENV
+          echo "TF_VAR_kubeconfig_path=${{ steps.kube_setup.outputs.kubeconfig-path }}" >> $GITHUB_ENV
 
       - name: Set Terraform Variables
         run: |

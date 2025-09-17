@@ -29,6 +29,12 @@ variable "azure_resource_group" {
   default     = "rg-aks-msdp-dev-01"
 }
 
+variable "kubeconfig_path" {
+  description = "Path to kubeconfig file provided by the workflow"
+  type        = string
+  default     = ""
+}
+
 variable "domain_name" {
   description = "Domain name for DNS management"
   type        = string
