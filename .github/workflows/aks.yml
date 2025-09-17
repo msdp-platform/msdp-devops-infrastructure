@@ -450,6 +450,47 @@ jobs:
           terraform apply -auto-approve tfplan
           echo "✅ Terraform apply completed successfully for ${{ matrix.name }}"
 
+      - name: Grant Network Permissions
+        if: ${{ env.ACTION == 'apply' }}
+        env:
+          NETWORK_RG: ${{ matrix.network_resource_group_name }}
+          VNET_NAME: ${{ matrix.vnet_name }}
+          SUBNET_NAME: ${{ matrix.subnet_name }}
+          CLUSTER_NAME: ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+
+          echo "Granting Network Contributor on subnet '$SUBNET_NAME' for cluster kubelet identity"
+
+          if [[ -z "$NETWORK_RG" || -z "$VNET_NAME" || -z "$SUBNET_NAME" ]]; then
+            echo "Missing network context (RG/VNet/Subnet)." >&2
+            exit 1
+          fi
+
+          KUBELET_ID=$(az aks show -g "$NETWORK_RG" -n "$CLUSTER_NAME" --query identityProfile.kubeletidentity.objectId -o tsv)
+          if [[ -z "$KUBELET_ID" ]]; then
+            echo "Failed to resolve kubelet identity for $CLUSTER_NAME" >&2
+            exit 1
+          fi
+
+          SUBNET_ID=$(az network vnet subnet show -g "$NETWORK_RG" --vnet-name "$VNET_NAME" -n "$SUBNET_NAME" --query id -o tsv)
+          if [[ -z "$SUBNET_ID" ]]; then
+            echo "Failed to resolve subnet $SUBNET_NAME in $NETWORK_RG/$VNET_NAME" >&2
+            exit 1
+          fi
+
+          existing_assignments=$(az role assignment list --assignee "$KUBELET_ID" --scope "$SUBNET_ID" --role "Network Contributor" --query "length(@)" -o tsv)
+          if [[ "$existing_assignments" =~ ^[1-9][0-9]*$ ]]; then
+            echo "✅ Role assignment already exists"
+          else
+            az role assignment create \
+              --role "Network Contributor" \
+              --assignee-object-id "$KUBELET_ID" \
+              --scope "$SUBNET_ID" \
+              --assignee-principal-type ServicePrincipal
+            echo "✅ Network Contributor role granted"
+          fi
+
       - name: Show Outputs
         if: ${{ env.ACTION == 'apply' }}
         working-directory: infrastructure/environment/azure/aks
