@@ -143,6 +143,8 @@ module "cert_manager" {
   # Certificate configuration
   email               = var.cert_manager_email
   cluster_issuer_name = local.plugins.cert_manager.cluster_issuer
+  # Defer ClusterIssuer creation until CRDs are present to avoid plan-time API discovery errors
+  create_cluster_issuer = false
   
   # DNS challenge configuration (using AWS Route53 with OIDC)
   dns_challenge           = true
