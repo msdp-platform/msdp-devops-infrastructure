@@ -38,15 +38,13 @@ provider "azurerm" {
 
 provider "kubernetes" {
   # Use the kubectl context configured by the workflow (az aks get-credentials --admin)
-  load_config_file = true
-  config_path      = "~/.kube/config"
+  config_path = "~/.kube/config"
 }
 
 provider "helm" {
   kubernetes {
     # Use the same kubeconfig as the Kubernetes provider
-    load_config_file = true
-    config_path      = "~/.kube/config"
+    config_path = "~/.kube/config"
   }
 }
 
