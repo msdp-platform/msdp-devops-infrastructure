@@ -16,7 +16,8 @@ terraform {
 
 # Create namespace
 resource "kubernetes_namespace" "azure_disk_csi" {
-  count = var.enabled ? 1 : 0
+  # Do not attempt to create kube-system; it already exists on all clusters
+  count = var.enabled && var.namespace != "kube-system" ? 1 : 0
   
   metadata {
     name = var.namespace
@@ -37,9 +38,10 @@ resource "helm_release" "azure_disk_csi" {
   repository = "https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/master/charts"
   chart      = "azuredisk-csi-driver"
   version    = var.chart_version
-  namespace  = kubernetes_namespace.azure_disk_csi[0].metadata[0].name
+  # Always deploy into the requested namespace (kube-system is pre-existing)
+  namespace  = var.namespace
   
-  # Wait for namespace
+  # Ensure namespace is created first when it's not kube-system (count may be 0)
   depends_on = [kubernetes_namespace.azure_disk_csi]
   
   values = [
