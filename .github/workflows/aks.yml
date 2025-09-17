@@ -38,28 +38,6 @@ env:
 
 jobs:
   prepare:
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - name: Debug outputs
-        run: |
-          echo "=== Debug Network Check Outputs ==="
-          echo "network-exists: '${{ needs.check-network.outputs.network-exists }}'"
-          echo "should-deploy-network: '${{ needs.check-network.outputs.should-deploy-network }}'"
-          echo "action: '${{ github.event.inputs.action }}'"
-          echo "resolved ACTION: '${{ env.ACTION }}'"
-          echo ""
-          echo "Condition evaluation:"
-          echo "should-deploy == 'true': ${{ needs.check-network.outputs.should-deploy-network == 'true' }}"
-          echo "action check (resolved): ${{ (env.ACTION == 'plan' || env.ACTION == 'apply') }}"
-          echo ""
-          if [ "${{ needs.check-network.outputs.should-deploy-network }}" == "true" ]; then
-            echo "✅ Network deployment SHOULD run"
-          else
-            echo "❌ Network deployment will be SKIPPED"
-          fi
-
-  prepare:
     if: ${{ always() && !cancelled() }}
     runs-on: ubuntu-latest
     outputs:
