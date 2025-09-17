@@ -18,37 +18,16 @@ variable "kubernetes_version" {
   default     = "1.29.7"
 }
 
-# Network Configuration
-variable "network_resource_group_name" {
+# Resource group & location
+variable "resource_group_name" {
   type        = string
-  description = "Name of the resource group containing the network resources"
+  description = "Name of the resource group for the AKS cluster"
 }
 
-variable "vnet_name" {
+variable "location" {
   type        = string
-  description = "Name of the virtual network"
-}
-
-variable "subnet_name" {
-  type        = string
-  description = "Name of the subnet for AKS nodes"
-}
-
-variable "service_cidr" {
-  type        = string
-  description = "CIDR block for Kubernetes services"
-  default     = "10.100.0.0/16"
-  
-  validation {
-    condition     = can(cidrhost(var.service_cidr, 0))
-    error_message = "The service_cidr must be a valid CIDR block."
-  }
-}
-
-variable "dns_service_ip" {
-  type        = string
-  description = "IP address for the DNS service (must be within service_cidr)"
-  default     = "10.100.0.10"
+  description = "Azure location where the cluster will be deployed"
+  default     = "uksouth"
 }
 
 # System Node Pool Configuration
@@ -155,6 +134,12 @@ variable "availability_zones" {
   type        = list(string)
   description = "Availability zones for node pools"
   default     = ["1", "2", "3"]
+}
+
+variable "network_plugin" {
+  type        = string
+  description = "Kubernetes network plugin"
+  default     = "kubenet"
 }
 
 # Azure AD Configuration

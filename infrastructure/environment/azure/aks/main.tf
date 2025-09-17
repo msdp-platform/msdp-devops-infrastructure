@@ -1,22 +1,19 @@
 # Azure AKS Infrastructure
 # Clean, modern implementation following best practices
 
-# Data sources for existing network resources
-data "azurerm_resource_group" "network" {
-  name = var.network_resource_group_name
-}
+# Resource group for the cluster (created if it does not already exist)
+resource "azurerm_resource_group" "cluster" {
+  name     = var.resource_group_name
+  location = var.location
 
-data "azurerm_subnet" "aks" {
-  name                 = var.subnet_name
-  virtual_network_name = var.vnet_name
-  resource_group_name  = var.network_resource_group_name
+  tags = var.tags
 }
 
 # AKS Cluster
 resource "azurerm_kubernetes_cluster" "main" {
   name                = var.cluster_name
-  location            = data.azurerm_resource_group.network.location
-  resource_group_name = data.azurerm_resource_group.network.name
+  location            = azurerm_resource_group.cluster.location
+  resource_group_name = azurerm_resource_group.cluster.name
   dns_prefix          = var.dns_prefix != "" ? var.dns_prefix : replace(var.cluster_name, "/[^a-z0-9]/", "")
   kubernetes_version  = var.kubernetes_version
 
@@ -28,7 +25,6 @@ resource "azurerm_kubernetes_cluster" "main" {
   default_node_pool {
     name           = "system"
     vm_size        = var.system_vm_size
-    vnet_subnet_id = data.azurerm_subnet.aks.id
     node_count     = var.system_node_count
 
     # Node pool configuration
@@ -45,13 +41,10 @@ resource "azurerm_kubernetes_cluster" "main" {
   }
 
   # Network profile
+  # Use the default AKS-managed virtual network (no BYO VNet)
   network_profile {
-    network_plugin    = "azure"
-    network_policy    = "azure"
+    network_plugin    = var.network_plugin
     load_balancer_sku = "standard"
-    outbound_type     = "loadBalancer"
-    dns_service_ip    = var.dns_service_ip
-    service_cidr      = var.service_cidr
   }
 
   # Azure AD integration
