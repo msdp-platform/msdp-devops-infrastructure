@@ -172,34 +172,21 @@ jobs:
             ls -la "$ENVIRONMENT_DIR"
           fi
 
+      - name: Prepare Backend (Enhanced)
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          platform: ${{ env.CLOUD_PROVIDER }}
+          component: addons
+          aws_region: eu-west-1
+          create_resources: true
+
       - name: Terraform Init
-        working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
-        run: |
-          echo "🚀 Initializing Terraform..."
-          
-          # Use established naming conventions for backend
-          BUCKET_NAME="msdp-terraform-state-${{ env.ENVIRONMENT }}"
-          DYNAMODB_TABLE="msdp-terraform-locks-${{ env.ENVIRONMENT }}"
-          
-          # Set region code based on cloud provider
-          if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
-            REGION_CODE="eu-west-1"
-            STATE_KEY="${{ env.CLOUD_PROVIDER }}/addons/${{ env.ENVIRONMENT }}/${REGION_CODE}/terraform.tfstate"
-          elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
-            REGION_CODE="uksouth"
-            STATE_KEY="${{ env.CLOUD_PROVIDER }}/addons/${{ env.ENVIRONMENT }}/${REGION_CODE}/terraform.tfstate"
-          fi
-          
-          echo "Using backend configuration:"
-          echo "  Bucket: ${BUCKET_NAME}"
-          echo "  Key: ${STATE_KEY}"
-          echo "  DynamoDB Table: ${DYNAMODB_TABLE}"
-          
-          terraform init \
-            -backend-config="bucket=${BUCKET_NAME}" \
-            -backend-config="key=${STATE_KEY}" \
-            -backend-config="region=eu-west-1" \
-            -backend-config="dynamodb_table=${DYNAMODB_TABLE}"
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: "1.9.5"
 
       - name: Terraform Validate
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}

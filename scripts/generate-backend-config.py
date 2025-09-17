@@ -93,13 +93,19 @@ class BackendConfigGenerator:
     
     def generate_bucket_name(self, org, account_type, region):
         """Generate S3 bucket name following existing infrastructure pattern"""
-        # Use the same pattern as existing infrastructure: msdp-terraform-state-dev
-        return f"{org}-terraform-state-{account_type}"
+        # Generate hash suffix for bucket uniqueness
+        region_code = self.get_region_code(region)
+        hash_input = f"{org}-{account_type}-{region_code}"
+        hash_suffix = hashlib.md5(hash_input.encode()).hexdigest()[:8]
+        
+        # Use the pattern: tf-state-msdp-dev-euw1-a74fe397
+        return f"tf-state-{org}-{account_type}-{region_code}-{hash_suffix}"
     
     def generate_table_name(self, org, account_type, region):
         """Generate DynamoDB table name following existing infrastructure pattern"""
-        # Use the same pattern as existing infrastructure: msdp-terraform-locks-dev
-        return f"{org}-terraform-locks-{account_type}"
+        # Use the pattern: tf-locks-msdp-dev-euw1
+        region_code = self.get_region_code(region)
+        return f"tf-locks-{org}-{account_type}-{region_code}"
     
     def generate_state_key(self, platform, component, environment, region=None, instance=None):
         """Generate state key following convention"""
