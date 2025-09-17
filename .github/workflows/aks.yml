@@ -87,19 +87,17 @@ jobs:
                       matrix = {"include": []}
                   else:
                       print(f"Found {len(clusters)} clusters in configuration")
-                      
+
                       # Filter by cluster name if specified
                       if cluster_filter:
                           clusters = [c for c in clusters if c.get('name') == cluster_filter]
                           print(f"Filtered to {len(clusters)} clusters matching '{cluster_filter}'")
-                      
-                      # Add environment and network info to each cluster
-                  for cluster in clusters:
-                      cluster['environment'] = env
-                      cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
-                      cluster.setdefault('resource_group_name', f"rg-{cluster['name']}")
-                          
-                          # Ensure all required fields have defaults
+
+                      # Add environment info and defaults to each cluster
+                      for cluster in clusters:
+                          cluster['environment'] = env
+                          cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
+                          cluster.setdefault('resource_group_name', f"rg-{cluster.get('name', 'aks')}")
                           cluster.setdefault('kubernetes_version', '1.31.2')
                           cluster.setdefault('system_node_count', 2)
                           cluster.setdefault('system_vm_size', 'Standard_D2s_v3')
@@ -107,7 +105,11 @@ jobs:
                           cluster.setdefault('user_min_count', 1)
                           cluster.setdefault('user_max_count', 5)
                           cluster.setdefault('user_spot_enabled', False)
-                      
+                          cluster.setdefault('network_plugin', 'kubenet')
+                          cluster.setdefault('availability_zones', ["1", "2", "3"])
+                          cluster.setdefault('max_pods_per_node', 30)
+                          cluster.setdefault('os_disk_size_gb', 128)
+
                       matrix = {"include": clusters}
               
               print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
