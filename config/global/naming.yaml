@@ -28,6 +28,7 @@ components:
   azure:
     - network
     - aks
+    - addons
     - storage
     - keyvault
     - appgateway
@@ -36,6 +37,7 @@ components:
     - network
     - vpc
     - eks
+    - addons
     - s3
     - iam
     - alb
@@ -46,6 +48,7 @@ components:
     - backup
     - security
     - logging
+    - addons
 
 environments:
   - dev

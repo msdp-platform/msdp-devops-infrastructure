@@ -92,47 +92,14 @@ class BackendConfigGenerator:
             sys.exit(1)
     
     def generate_bucket_name(self, org, account_type, region):
-        """Generate S3 bucket name following convention"""
-        region_code = self.get_region_code(region)
-        
-        # Generate deterministic suffix based on org, account_type, and region
-        suffix_input = f"{org}-{account_type}-{region_code}-terraform-state"
-        suffix = hashlib.sha256(suffix_input.encode()).hexdigest()[:8]
-        
-        pattern = self.naming["naming_conventions"]["s3_bucket"]["pattern"]
-        bucket_name = pattern.format(
-            prefix=self.naming["naming_conventions"]["s3_bucket"]["prefix"],
-            org=org,
-            account_type=account_type,
-            region_code=region_code,
-            suffix=suffix
-        )
-        
-        # Ensure bucket name is valid (lowercase, no underscores)
-        bucket_name = bucket_name.lower().replace("_", "-")
-        
-        # Ensure bucket name doesn't exceed max length
-        max_length = self.naming["naming_conventions"]["s3_bucket"]["max_length"]
-        if len(bucket_name) > max_length:
-            # Truncate and add suffix to maintain uniqueness
-            truncate_length = max_length - 9  # Leave room for -suffix
-            bucket_name = bucket_name[:truncate_length] + "-" + suffix[:8]
-        
-        return bucket_name
+        """Generate S3 bucket name following existing infrastructure pattern"""
+        # Use the same pattern as existing infrastructure: msdp-terraform-state-dev
+        return f"{org}-terraform-state-{account_type}"
     
     def generate_table_name(self, org, account_type, region):
-        """Generate DynamoDB table name following convention"""
-        region_code = self.get_region_code(region)
-        
-        pattern = self.naming["naming_conventions"]["dynamodb_table"]["pattern"]
-        table_name = pattern.format(
-            prefix=self.naming["naming_conventions"]["dynamodb_table"]["prefix"],
-            org=org,
-            account_type=account_type,
-            region_code=region_code
-        )
-        
-        return table_name
+        """Generate DynamoDB table name following existing infrastructure pattern"""
+        # Use the same pattern as existing infrastructure: msdp-terraform-locks-dev
+        return f"{org}-terraform-locks-{account_type}"
     
     def generate_state_key(self, platform, component, environment, region=None, instance=None):
         """Generate state key following convention"""
