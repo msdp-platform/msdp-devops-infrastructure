@@ -92,7 +92,6 @@ logFormat: text
 # Additional arguments
 extraArgs:
   - --events
-  - --log-format=text
 
 # Environment variables
 %{if use_aws_credentials && !use_oidc}
