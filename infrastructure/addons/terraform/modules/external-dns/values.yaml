@@ -25,17 +25,17 @@ registry: ${registry}
 aws:
   region: ${aws_region}
   zoneType: ${aws_zone_type}
-  %{if hosted_zone_id != ""}
-  zoneIdFilters:
-    - ${hosted_zone_id}
-  %{endif}
+  # zoneIdFilters is set only if hosted_zone_id is provided
+  # Uncomment the following lines if hosted_zone_id is set
+  # zoneIdFilters:
+  #   - ${hosted_zone_id}
 
 # Source configuration
 sources:
   - service
   - ingress
-  - istio-gateway
-  - istio-virtualservice
+  # - istio-gateway
+  # - istio-virtualservice
 
 # Deployment configuration
 replicaCount: ${replica_count}
@@ -94,28 +94,28 @@ extraArgs:
   - --events
 
 # Environment variables
-%{if use_aws_credentials && !use_oidc}
-extraEnv:
-  - name: AWS_ACCESS_KEY_ID
-    valueFrom:
-      secretKeyRef:
-        name: ${aws_credentials_secret}
-        key: aws-access-key-id
-  - name: AWS_SECRET_ACCESS_KEY
-    valueFrom:
-      secretKeyRef:
-        name: ${aws_credentials_secret}
-        key: aws-secret-access-key
-%{endif}
-%{if use_oidc}
-extraEnv:
-  - name: AWS_ROLE_ARN
-    value: ${aws_role_arn}
-  - name: AWS_WEB_IDENTITY_TOKEN_FILE
-    value: ${aws_web_identity_token_file}
-  - name: AWS_REGION
-    value: ${aws_region}
-%{endif}
+# The following extraEnv section should be conditionally rendered by Terraform.
+# If use_aws_credentials && !use_oidc:
+# extraEnv:
+#   - name: AWS_ACCESS_KEY_ID
+#     valueFrom:
+#       secretKeyRef:
+#         name: ${aws_credentials_secret}
+#         key: aws-access-key-id
+#   - name: AWS_SECRET_ACCESS_KEY
+#     valueFrom:
+#       secretKeyRef:
+#         name: ${aws_credentials_secret}
+#         key: aws-secret-access-key
+
+# If use_oidc:
+# extraEnv:
+#   - name: AWS_ROLE_ARN
+#     value: ${aws_role_arn}
+#   - name: AWS_WEB_IDENTITY_TOKEN_FILE
+#     value: ${aws_web_identity_token_file}
+#   - name: AWS_REGION
+#     value: ${aws_region}
 
 # Node selector and tolerations
 nodeSelector: {}
