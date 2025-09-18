@@ -7,10 +7,13 @@ PLUGIN_DIR="$(dirname "$0")"
 NAMESPACE="external-dns-system"
 AWS_AUTH_MODE=""
 AWS_CREDENTIALS_SECRET_NAME="${AWS_CREDENTIALS_SECRET_NAME:-external-dns-aws-credentials}"
+# Allow separate DNS provider selection (defaults to cloud provider for backward compatibility)
+DNS_PROVIDER="${DNS_PROVIDER:-${EXTERNAL_DNS_PROVIDER:-$CLOUD_PROVIDER}}"
 
 echo "🚀 Installing plugin: $PLUGIN_NAME"
 echo "Environment: $ENVIRONMENT"
 echo "Cloud Provider: $CLOUD_PROVIDER"
+echo "DNS Provider: $DNS_PROVIDER"
 echo "Cluster: $CLUSTER_NAME"
 
 # Source common functions
@@ -27,9 +30,10 @@ validate_config() {
     check_env_var "CLUSTER_NAME" "Cluster name must be specified"
     check_env_var "DOMAIN_FILTERS" "Domain filters must be specified"
     check_env_var "TXT_OWNER_ID" "TXT owner ID must be specified"
+    check_env_var "DNS_PROVIDER" "DNS provider must be specified"
     
     # Validate cloud-specific requirements
-    if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
+    if [[ "$DNS_PROVIDER" == "aws" ]]; then
         check_env_var "AWS_REGION" "AWS region must be specified"
 
         if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
@@ -44,12 +48,12 @@ validate_config() {
         fi
 
         echo "✅ AWS configuration validated"
-    elif [[ "$CLOUD_PROVIDER" == "azure" ]]; then
+    elif [[ "$DNS_PROVIDER" == "azure" ]]; then
         check_env_var "AZURE_SUBSCRIPTION_ID" "Azure subscription ID must be specified"
         check_env_var "AZURE_RESOURCE_GROUP" "Azure resource group must be specified"
         echo "✅ Azure configuration validated"
     else
-        echo "❌ Unsupported cloud provider: $CLOUD_PROVIDER"
+        echo "❌ Unsupported DNS provider: $DNS_PROVIDER"
         exit 1
     fi
     
@@ -72,7 +76,7 @@ prepare_values() {
     echo "📦 Preparing Helm values..."
     
     # Select the appropriate values file based on cloud provider
-    local values_file="$PLUGIN_DIR/values/${CLOUD_PROVIDER}.yaml"
+    local values_file="$PLUGIN_DIR/values/${DNS_PROVIDER}.yaml"
     local temp_values="/tmp/external-dns-values-${CLUSTER_NAME}.yaml"
     
     if [[ ! -f "$values_file" ]]; then
@@ -83,7 +87,7 @@ prepare_values() {
     # Process template variables
     envsubst < "$values_file" > "$temp_values"
 
-    if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
+    if [[ "$DNS_PROVIDER" == "aws" ]]; then
         if [[ "$AWS_AUTH_MODE" == "oidc" ]]; then
             cat <<EOF >> "$temp_values"
 
@@ -113,7 +117,7 @@ extraEnv:
         key: aws-secret-access-key
 EOF
         fi
-    elif [[ "$CLOUD_PROVIDER" == "azure" ]]; then
+    elif [[ "$DNS_PROVIDER" == "azure" ]]; then
         if ! command -v yq >/dev/null 2>&1; then
             echo "❌ yq is required to remove Azure workload identity configuration"
             exit 1
@@ -151,7 +155,7 @@ install_plugin() {
     kubectl label namespace "$NAMESPACE" app.kubernetes.io/managed-by=plugin-manager --overwrite
     kubectl label namespace "$NAMESPACE" app.kubernetes.io/name=external-dns --overwrite
 
-    if [[ "$CLOUD_PROVIDER" == "aws" && "$AWS_AUTH_MODE" == "static" ]]; then
+    if [[ "$DNS_PROVIDER" == "aws" && "$AWS_AUTH_MODE" == "static" ]]; then
         kubectl create secret generic "$AWS_CREDENTIALS_SECRET_NAME" \
             --namespace "$NAMESPACE" \
             --from-literal=aws-access-key-id="$AWS_ACCESS_KEY_ID" \
@@ -255,7 +259,8 @@ main() {
     echo "📋 Installation Summary:"
     echo "  Namespace: $NAMESPACE"
     echo "  Cloud Provider: $CLOUD_PROVIDER"
-    if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
+    echo "  DNS Provider: $DNS_PROVIDER"
+    if [[ "$DNS_PROVIDER" == "aws" ]]; then
         echo "  AWS Auth Mode: $AWS_AUTH_MODE"
     fi
     echo "  Domain Filters: $DOMAIN_FILTERS"
