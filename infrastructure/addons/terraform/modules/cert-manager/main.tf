@@ -189,32 +189,37 @@ resource "kubernetes_manifest" "cluster_issuer" {
        privateKeySecretRef = {
          name = "${var.cluster_issuer_name}-private-key"
        }
-        solvers = [
-          var.dns_challenge ? {
-            dns01 = var.dns_provider == "route53" ? {
-              route53 = {
-                region = var.aws_region
-                hostedZoneID = var.hosted_zone_id
-              }
-            } : {
-              azureDNS = {
-                subscriptionID    = var.azure_subscription_id
-                resourceGroupName = var.azure_resource_group
-                hostedZoneName    = var.azure_hosted_zone_name
-              }
-            }
-          } : {
-            http01 = {
-              ingress = {
-                class            = var.ingress_class_name
-                ingressClassName = var.ingress_class_name
-                ingressTemplate  = {
-                  metadata = {}
+        solvers = concat(
+          var.dns_challenge ? [
+            {
+              dns01 = var.dns_provider == "route53" ? {
+                route53 = {
+                  region       = var.aws_region
+                  hostedZoneID = var.hosted_zone_id
+                }
+              } : {
+                azureDNS = {
+                  subscriptionID    = var.azure_subscription_id
+                  resourceGroupName = var.azure_resource_group
+                  hostedZoneName    = var.azure_hosted_zone_name
                 }
               }
             }
-          }
-        ]
+          ] : [],
+          var.dns_challenge ? [] : [
+            {
+              http01 = {
+                ingress = {
+                  class            = var.ingress_class_name
+                  ingressClassName = var.ingress_class_name
+                  ingressTemplate  = {
+                    metadata = {}
+                  }
+                }
+              }
+            }
+          ]
+        )
       }
     }
   }
