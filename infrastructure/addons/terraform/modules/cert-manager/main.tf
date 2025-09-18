@@ -32,9 +32,12 @@ resource "kubernetes_namespace" "cert_manager" {
 
 # Install CRDs first
 resource "kubernetes_manifest" "cert_manager_crds" {
-  for_each = var.enabled ? csvdecode(file("${path.module}/crds-list.csv")) : []
+  for_each = var.enabled ? tomap({
+    for entry in csvdecode(file("${path.module}/crds-list.csv")) :
+    entry.name => entry.name
+  }) : {}
 
-  manifest = yamldecode(file("${path.module}/crds/${each.value.name}.yaml"))
+  manifest = yamldecode(file("${path.module}/crds/${each.key}.yaml"))
 
   wait {
     condition {
