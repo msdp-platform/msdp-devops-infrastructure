@@ -112,14 +112,14 @@ locals {
       hostname = local.argocd_hostname
     }
 
-    # Platform Engineering
+    # Platform Engineering (disabled for now)
     backstage = {
-      enabled  = var.plugins.backstage.enabled
+      enabled  = false
       hostname = local.backstage_hostname
     }
 
     crossplane = {
-      enabled = var.plugins.crossplane.enabled
+      enabled = false
     }
   }
 }
