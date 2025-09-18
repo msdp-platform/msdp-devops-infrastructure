@@ -131,6 +131,12 @@ variable "use_oidc" {
   default     = false
 }
 
+variable "azure_workload_identity_client_id" {
+  description = "Azure workload identity client ID used for federated AWS access"
+  type        = string
+  default     = ""
+}
+
 # Application Configuration
 variable "replica_count" {
   description = "Number of External DNS replicas"

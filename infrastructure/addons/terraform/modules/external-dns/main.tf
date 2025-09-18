@@ -54,8 +54,10 @@ resource "kubernetes_service_account" "external_dns" {
     name      = "external-dns"
     namespace = kubernetes_namespace.external_dns[0].metadata[0].name
     
-    annotations = var.cloud_provider == "aws" ? {
+    annotations = var.cloud_provider == "aws" && var.aws_role_arn != "" ? {
       "eks.amazonaws.com/role-arn" = var.aws_role_arn
+    } : var.cloud_provider == "azure" && var.use_oidc && var.azure_workload_identity_client_id != "" ? {
+      "azure.workload.identity/client-id" = var.azure_workload_identity_client_id
     } : {}
     
     labels = {
@@ -118,6 +120,7 @@ resource "helm_release" "external_dns" {
       use_oidc = var.use_oidc
       aws_role_arn = var.aws_role_arn
       aws_web_identity_token_file = var.aws_web_identity_token_file
+      azure_workload_identity_client_id = var.azure_workload_identity_client_id
     })
   ]
   

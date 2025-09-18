@@ -66,6 +66,12 @@ variable "aws_web_identity_token_file" {
   default     = "/var/run/secrets/azure/tokens/azure-identity-token"
 }
 
+variable "azure_workload_identity_client_id" {
+  description = "Client ID of the Azure workload identity used for AWS federation"
+  type        = string
+  default     = ""
+}
+
 variable "aws_region" {
   description = "AWS region for Route53 operations"
   type        = string

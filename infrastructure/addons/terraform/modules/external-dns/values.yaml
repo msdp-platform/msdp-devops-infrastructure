@@ -94,28 +94,27 @@ extraArgs:
   - --events
 
 # Environment variables
-# The following extraEnv section should be conditionally rendered by Terraform.
-# If use_aws_credentials && !use_oidc:
-# extraEnv:
-#   - name: AWS_ACCESS_KEY_ID
-#     valueFrom:
-#       secretKeyRef:
-#         name: ${aws_credentials_secret}
-#         key: aws-access-key-id
-#   - name: AWS_SECRET_ACCESS_KEY
-#     valueFrom:
-#       secretKeyRef:
-#         name: ${aws_credentials_secret}
-#         key: aws-secret-access-key
-
-# If use_oidc:
-# extraEnv:
-#   - name: AWS_ROLE_ARN
-#     value: ${aws_role_arn}
-#   - name: AWS_WEB_IDENTITY_TOKEN_FILE
-#     value: ${aws_web_identity_token_file}
-#   - name: AWS_REGION
-#     value: ${aws_region}
+%{ if use_aws_credentials }
+extraEnv:
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-secret-access-key
+%{ elseif use_oidc }
+extraEnv:
+  - name: AWS_ROLE_ARN
+    value: "${aws_role_arn}"
+  - name: AWS_WEB_IDENTITY_TOKEN_FILE
+    value: "${aws_web_identity_token_file}"
+  - name: AWS_REGION
+    value: "${aws_region}"
+%{ endif }
 
 # Node selector and tolerations
 nodeSelector: {}

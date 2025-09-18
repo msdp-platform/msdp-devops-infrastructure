@@ -130,6 +130,7 @@ module "external_dns" {
   aws_role_arn               = var.aws_role_arn_for_azure
   aws_web_identity_token_file = var.aws_web_identity_token_file
   use_oidc                   = true
+  azure_workload_identity_client_id = var.azure_workload_identity_client_id
   
   # Application configuration
   replica_count = var.environment == "prod" ? 2 : 1
