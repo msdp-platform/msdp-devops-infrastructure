@@ -113,6 +113,16 @@ extraEnv:
         key: aws-secret-access-key
 EOF
         fi
+    elif [[ "$CLOUD_PROVIDER" == "azure" ]]; then
+        if ! command -v yq >/dev/null 2>&1; then
+            echo "❌ yq is required to remove Azure workload identity configuration"
+            exit 1
+        fi
+
+        # Remove managed identity/OIDC configuration for Azure deployments
+        yq eval '.azure.useManagedIdentityExtension = false' -i "$temp_values"
+        yq eval 'del(.azure.userAssignedIdentityID)' -i "$temp_values"
+        yq eval 'del(.serviceAccount.annotations)' -i "$temp_values"
     fi
     
     echo "✅ Values file prepared: $temp_values"
