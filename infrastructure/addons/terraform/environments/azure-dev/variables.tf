@@ -72,6 +72,25 @@ variable "azure_workload_identity_client_id" {
   default     = ""
 }
 
+variable "external_dns_use_oidc" {
+  description = "Whether external-dns should authenticate to AWS via OIDC"
+  type        = bool
+  default     = false
+}
+
+variable "aws_access_key_id" {
+  description = "AWS access key ID used by external-dns when OIDC is disabled"
+  type        = string
+  default     = ""
+}
+
+variable "aws_secret_access_key" {
+  description = "AWS secret access key used by external-dns when OIDC is disabled"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "aws_region" {
   description = "AWS region for Route53 operations"
   type        = string
