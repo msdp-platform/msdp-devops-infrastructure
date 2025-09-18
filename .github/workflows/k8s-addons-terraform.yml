@@ -44,7 +44,7 @@ env:
 jobs:
   terraform-addons:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -58,12 +58,12 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Dependencies
         run: |
           pip install PyYAML requests
-          
+
       - name: Cloud Login
         uses: ./.github/actions/cloud-login
         with:
@@ -113,12 +113,12 @@ jobs:
       - name: Set Terraform Variables
         run: |
           echo "🔧 Setting Terraform variables..."
-          
+
           # Common variables
           echo "TF_VAR_domain_name=aztech-msdp.com" >> $GITHUB_ENV
           echo "TF_VAR_hosted_zone_id=Z0581458B5QGVNLDPESN" >> $GITHUB_ENV
           echo "TF_VAR_cert_manager_email=devops@aztech-msdp.com" >> $GITHUB_ENV
-          
+
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
             echo "TF_VAR_aws_region=eu-west-1" >> $GITHUB_ENV
             echo "TF_VAR_aws_account_id=319422413814" >> $GITHUB_ENV
@@ -140,7 +140,7 @@ jobs:
       - name: Check Environment Directory
         run: |
           ENVIRONMENT_DIR="infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}"
-          
+
           if [[ ! -d "$ENVIRONMENT_DIR" ]]; then
             echo "❌ Environment directory not found: $ENVIRONMENT_DIR"
             echo ""
@@ -188,6 +188,8 @@ jobs:
 
           set +e
           terraform plan \
+            -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+            -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
             -out=tfplan \
             -detailed-exitcode
           PLAN_EXIT_CODE=$?
@@ -221,9 +223,12 @@ jobs:
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🚀 Applying Terraform changes..."
-          
+
           if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
-            terraform apply -auto-approve tfplan
+            terraform apply \
+              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -auto-approve tfplan
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to apply automatically."
             terraform show tfplan
@@ -235,9 +240,12 @@ jobs:
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🗑️ Destroying Terraform resources..."
-          
+
           if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
-            terraform destroy -auto-approve
+            terraform destroy \
+              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
+              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
+              -auto-approve
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to destroy automatically."
             terraform plan -destroy
@@ -257,7 +265,7 @@ jobs:
         run: |
           echo "📊 Terraform Outputs:"
           terraform output -json > terraform-outputs.json
-          
+
           echo "📋 Add-ons Summary:"
           terraform output addons_summary
 
@@ -265,10 +273,10 @@ jobs:
         if: ${{ github.event.inputs.action == 'apply' }}
         run: |
           echo "🔍 Validating deployed add-ons..."
-          
+
           # Wait for deployments to be ready
           sleep 30
-          
+
           # Check common add-on namespaces
           ADDON_NAMESPACES=(
             "external-dns-system"
@@ -276,7 +284,7 @@ jobs:
             "nginx-ingress"
             "karpenter"
           )
-          
+
           for ns in "${ADDON_NAMESPACES[@]}"; do
             if kubectl get namespace "$ns" >/dev/null 2>&1; then
               echo "✅ Namespace $ns exists"
@@ -309,7 +317,7 @@ jobs:
           echo "Cluster: ${{ env.CLUSTER_NAME }}"
           echo "Action: ${{ github.event.inputs.action }}"
           echo ""
-          
+
           # Terraform state summary
           if [[ -f "infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}/terraform-outputs.json" ]]; then
             echo "📋 Terraform Managed Resources:"
@@ -317,12 +325,12 @@ jobs:
             terraform state list 2>/dev/null | head -20 || echo "No state found"
             echo ""
           fi
-          
+
           # Kubernetes resources
           echo "🎪 Kubernetes Resources:"
           kubectl get namespaces -l app.kubernetes.io/managed-by=terraform --no-headers 2>/dev/null || echo "No Terraform-managed namespaces found"
           echo ""
-          
+
           # Helm releases
           echo "📦 Helm Releases:"
           helm list --all-namespaces --no-headers 2>/dev/null || echo "No Helm releases found"
