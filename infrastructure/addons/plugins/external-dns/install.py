@@ -244,6 +244,10 @@ def update_values_for_provider(context: InstallContext, values: Dict[str, Any]) 
                 ]
             )
         values["extraEnv"] = extra_env
+        # Some chart versions expect env instead of extraEnv; keep both in sync.
+        existing_env: List[Dict[str, Any]] = values.get("env", []) or []
+        existing_env.extend(extra_env)
+        values["env"] = existing_env
 
     if context.dns_provider == "azure":
         azure_section = values.get("azure", {}) or {}
@@ -279,6 +283,7 @@ def prepare_values_file(context: InstallContext) -> None:
 
     context.temp_values_file.write_text(yaml.safe_dump(values, sort_keys=False))
     logging.info("Prepared Helm values file: %s", context.temp_values_file)
+    logging.debug("Helm values content:\n%s", yaml.safe_dump(values, sort_keys=False))
 
 
 def ensure_namespace(namespace: str) -> None:
