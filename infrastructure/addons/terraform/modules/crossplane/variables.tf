@@ -62,7 +62,7 @@ variable "resources" {
 }
 
 # Provider configurations
-variable "providers" {
+variable "provider_configs" {
   description = "Crossplane provider configurations"
   type = object({
     azure = object({

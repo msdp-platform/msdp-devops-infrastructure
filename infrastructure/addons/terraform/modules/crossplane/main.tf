@@ -37,7 +37,7 @@ resource "kubernetes_namespace" "crossplane_system" {
 
 # Azure credentials secret
 resource "kubernetes_secret" "azure_credentials" {
-  count = var.enabled && var.providers.azure.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.azure.enabled ? 1 : 0
 
   metadata {
     name      = "azure-secret"
@@ -63,7 +63,7 @@ resource "kubernetes_secret" "azure_credentials" {
 
 # AWS credentials secret
 resource "kubernetes_secret" "aws_credentials" {
-  count = var.enabled && var.providers.aws.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.aws.enabled ? 1 : 0
 
   metadata {
     name      = "aws-secret"
@@ -190,7 +190,7 @@ resource "helm_release" "crossplane" {
 
 # Azure Provider Installation
 resource "kubectl_manifest" "azure_provider" {
-  count = var.enabled && var.providers.azure.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.azure.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "pkg.crossplane.io/v1"
@@ -204,7 +204,7 @@ resource "kubectl_manifest" "azure_provider" {
       }
     }
     spec = {
-      package                  = "xpkg.upbound.io/crossplane-contrib/provider-azure:${var.providers.azure.version}"
+      package                  = "xpkg.upbound.io/crossplane-contrib/provider-azure:${var.provider_configs.azure.version}"
       revisionActivationPolicy = "Automatic"
       revisionHistoryLimit     = 3
     }
@@ -215,7 +215,7 @@ resource "kubectl_manifest" "azure_provider" {
 
 # AWS Provider Installation
 resource "kubectl_manifest" "aws_provider" {
-  count = var.enabled && var.providers.aws.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.aws.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "pkg.crossplane.io/v1"
@@ -229,7 +229,7 @@ resource "kubectl_manifest" "aws_provider" {
       }
     }
     spec = {
-      package                  = "xpkg.upbound.io/crossplane-contrib/provider-aws:${var.providers.aws.version}"
+      package                  = "xpkg.upbound.io/crossplane-contrib/provider-aws:${var.provider_configs.aws.version}"
       revisionActivationPolicy = "Automatic"
       revisionHistoryLimit     = 3
     }
@@ -240,7 +240,7 @@ resource "kubectl_manifest" "aws_provider" {
 
 # Kubernetes Provider Installation
 resource "kubectl_manifest" "kubernetes_provider" {
-  count = var.enabled && var.providers.kubernetes.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.kubernetes.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "pkg.crossplane.io/v1"
@@ -254,7 +254,7 @@ resource "kubectl_manifest" "kubernetes_provider" {
       }
     }
     spec = {
-      package                  = "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:${var.providers.kubernetes.version}"
+      package                  = "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:${var.provider_configs.kubernetes.version}"
       revisionActivationPolicy = "Automatic"
       revisionHistoryLimit     = 3
     }
@@ -278,7 +278,7 @@ resource "time_sleep" "wait_for_providers" {
 
 # Azure Provider Config (credentials)
 resource "kubectl_manifest" "azure_provider_config" {
-  count = var.enabled && var.providers.azure.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.azure.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "azure.crossplane.io/v1beta1"
@@ -308,7 +308,7 @@ resource "kubectl_manifest" "azure_provider_config" {
 
 # AWS Provider Config (credentials)
 resource "kubectl_manifest" "aws_provider_config" {
-  count = var.enabled && var.providers.aws.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.aws.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "aws.crossplane.io/v1beta1"
@@ -338,7 +338,7 @@ resource "kubectl_manifest" "aws_provider_config" {
 
 # Kubernetes Provider Config
 resource "kubectl_manifest" "kubernetes_provider_config" {
-  count = var.enabled && var.providers.kubernetes.enabled ? 1 : 0
+  count = var.enabled && var.provider_configs.kubernetes.enabled ? 1 : 0
 
   yaml_body = yamlencode({
     apiVersion = "kubernetes.crossplane.io/v1alpha1"
@@ -385,8 +385,8 @@ output "crossplane_version" {
 output "providers_enabled" {
   description = "Enabled Crossplane providers"
   value = var.enabled ? {
-    azure      = var.providers.azure.enabled
-    aws        = var.providers.aws.enabled
-    kubernetes = var.providers.kubernetes.enabled
+    azure      = var.provider_configs.azure.enabled
+    aws        = var.provider_configs.aws.enabled
+    kubernetes = var.provider_configs.kubernetes.enabled
   } : null
 }
