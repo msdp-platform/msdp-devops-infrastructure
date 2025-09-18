@@ -40,7 +40,7 @@ variable "cluster_issuer_name" {
   description = "Name of the ClusterIssuer to create"
   type        = string
   default     = "letsencrypt-prod"
-  
+
   validation {
     condition     = contains(["letsencrypt-prod", "letsencrypt-prod"], var.cluster_issuer_name)
     error_message = "Cluster issuer name must be either 'letsencrypt-prod'."
@@ -64,7 +64,7 @@ variable "dns_provider" {
   description = "DNS provider for DNS-01 challenge"
   type        = string
   default     = "route53"
-  
+
   validation {
     condition     = contains(["route53", "azuredns", "cloudflare"], var.dns_provider)
     error_message = "DNS provider must be one of: route53, azuredns, cloudflare."
@@ -145,7 +145,7 @@ variable "azure_hosted_zone_name" {
 variable "cloud_provider" {
   description = "Cloud provider (aws or azure)"
   type        = string
-  
+
   validation {
     condition     = contains(["aws", "azure"], var.cloud_provider)
     error_message = "Cloud provider must be either 'aws' or 'azure'."
@@ -157,7 +157,7 @@ variable "log_level" {
   description = "Log level for Cert-Manager"
   type        = string
   default     = "2"
-  
+
   validation {
     condition     = contains(["1", "2", "3", "4", "5"], var.log_level)
     error_message = "Log level must be between 1 and 5."
