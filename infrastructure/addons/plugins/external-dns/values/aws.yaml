@@ -18,6 +18,7 @@ aws:
   batchChangeSize: 1000
   batchChangeInterval: 1s
   evaluateTargetHealth: true
+${AWS_CREDENTIAL_SETTINGS:-}
 
 # Domain configuration
 domainFilters: 
@@ -107,6 +108,8 @@ extraArgs:
   - --aws-batch-change-size=1000
   - --aws-batch-change-interval=1s
   - --aws-evaluate-target-health
+
+${AWS_ENV_BLOCK:-}
 
 # Node selector and tolerations
 nodeSelector: {}

@@ -5,6 +5,8 @@ set -euo pipefail
 PLUGIN_NAME="external-dns"
 PLUGIN_DIR="$(dirname "$0")"
 NAMESPACE="external-dns-system"
+AWS_AUTH_MODE=""
+AWS_CREDENTIALS_SECRET_NAME="${AWS_CREDENTIALS_SECRET_NAME:-external-dns-aws-credentials}"
 
 echo "🚀 Installing plugin: $PLUGIN_NAME"
 echo "Environment: $ENVIRONMENT"
@@ -29,6 +31,18 @@ validate_config() {
     # Validate cloud-specific requirements
     if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
         check_env_var "AWS_REGION" "AWS region must be specified"
+
+        if [[ -n "${AWS_ROLE_ARN:-}" ]]; then
+            AWS_AUTH_MODE="oidc"
+            echo "✅ Using AWS IAM role via web identity"
+        elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+            AWS_AUTH_MODE="static"
+            echo "✅ Using static AWS credentials"
+        else
+            echo "❌ Either AWS_ROLE_ARN or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY must be provided for AWS deployments"
+            exit 1
+        fi
+
         echo "✅ AWS configuration validated"
     elif [[ "$CLOUD_PROVIDER" == "azure" ]]; then
         check_env_var "AZURE_SUBSCRIPTION_ID" "Azure subscription ID must be specified"
@@ -66,14 +80,84 @@ prepare_values() {
         exit 1
     fi
     
+    # Inject any dynamic AWS configuration snippets before rendering values
+    local aws_env_block=""
+    local aws_credentials_block=""
+
+    if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
+        if [[ "$AWS_AUTH_MODE" == "oidc" ]]; then
+            local web_identity_token_file="${AWS_WEB_IDENTITY_TOKEN_FILE:-/var/run/secrets/eks.amazonaws.com/serviceaccount/token}"
+            aws_env_block=$(cat <<EOF
+extraEnv:
+  - name: AWS_REGION
+    value: "${AWS_REGION}"
+  - name: AWS_ROLE_ARN
+    value: "${AWS_ROLE_ARN}"
+  - name: AWS_WEB_IDENTITY_TOKEN_FILE
+    value: "${web_identity_token_file}"
+env:
+  - name: AWS_REGION
+    value: "${AWS_REGION}"
+  - name: AWS_ROLE_ARN
+    value: "${AWS_ROLE_ARN}"
+  - name: AWS_WEB_IDENTITY_TOKEN_FILE
+    value: "${web_identity_token_file}"
+EOF
+)
+        elif [[ "$AWS_AUTH_MODE" == "static" ]]; then
+            aws_env_block=$(cat <<EOF
+extraEnv:
+  - name: AWS_REGION
+    value: "${AWS_REGION}"
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: ${AWS_CREDENTIALS_SECRET_NAME}
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ${AWS_CREDENTIALS_SECRET_NAME}
+        key: aws-secret-access-key
+env:
+  - name: AWS_REGION
+    value: "${AWS_REGION}"
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: ${AWS_CREDENTIALS_SECRET_NAME}
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ${AWS_CREDENTIALS_SECRET_NAME}
+        key: aws-secret-access-key
+EOF
+)
+            aws_credentials_block=$(cat <<EOF
+  credentials:
+    secretName: ${AWS_CREDENTIALS_SECRET_NAME}
+    accessKeyIdKey: aws-access-key-id
+    secretAccessKeyKey: aws-secret-access-key
+EOF
+)
+        fi
+    fi
+
+    export AWS_ENV_BLOCK="$aws_env_block"
+    export AWS_CREDENTIAL_SETTINGS="$aws_credentials_block"
+
     # Process template variables
     envsubst < "$values_file" > "$temp_values"
-    
+
     echo "✅ Values file prepared: $temp_values"
     echo "Values content:"
     cat "$temp_values"
-    
+
     export TEMP_VALUES_FILE="$temp_values"
+
+    # Clean up temporary template helpers from the environment
+    unset AWS_ENV_BLOCK AWS_CREDENTIAL_SETTINGS
 }
 
 # Install the plugin
@@ -84,13 +168,22 @@ install_plugin() {
     echo "Adding Helm repository..."
     helm repo add external-dns https://kubernetes-sigs.github.io/external-dns/
     helm repo update
-    
+
     # Create namespace if it doesn't exist
     kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
-    
+
     # Label namespace for management
     kubectl label namespace "$NAMESPACE" app.kubernetes.io/managed-by=plugin-manager --overwrite
     kubectl label namespace "$NAMESPACE" app.kubernetes.io/name=external-dns --overwrite
+
+    if [[ "$CLOUD_PROVIDER" == "aws" && "$AWS_AUTH_MODE" == "static" ]]; then
+        kubectl create secret generic "$AWS_CREDENTIALS_SECRET_NAME" \
+            --namespace "$NAMESPACE" \
+            --from-literal=aws-access-key-id="$AWS_ACCESS_KEY_ID" \
+            --from-literal=aws-secret-access-key="$AWS_SECRET_ACCESS_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        echo "✅ AWS credentials secret configured: $AWS_CREDENTIALS_SECRET_NAME"
+    fi
     
     # Install with Helm
     echo "Installing External DNS with Helm..."
@@ -187,6 +280,9 @@ main() {
     echo "📋 Installation Summary:"
     echo "  Namespace: $NAMESPACE"
     echo "  Cloud Provider: $CLOUD_PROVIDER"
+    if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
+        echo "  AWS Auth Mode: $AWS_AUTH_MODE"
+    fi
     echo "  Domain Filters: $DOMAIN_FILTERS"
     echo "  TXT Owner ID: $TXT_OWNER_ID"
     echo ""
