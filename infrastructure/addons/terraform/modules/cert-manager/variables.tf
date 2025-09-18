@@ -18,6 +18,12 @@ variable "chart_version" {
   default     = "v1.13.2"
 }
 
+variable "crds_version" {
+  description = "Version of the Cert-Manager CRDs to install"
+  type        = string
+  default     = "v1.13.2"
+}
+
 # Certificate Configuration
 variable "email" {
   description = "Email address for Let's Encrypt registration"

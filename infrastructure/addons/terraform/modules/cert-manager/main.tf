@@ -32,49 +32,10 @@ resource "kubernetes_namespace" "cert_manager" {
 
 # Install CRDs first
 resource "kubernetes_manifest" "cert_manager_crds" {
-  for_each = var.enabled ? toset([
-    "certificaterequests.cert-manager.io",
-    "certificates.cert-manager.io", 
-    "challenges.acme.cert-manager.io",
-    "clusterissuers.cert-manager.io",
-    "issuers.cert-manager.io",
-    "orders.acme.cert-manager.io"
-  ]) : toset([])
+  for_each = var.enabled ? csvdecode(file("${path.module}/crds-list.csv")) : []
 
-  manifest = {
-    apiVersion = "apiextensions.k8s.io/v1"
-    kind       = "CustomResourceDefinition"
-    metadata = {
-      name = each.key
-    }
-    spec = {
-      group = "cert-manager.io"
-      versions = [{
-        name    = "v1"
-        served  = true
-        storage = true
-        schema = {
-          openAPIV3Schema = {
-            type = "object"
-            properties = {
-              spec = {
-                type = "object"
-              }
-              status = {
-                type = "object"
-              }
-            }
-          }
-        }
-      }]
-      scope = startswith(each.key, "cluster") ? "Cluster" : "Namespaced"
-      names = {
-        plural = split(".", each.key)[0]
-        kind   = title(replace(split(".", each.key)[0], "s$", ""))
-      }
-    }
-  }
-  
+  manifest = yamldecode(file("${path.module}/crds/${each.value.name}.yaml"))
+
   wait {
     condition {
       type   = "Established"
