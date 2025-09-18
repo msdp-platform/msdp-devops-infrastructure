@@ -51,3 +51,9 @@ plugins = {
 }
 
 azure_workload_identity_client_id = "07f609da-cc9f-4433-8ded-f5f3522cc175"
+
+aws_access_key_id = "AKIAIOSFODNN7EXAMPLE"  # Replace with your access key ID
+aws_secret_access_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # Replace with your secret access key
+
+aws_access_key_id = "AKIAUUXYPHP3PBL2HVNZ"
+aws_secret_access_key = "fpoYfXAlpO+bknbgGqZvGr9S2ts5DWa3a1fdelZw"
