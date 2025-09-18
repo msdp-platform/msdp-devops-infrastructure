@@ -136,6 +136,7 @@ locals {
           hostedZoneID = var.hosted_zone_id
         }
       }
+      http01 = null
     }
     ] : [
     {
@@ -146,11 +147,13 @@ locals {
           hostedZoneName    = var.azure_hosted_zone_name
         }
       }
+      http01 = null
     }
   ]
 
   cluster_issuer_http_solver = [
     {
+      dns01 = null
       http01 = {
         ingress = {
           ingressClassName = var.ingress_class_name
