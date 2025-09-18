@@ -32,12 +32,12 @@ validate_config() {
     if [[ "$CLOUD_PROVIDER" == "aws" ]]; then
         check_env_var "AWS_REGION" "AWS region must be specified"
 
-        if [[ -n "${AWS_ROLE_ARN:-}" ]]; then
-            AWS_AUTH_MODE="oidc"
-            echo "✅ Using AWS IAM role via web identity"
-        elif [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+        if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
             AWS_AUTH_MODE="static"
             echo "✅ Using static AWS credentials"
+        elif [[ -n "${AWS_ROLE_ARN:-}" ]]; then
+            AWS_AUTH_MODE="oidc"
+            echo "✅ Using AWS IAM role via web identity"
         else
             echo "❌ Either AWS_ROLE_ARN or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY must be provided for AWS deployments"
             exit 1
@@ -93,7 +93,7 @@ extraEnv:
   - name: AWS_ROLE_ARN
     value: "${AWS_ROLE_ARN}"
   - name: AWS_WEB_IDENTITY_TOKEN_FILE
-    value: "${AWS_WEB_IDENTITY_TOKEN_FILE:-/var/run/secrets/eks.amazonaws.com/serviceaccount/token}"
+    value: "${AWS_WEB_IDENTITY_TOKEN_FILE:-/var/run/secrets/azure/tokens/azure-identity-token}"
 EOF
         elif [[ "$AWS_AUTH_MODE" == "static" ]]; then
             cat <<EOF >> "$temp_values"
@@ -118,6 +118,9 @@ EOF
     echo "✅ Values file prepared: $temp_values"
     echo "Values content:"
     cat "$temp_values"
+    echo "=== TEMP VALUES DEBUG ==="
+    cat "$temp_values"
+    echo "=== END DEBUG ==="
     
     export TEMP_VALUES_FILE="$temp_values"
 }
