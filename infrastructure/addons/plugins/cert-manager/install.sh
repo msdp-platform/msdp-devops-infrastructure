@@ -116,9 +116,9 @@ EOF
 # Get ACME server URL
 get_acme_server() {
     if [[ "$CLUSTER_ISSUER" == "letsencrypt-prod" ]]; then
-        echo "https://acme-staging-v02.api.letsencrypt.org/directory"
-    else
         echo "https://acme-v02.api.letsencrypt.org/directory"
+    else
+        echo "https://acme-staging-v02.api.letsencrypt.org/directory"
     fi
 }
 

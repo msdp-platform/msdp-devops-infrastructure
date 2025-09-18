@@ -26,7 +26,7 @@ plugins:
       
   cert-manager:
     config:
-      cluster_issuer: letsencrypt-prod  # Use staging for dev
+      cluster_issuer: letsencrypt-prod
       email: "devops@aztech-msdp.com"
       dns_challenge: true
       dns_provider: route53
