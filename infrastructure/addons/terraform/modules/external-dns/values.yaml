@@ -94,8 +94,9 @@ extraArgs:
   - --events
 
 # Environment variables
-%{ if use_aws_credentials }
+%{ if use_aws_credentials || use_oidc }
 extraEnv:
+%{ if use_aws_credentials }
   - name: AWS_ACCESS_KEY_ID
     valueFrom:
       secretKeyRef:
@@ -106,14 +107,15 @@ extraEnv:
       secretKeyRef:
         name: ${aws_credentials_secret}
         key: aws-secret-access-key
-%{ elseif use_oidc }
-extraEnv:
+%{ endif }
+%{ if use_oidc }
   - name: AWS_ROLE_ARN
     value: "${aws_role_arn}"
   - name: AWS_WEB_IDENTITY_TOKEN_FILE
     value: "${aws_web_identity_token_file}"
   - name: AWS_REGION
     value: "${aws_region}"
+%{ endif }
 %{ endif }
 
 # Node selector and tolerations
