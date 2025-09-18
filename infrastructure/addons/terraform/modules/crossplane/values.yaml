@@ -1,0 +1,105 @@
+# Crossplane Default Values Template
+# This file provides default values for the Crossplane Helm chart
+# Variables are templated and will be replaced by Terraform
+
+# Core Crossplane configuration
+args:
+  - --enable-composition-revisions
+  - --enable-environment-configs
+  - --enable-usages
+
+# Image configuration
+image:
+  repository: crossplane/crossplane
+  tag: "${crossplane_version}"
+  pullPolicy: IfNotPresent
+
+# Resource limits
+resourcesCrossplane:
+  requests:
+    cpu: "${cpu_requests}"
+    memory: "${memory_requests}"
+  limits:
+    cpu: "${cpu_limits}"
+    memory: "${memory_limits}"
+
+# RBAC manager configuration
+rbacManager:
+  deploy: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Package manager configuration
+packageManager:
+  deploy: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Metrics and monitoring
+metrics:
+  enabled: true
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+# Node selector for system nodes
+nodeSelector:
+  kubernetes.io/os: linux
+
+# Tolerations for system workloads
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+
+# Service account configuration
+serviceAccount:
+  customAnnotations:
+    app.kubernetes.io/managed-by: terraform
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Replica count
+replicas: 1
+
+# Update strategy
+deploymentStrategy: RollingUpdate
+
+# Priority class
+priorityClassName: system-cluster-critical
+
+# Extra environment variables
+extraEnvVars: []
+
+# Extra volumes and volume mounts
+extraVolumes: []
+extraVolumeMounts: []
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels:
+  msdp.platform/component: crossplane
+
+# Affinity rules
+affinity: {}
+
+# Resource quotas
+resourceQuota:
+  enabled: false

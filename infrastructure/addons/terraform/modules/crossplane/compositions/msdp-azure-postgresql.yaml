@@ -1,0 +1,201 @@
+# MSDP Azure PostgreSQL Composition
+# Provides Azure Database for PostgreSQL Flexible Server for MSDP services
+
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: msdp-azure-postgresql
+  labels:
+    provider: azure
+    service: database
+    msdp.platform/composition: azure-postgresql
+    msdp.platform/managed-by: terraform
+spec:
+  compositeTypeRef:
+    apiVersion: msdp.platform/v1alpha1
+    kind: XAzurePostgreSQL
+  
+  resources:
+  # PostgreSQL Flexible Server
+  - name: postgresql-server
+    base:
+      apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+      kind: FlexibleServer
+      spec:
+        forProvider:
+          location: uksouth
+          resourceGroupName: rg-msdp-dev
+          
+          # Server configuration
+          administratorLogin: msdp_admin
+          version: "15"
+          storageMb: 32768  # 32 GB
+          skuName: B_Standard_B1ms  # Burstable, 1 vCore, 2 GB RAM
+          
+          # High availability (disabled for dev)
+          highAvailability:
+            mode: Disabled
+          
+          # Backup configuration
+          backup:
+            retentionDays: 7
+            geoRedundantBackup: Disabled
+          
+          # Network configuration
+          network:
+            delegatedSubnetId: ""  # Will be patched
+            privateDnsZoneId: ""   # Will be patched
+          
+          # Maintenance window
+          maintenanceWindow:
+            customWindow: Enabled
+            dayOfWeek: 0  # Sunday
+            startHour: 2
+            startMinute: 0
+          
+          tags:
+            Environment: dev
+            Project: msdp
+            Component: database
+            ManagedBy: crossplane
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.serverName
+      toFieldPath: metadata.name
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.location
+      toFieldPath: spec.forProvider.location
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.resourceGroupName
+      toFieldPath: spec.forProvider.resourceGroupName
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.skuName
+      toFieldPath: spec.forProvider.skuName
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.storageMb
+      toFieldPath: spec.forProvider.storageMb
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.version
+      toFieldPath: spec.forProvider.version
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.environment
+      toFieldPath: spec.forProvider.tags.Environment
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.serviceName
+      toFieldPath: spec.forProvider.tags.Service
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.backupRetentionDays
+      toFieldPath: spec.forProvider.backup.retentionDays
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.highAvailability
+      toFieldPath: spec.forProvider.highAvailability.mode
+      transforms:
+      - type: map
+        map:
+          "true": "ZoneRedundant"
+          "false": "Disabled"
+    - type: ToCompositeFieldPath
+      fromFieldPath: status.atProvider.fqdn
+      toFieldPath: status.endpoint
+    - type: ToCompositeFieldPath
+      fromFieldPath: status.atProvider.id
+      toFieldPath: status.serverId
+
+  # Database
+  - name: postgresql-database
+    base:
+      apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+      kind: FlexibleServerDatabase
+      spec:
+        forProvider:
+          charset: UTF8
+          collation: en_US.utf8
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.databaseName
+      toFieldPath: spec.forProvider.name
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.serverName
+      toFieldPath: spec.forProvider.serverIdSelector.matchLabels["metadata.name"]
+
+  # Firewall Rule (for development - allows Azure services)
+  - name: postgresql-firewall-azure
+    base:
+      apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+      kind: FlexibleServerFirewallRule
+      spec:
+        forProvider:
+          name: AllowAzureServices
+          startIpAddress: "0.0.0.0"
+          endIpAddress: "0.0.0.0"
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.serverName
+      toFieldPath: spec.forProvider.serverIdSelector.matchLabels["metadata.name"]
+
+  # Additional Firewall Rule (for development - allows specific IP ranges)
+  - name: postgresql-firewall-dev
+    base:
+      apiVersion: dbforpostgresql.azure.crossplane.io/v1beta1
+      kind: FlexibleServerFirewallRule
+      spec:
+        forProvider:
+          name: AllowDevAccess
+          startIpAddress: "192.168.0.0"
+          endIpAddress: "192.168.255.255"
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.serverName
+      toFieldPath: spec.forProvider.serverIdSelector.matchLabels["metadata.name"]
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.allowedIpStart
+      toFieldPath: spec.forProvider.startIpAddress
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.allowedIpEnd
+      toFieldPath: spec.forProvider.endIpAddress
+
+  # Connection Secret
+  - name: postgresql-connection-secret
+    base:
+      apiVersion: kubernetes.crossplane.io/v1alpha1
+      kind: Object
+      spec:
+        forProvider:
+          manifest:
+            apiVersion: v1
+            kind: Secret
+            metadata:
+              namespace: default  # Will be patched
+            type: Opaque
+            data:
+              endpoint: ""  # Will be patched
+              port: "5432"
+              database: ""  # Will be patched
+              username: "msdp_admin"
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.namespace
+      toFieldPath: spec.forProvider.manifest.metadata.namespace
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: spec.forProvider.manifest.metadata.name
+      transforms:
+      - type: string
+        string:
+          fmt: "%s-postgresql-connection"
+    - type: FromCompositeFieldPath
+      fromFieldPath: status.endpoint
+      toFieldPath: spec.forProvider.manifest.data.endpoint
+      transforms:
+      - type: string
+        string:
+          type: Convert
+          convert: "base64"
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.parameters.databaseName
+      toFieldPath: spec.forProvider.manifest.data.database
+      transforms:
+      - type: string
+        string:
+          type: Convert
+          convert: "base64"
