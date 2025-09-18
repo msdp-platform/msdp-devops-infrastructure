@@ -1,8 +1,9 @@
 # MSDP Platform Engineering Stack
 
-## 🎯 **Latest Backstage + Crossplane 2.x + ArgoCD**
+## 🎯 **Latest Backstage + Crossplane 2.x**
 
 Enterprise-grade platform engineering stack following MSDP DevOps patterns and conventions.
+**Note**: ArgoCD is managed by a separate pipeline and not included here.
 
 ---
 
@@ -11,7 +12,7 @@ Enterprise-grade platform engineering stack following MSDP DevOps patterns and c
 ### **✅ Latest Stable Versions:**
 - **Backstage**: Chart v2.6.1, App v1.33.0
 - **Crossplane**: Chart v1.17.1 (2.x series), App v1.17.1  
-- **ArgoCD**: Chart v7.7.5, App v2.13.2
+- **ArgoCD**: Managed by existing addon pipeline (not deployed here)
 
 ---
 
@@ -25,10 +26,10 @@ Enterprise-grade platform engineering stack following MSDP DevOps patterns and c
 └── Team and documentation management
 
 🚀 ARGOCD (GitOps Engine):
-├── Continuous deployment
-├── Multi-environment management
-├── MSDP application lifecycle
-└── Rollback and recovery
+├── Managed by separate addon pipeline
+├── Integrates with Backstage and Crossplane
+├── MSDP application lifecycle management
+└── Uses existing ArgoCD installation
 
 ⚡ CROSSPLANE (Infrastructure Engine):
 ├── Multi-cloud resource provisioning
@@ -104,11 +105,9 @@ infrastructure/platform-engineering/
 │   ├── main.tf          # Core Backstage deployment
 │   ├── variables.tf     # Input variables
 │   └── catalog/         # MSDP service catalog
-├── argocd/              # ArgoCD latest Terraform module
-│   ├── main.tf          # Core ArgoCD deployment
-│   ├── variables.tf     # Input variables
-│   └── applications/    # MSDP application definitions
 └── README.md            # This file
+
+Note: ArgoCD is managed by the existing addon pipeline
 ```
 
 ---

@@ -19,7 +19,7 @@ locals {
   component_config = var.component_config
   namespace        = var.namespace
   chart_version    = var.component_config.chart_version
-  
+
   # MSDP-specific labels following your conventions
   common_labels = {
     "app.kubernetes.io/name"       = "backstage"
@@ -31,13 +31,13 @@ locals {
     "msdp.platform/component"      = "backstage"
     "msdp.platform/environment"    = var.environment
   }
-  
+
   # App configuration with MSDP-specific settings
   app_config = var.component_config.app_config
-  
+
   # Database configuration
   postgresql_config = var.component_config.postgresql
-  
+
   # Ingress configuration
   ingress_config = var.component_config.ingress
 }
@@ -57,7 +57,7 @@ resource "kubernetes_config_map" "backstage_config" {
     namespace = kubernetes_namespace.backstage.metadata[0].name
     labels    = local.common_labels
   }
-  
+
   data = {
     "app-config.yaml" = yamlencode(local.app_config)
   }
@@ -70,13 +70,13 @@ resource "kubernetes_secret" "github_credentials" {
     namespace = kubernetes_namespace.backstage.metadata[0].name
     labels    = local.common_labels
   }
-  
+
   data = {
     GITHUB_CLIENT_ID     = var.github_client_id
     GITHUB_CLIENT_SECRET = var.github_client_secret
     GITHUB_TOKEN         = var.github_token
   }
-  
+
   type = "Opaque"
 }
 
@@ -87,7 +87,7 @@ resource "kubernetes_secret" "postgres_credentials" {
     namespace = kubernetes_namespace.backstage.metadata[0].name
     labels    = local.common_labels
   }
-  
+
   data = {
     POSTGRES_HOST     = local.postgresql_config.enabled ? "backstage-postgresql" : var.external_postgres_host
     POSTGRES_PORT     = "5432"
@@ -95,7 +95,7 @@ resource "kubernetes_secret" "postgres_credentials" {
     POSTGRES_PASSWORD = local.postgresql_config.auth.password
     POSTGRES_DB       = local.postgresql_config.auth.database
   }
-  
+
   type = "Opaque"
 }
 
@@ -106,7 +106,7 @@ resource "helm_release" "backstage" {
   chart      = "backstage"
   version    = local.chart_version
   namespace  = kubernetes_namespace.backstage.metadata[0].name
-  
+
   # Backstage values following MSDP requirements
   values = [
     yamlencode({
@@ -116,12 +116,12 @@ resource "helm_release" "backstage" {
           repository = "backstage/backstage"
           tag        = var.component_config.app_version
         }
-        
+
         # App configuration via ConfigMap
         appConfig = {
           configMapRef = kubernetes_config_map.backstage_config.metadata[0].name
         }
-        
+
         # Environment variables from secrets
         extraEnvVars = [
           {
@@ -170,10 +170,10 @@ resource "helm_release" "backstage" {
             }
           }
         ]
-        
+
         # Resource configuration following your patterns
         resources = local.component_config.resources
-        
+
         # Security context
         securityContext = {
           runAsNonRoot = true
@@ -181,13 +181,13 @@ resource "helm_release" "backstage" {
           runAsGroup   = 1001
         }
       }
-      
+
       # PostgreSQL configuration (if enabled)
       postgresql = local.postgresql_config
-      
+
       # Ingress configuration
       ingress = local.ingress_config
-      
+
       # Service configuration
       service = {
         type = "ClusterIP"
@@ -196,25 +196,25 @@ resource "helm_release" "backstage" {
           frontend = 3000
         }
       }
-      
+
       # Additional security following your patterns
       podSecurityContext = {
         fsGroup = 1001
       }
-      
+
       # Node selector for user nodes
       nodeSelector = {
         "kubernetes.io/os" = "linux"
       }
     })
   ]
-  
-  timeout         = 900  # 15 minutes for Backstage startup
+
+  timeout         = 900 # 15 minutes for Backstage startup
   wait            = true
   wait_for_jobs   = true
   atomic          = true
   cleanup_on_fail = true
-  
+
   depends_on = [
     kubernetes_namespace.backstage,
     kubernetes_config_map.backstage_config,

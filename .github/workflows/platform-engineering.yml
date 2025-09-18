@@ -25,7 +25,7 @@ on:
         required: true
         default: all
         type: choice
-        options: [all, crossplane, backstage, argocd]
+        options: [all, crossplane, backstage]
       cluster_name:
         description: "Target AKS cluster name (from config)"
         required: false
@@ -55,7 +55,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install PyYAML
@@ -73,31 +73,31 @@ jobs:
           import yaml
           import json
           import os
-          
+
           env = "${{ env.ENVIRONMENT }}"
           component = "${{ env.COMPONENT }}"
           cluster_filter = "${{ github.event.inputs.cluster_name }}"
-          
+
           # Load environment configuration
           with open(f'config/{env}.yaml', 'r') as f:
               config = yaml.safe_load(f)
-          
+
           # Load platform engineering configuration
           with open('config/platform-engineering.yaml', 'r') as f:
               platform_config = yaml.safe_load(f)
-          
+
           clusters = config.get('azure', {}).get('aks', {}).get('clusters', [])
           components = platform_config.get('components', {})
-          
+
           matrix_items = []
-          
+
           for cluster in clusters:
               if cluster_filter and cluster.get('name') != cluster_filter:
                   continue
                   
               cluster_components = []
               if component == 'all':
-                  cluster_components = ['crossplane', 'backstage', 'argocd']
+                  cluster_components = ['crossplane', 'backstage']
               else:
                   cluster_components = [component]
               
@@ -111,10 +111,10 @@ jobs:
                           'component_config': components[comp]
                       }
                       matrix_items.append(item)
-          
+
           matrix = {"include": matrix_items}
           print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
-          
+
           with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
               f.write(f"matrix={json.dumps(matrix)}\n")
           EOF
@@ -124,11 +124,11 @@ jobs:
         run: |
           MATRIX='${{ steps.generate-matrix.outputs.matrix }}'
           HAS_CLUSTERS=false
-          
+
           if echo "$MATRIX" | jq -e '.include | length > 0' >/dev/null; then
             HAS_CLUSTERS=true
           fi
-          
+
           echo "has-clusters=$HAS_CLUSTERS" >> $GITHUB_OUTPUT
           echo "Matrix has clusters: $HAS_CLUSTERS"
 
@@ -139,13 +139,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.validate-config.outputs.matrix) }}
-    
+
     env:
       ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
       ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_USE_OIDC: "true"
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,7 +153,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: pip install PyYAML
@@ -190,18 +190,18 @@ jobs:
           import yaml
           import json
           import os
-          
+
           # Load configurations
           with open('../../../config/${{ matrix.environment }}.yaml', 'r') as f:
               env_config = yaml.safe_load(f)
-          
+
           with open('../../../config/platform-engineering.yaml', 'r') as f:
               platform_config = yaml.safe_load(f)
-          
+
           # Get component-specific configuration
           component_config = platform_config['components']['${{ matrix.component }}']
           cluster_config = json.loads('''${{ toJson(matrix) }}''')
-          
+
           # Generate terraform.tfvars.json
           tfvars = {
               'cluster_name': '${{ matrix.cluster_name }}',
@@ -213,10 +213,10 @@ jobs:
               'values_override': component_config.get('values', {}),
               'tags': env_config.get('tags', {})
           }
-          
+
           with open('terraform.tfvars.json', 'w') as f:
               json.dump(tfvars, f, indent=2)
-          
+
           print(f"Generated terraform.tfvars.json for ${{ matrix.component }}")
           print(json.dumps(tfvars, indent=2))
           EOF
@@ -246,19 +246,17 @@ jobs:
         if: ${{ env.ACTION == 'apply' }}
         run: |
           echo "=== Verifying ${{ matrix.component }} deployment ==="
-          
+
           case "${{ matrix.component }}" in
             "crossplane")
               kubectl get pods -n crossplane-system
               kubectl get crds | grep crossplane
+              kubectl get providers
               ;;
             "backstage")
               kubectl get pods -n backstage
               kubectl get ingress -n backstage
-              ;;
-            "argocd")
-              kubectl get pods -n argocd
-              kubectl get ingress -n argocd
+              kubectl get configmap -n backstage
               ;;
           esac
 
@@ -296,24 +294,25 @@ jobs:
       - name: Configure Platform Integration
         run: |
           echo "🔗 Configuring platform engineering integration..."
-          
+
           # Get cluster credentials
           az aks get-credentials \
             --resource-group "rg-${{ github.event.inputs.cluster_name || 'aks-msdp-dev-01' }}" \
             --name "${{ github.event.inputs.cluster_name || 'aks-msdp-dev-01' }}"
-          
+
           # Configure Crossplane providers if deployed
           if kubectl get namespace crossplane-system 2>/dev/null; then
             echo "Configuring Crossplane providers..."
             kubectl apply -f infrastructure/platform-engineering/crossplane/providers/
           fi
-          
-          # Configure ArgoCD applications if deployed
+
+          # Configure ArgoCD integration (uses existing ArgoCD installation)
           if kubectl get namespace argocd 2>/dev/null; then
-            echo "Configuring ArgoCD applications..."
-            kubectl apply -f infrastructure/platform-engineering/argocd/applications/
+            echo "✅ ArgoCD already installed via separate pipeline"
+            echo "Configuring integration with platform engineering stack..."
+            # Future: Configure ArgoCD applications for Backstage and Crossplane
           fi
-          
+
           # Configure Backstage catalog if deployed
           if kubectl get namespace backstage 2>/dev/null; then
             echo "Configuring Backstage catalog..."
@@ -324,7 +323,7 @@ jobs:
         run: |
           echo "🎉 Platform Engineering Stack Deployment Complete!"
           echo "=================================================="
-          
+
           # Get external IPs and access information
           if kubectl get namespace backstage 2>/dev/null; then
             echo ""
@@ -333,7 +332,7 @@ jobs:
               echo "   https://$host"
             done
           fi
-          
+
           if kubectl get namespace argocd 2>/dev/null; then
             echo ""
             echo "🚀 ArgoCD GitOps Platform:"
@@ -341,14 +340,14 @@ jobs:
               echo "   https://$host"
             done
           fi
-          
+
           if kubectl get namespace crossplane-system 2>/dev/null; then
             echo ""
             echo "⚡ Crossplane Infrastructure Engine:"
             echo "   kubectl get providers"
             echo "   kubectl get compositions"
           fi
-          
+
           echo ""
           echo "📋 Next Steps:"
           echo "1. Access Backstage to explore service catalog"
