@@ -205,10 +205,14 @@ resource "kubernetes_manifest" "cluster_issuer" {
            }
          }
        ] : [
-         {
-           http01 = {
-             ingress = {
+          {
+            http01 = {
+              ingress = {
+                class            = var.ingress_class_name
                 ingressClassName = var.ingress_class_name
+                ingressTemplate  = {
+                  metadata = {}
+                }
               }
             }
           }
