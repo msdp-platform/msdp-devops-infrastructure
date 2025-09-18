@@ -225,10 +225,7 @@ jobs:
           echo "🚀 Applying Terraform changes..."
 
           if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
-            terraform apply \
-              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-              -auto-approve tfplan
+            terraform apply -auto-approve tfplan
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to apply automatically."
             terraform show tfplan
@@ -242,10 +239,7 @@ jobs:
           echo "🗑️ Destroying Terraform resources..."
 
           if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
-            terraform destroy \
-              -var="aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}" \
-              -var="aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}" \
-              -auto-approve
+            terraform destroy -auto-approve
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to destroy automatically."
             terraform plan -destroy

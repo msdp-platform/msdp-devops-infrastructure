@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-oidc
+  namespace: external-dns-system
+spec:
+  serviceAccountName: external-dns
+  restartPolicy: Never
+  containers:
+  - name: aws-cli
+    image: amazon/aws-cli:latest
+    command: ["sleep", "3600"]
+    volumeMounts:
+    - name: azure-token
+      mountPath: /var/run/secrets/azure/tokens
+      readOnly: true
+  volumes:
+  - name: azure-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: azure-identity-token
+          audience: api://AzureADTokenExchange
