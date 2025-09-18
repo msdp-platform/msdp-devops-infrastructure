@@ -45,7 +45,7 @@ env:
 jobs:
   plugin-management:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,28 +53,28 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Python dependencies
         run: |
           pip install PyYAML requests
-          
+
       - name: Setup Kubernetes tools
         run: |
           # Install kubectl
           curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x kubectl
           sudo mv kubectl /usr/local/bin/
-          
+
           # Install Helm
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          
+
           # Install kubelogin for Azure AKS AAD authentication
           curl -LO "https://github.com/Azure/kubelogin/releases/latest/download/kubelogin-linux-amd64.zip"
           unzip kubelogin-linux-amd64.zip
           sudo mv bin/linux_amd64/kubelogin /usr/local/bin/
           chmod +x /usr/local/bin/kubelogin
-          
+
           # Verify installations
           kubectl version --client
           helm version
@@ -92,7 +92,7 @@ jobs:
       - name: Configure Kubernetes Context
         run: |
           echo "🔧 Configuring Kubernetes context for ${{ env.CLOUD_PROVIDER }}..."
-          
+
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
             echo "Configuring AWS EKS context..."
             aws eks update-kubeconfig --region eu-west-1 --name ${{ env.CLUSTER_NAME }}
@@ -109,12 +109,12 @@ jobs:
             
             echo "✅ Azure AKS admin credentials configured"
           fi
-          
+
           # Verify connection
           echo "✅ Verifying Kubernetes connection..."
           kubectl cluster-info
           kubectl get nodes
-          
+
           echo "📋 Current context:"
           kubectl config current-context
 
@@ -122,7 +122,7 @@ jobs:
         if: ${{ github.event.inputs.action == 'install' }}
         run: |
           echo "🔍 Resolving network information..."
-          
+
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
             # Get VPC information from EKS cluster
             VPC_ID=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --query 'cluster.resourcesVpcConfig.vpcId' --output text)
@@ -153,18 +153,24 @@ jobs:
         if: ${{ github.event.inputs.action == 'install' }}
         run: |
           echo "🔐 Setting up plugin secrets..."
-          
+
           # Set common secrets
           echo "GRAFANA_ADMIN_PASSWORD=${{ secrets.GRAFANA_ADMIN_PASSWORD || 'admin123' }}" >> $GITHUB_ENV
           echo "ARGOCD_ADMIN_PASSWORD=${{ secrets.ARGOCD_ADMIN_PASSWORD || 'admin123' }}" >> $GITHUB_ENV
-          
+
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
             echo "AWS_REGION=eu-west-1" >> $GITHUB_ENV
             echo "AWS_ACCOUNT_ID=319422413814" >> $GITHUB_ENV
             echo "ROUTE53_HOSTED_ZONE_ID=${{ secrets.ROUTE53_HOSTED_ZONE_ID }}" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
           elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
             echo "AZURE_TENANT_ID=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
             echo "AZURE_SUBSCRIPTION_ID=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+            echo "AZURE_CLIENT_ID=${{ secrets.AZURE_CLIENT_ID }}" >> $GITHUB_ENV
+            echo "AZURE_USER_ASSIGNED_IDENTITY_ID=${{ secrets.AZURE_USER_ASSIGNED_IDENTITY_ID }}" >> $GITHUB_ENV
+            echo "AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}" >> $GITHUB_ENV
+            echo "AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}" >> $GITHUB_ENV
           fi
 
       - name: List Available Plugins
@@ -188,18 +194,18 @@ jobs:
           echo "Dry Run: ${{ env.DRY_RUN }}"
           echo "Specific Plugins: ${{ github.event.inputs.plugins || 'all enabled' }}"
           echo ""
-          
+
           # Prepare plugin manager arguments
           PLUGIN_ARGS="infrastructure/addons/config/plugins-config.yaml ${{ env.ENVIRONMENT }} ${{ env.CLOUD_PROVIDER }} --action install"
-          
+
           if [[ "${{ env.DRY_RUN }}" == "true" ]]; then
             PLUGIN_ARGS="$PLUGIN_ARGS --dry-run"
           fi
-          
+
           if [[ -n "${{ github.event.inputs.plugins }}" ]]; then
             PLUGIN_ARGS="$PLUGIN_ARGS --plugins ${{ github.event.inputs.plugins }}"
           fi
-          
+
           # Run plugin manager
           python3 infrastructure/addons/orchestrator/plugin-manager.py $PLUGIN_ARGS
 
@@ -208,12 +214,12 @@ jobs:
         run: |
           echo "🗑️ Uninstalling Kubernetes Add-ons Plugins"
           echo "==========================================="
-          
+
           if [[ -z "${{ github.event.inputs.plugins }}" ]]; then
             echo "❌ Error: --plugins is required for uninstall action"
             exit 1
           fi
-          
+
           python3 infrastructure/addons/orchestrator/plugin-manager.py \
             infrastructure/addons/config/plugins-config.yaml \
             ${{ env.ENVIRONMENT }} \
@@ -226,13 +232,13 @@ jobs:
         run: |
           echo "🔍 Performing Health Check on Plugins"
           echo "====================================="
-          
+
           PLUGIN_ARGS="infrastructure/addons/config/plugins-config.yaml ${{ env.ENVIRONMENT }} ${{ env.CLOUD_PROVIDER }} --action health-check"
-          
+
           if [[ -n "${{ github.event.inputs.plugins }}" ]]; then
             PLUGIN_ARGS="$PLUGIN_ARGS --plugins ${{ github.event.inputs.plugins }}"
           fi
-          
+
           python3 infrastructure/addons/orchestrator/plugin-manager.py $PLUGIN_ARGS
 
       - name: Generate Plugin Status Report
@@ -241,27 +247,27 @@ jobs:
           echo "📊 Plugin Status Report"
           echo "======================"
           echo ""
-          
+
           # Get all namespaces managed by plugin-manager
           echo "🏷️ Plugin-managed Namespaces:"
           kubectl get namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin-managed namespaces found"
           echo ""
-          
+
           # Get plugin deployments status
           echo "🚀 Plugin Deployments:"
           kubectl get deployments --all-namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin deployments found"
           echo ""
-          
+
           # Get plugin services
           echo "🌐 Plugin Services:"
           kubectl get services --all-namespaces -l app.kubernetes.io/managed-by=plugin-manager --no-headers 2>/dev/null || echo "No plugin services found"
           echo ""
-          
+
           # Get Helm releases
           echo "📦 Helm Releases:"
           helm list --all-namespaces --no-headers 2>/dev/null || echo "No Helm releases found"
           echo ""
-          
+
           # Check common plugin namespaces
           PLUGIN_NAMESPACES=(
             "external-dns-system"
@@ -271,7 +277,7 @@ jobs:
             "grafana"
             "argocd"
           )
-          
+
           echo "🔍 Plugin Namespace Status:"
           for ns in "${PLUGIN_NAMESPACES[@]}"; do
             if kubectl get namespace "$ns" >/dev/null 2>&1; then
