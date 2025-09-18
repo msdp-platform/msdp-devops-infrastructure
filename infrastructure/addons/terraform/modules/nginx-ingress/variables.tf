@@ -15,7 +15,7 @@ variable "namespace" {
 variable "chart_version" {
   description = "Version of the NGINX Ingress Controller Helm chart"
   type        = string
-  default     = "4.8.4"
+  default     = "4.11.3"
 }
 
 # Application Configuration
