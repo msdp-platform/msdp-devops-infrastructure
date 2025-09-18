@@ -71,6 +71,12 @@ variable "dns_provider" {
   }
 }
 
+variable "ingress_class_name" {
+  description = "Ingress class name used for HTTP01 solver"
+  type        = string
+  default     = "nginx"
+}
+
 # AWS Configuration
 variable "aws_region" {
   description = "AWS region for Route53"
