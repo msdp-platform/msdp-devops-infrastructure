@@ -110,9 +110,6 @@ variable "plugins" {
     prometheus_stack = object({
       enabled = bool
     })
-    grafana = object({
-      enabled = bool
-    })
     fluent_bit = object({
       enabled = bool
     })
@@ -137,10 +134,51 @@ variable "plugins" {
     keda                     = { enabled = true }
     azure_keyvault_csi_driver = { enabled = false }
     prometheus_stack         = { enabled = true }
-    grafana                  = { enabled = true }
-    fluent_bit               = { enabled = true }
-    external_secrets         = { enabled = true }
+    fluent_bit               = { enabled = false }
+    external_secrets         = { enabled = false }
     argocd                   = { enabled = true }
     velero                   = { enabled = false }
   }
+}
+
+variable "ingress_class_name" {
+  description = "Default ingress class name"
+  type        = string
+  default     = "nginx"
+}
+
+variable "prometheus_hostname" {
+  description = "Hostname for Prometheus ingress"
+  type        = string
+  default     = ""
+}
+
+variable "grafana_hostname" {
+  description = "Hostname for Grafana ingress"
+  type        = string
+  default     = ""
+}
+
+variable "argocd_hostname" {
+  description = "Hostname for Argo CD ingress"
+  type        = string
+  default     = ""
+}
+
+variable "prometheus_tls_secret_name" {
+  description = "TLS secret name for Prometheus"
+  type        = string
+  default     = "prometheus-tls"
+}
+
+variable "grafana_tls_secret_name" {
+  description = "TLS secret name for Grafana"
+  type        = string
+  default     = "grafana-tls"
+}
+
+variable "argocd_tls_secret_name" {
+  description = "TLS secret name for Argo CD"
+  type        = string
+  default     = "argocd-tls"
 }

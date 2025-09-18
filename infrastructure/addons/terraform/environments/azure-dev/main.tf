@@ -57,6 +57,11 @@ data "azurerm_client_config" "current" {}
 # Local values
 locals {
   subscription_id = data.azurerm_client_config.current.subscription_id
+  ingress_class_name = var.ingress_class_name
+
+  prometheus_hostname = length(trimspace(var.prometheus_hostname)) > 0 ? var.prometheus_hostname : format("prometheus.%s.%s", var.environment, var.domain_name)
+  grafana_hostname    = length(trimspace(var.grafana_hostname)) > 0 ? var.grafana_hostname : format("grafana.%s.%s", var.environment, var.domain_name)
+  argocd_hostname     = length(trimspace(var.argocd_hostname)) > 0 ? var.argocd_hostname : format("argocd.%s.%s", var.environment, var.domain_name)
   
   # Common tags
   common_tags = {
@@ -93,6 +98,17 @@ locals {
     
     keda = {
       enabled = var.plugins.keda.enabled
+    }
+
+    prometheus_stack = {
+      enabled              = var.plugins.prometheus_stack.enabled
+      prometheus_hostname  = local.prometheus_hostname
+      grafana_hostname     = local.grafana_hostname
+    }
+
+    argocd = {
+      enabled  = var.plugins.argocd.enabled
+      hostname = local.argocd_hostname
     }
   }
 }
@@ -139,10 +155,9 @@ module "cert_manager" {
   enabled = local.plugins.cert_manager.enabled
   
   # Certificate configuration
-  email               = var.cert_manager_email
-  cluster_issuer_name = local.plugins.cert_manager.cluster_issuer
-  # Defer ClusterIssuer creation until CRDs are present to avoid plan-time API discovery errors
-  create_cluster_issuer = false
+  email                 = var.cert_manager_email
+  cluster_issuer_name   = local.plugins.cert_manager.cluster_issuer
+  create_cluster_issuer = true
   
   # DNS challenge configuration (using AWS Route53 with OIDC)
   dns_challenge           = true
@@ -249,6 +264,40 @@ module "keda" {
   }
 }
 
+# Prometheus & Grafana (kube-prometheus-stack)
+module "prometheus_stack" {
+  source = "../../modules/prometheus-stack"
+
+  enabled                   = local.plugins.prometheus_stack.enabled
+  cluster_issuer_name       = local.plugins.cert_manager.cluster_issuer
+  ingress_class_name        = local.ingress_class_name
+  prometheus_hostname       = local.plugins.prometheus_stack.prometheus_hostname
+  grafana_hostname          = local.plugins.prometheus_stack.grafana_hostname
+  prometheus_tls_secret_name = var.prometheus_tls_secret_name
+  grafana_tls_secret_name    = var.grafana_tls_secret_name
+
+  depends_on = [
+    module.cert_manager,
+    module.nginx_ingress
+  ]
+}
+
+# Argo CD
+module "argocd" {
+  source = "../../modules/argocd"
+
+  enabled             = local.plugins.argocd.enabled
+  cluster_issuer_name = local.plugins.cert_manager.cluster_issuer
+  ingress_class_name  = local.ingress_class_name
+  hostname            = local.plugins.argocd.hostname
+  tls_secret_name     = var.argocd_tls_secret_name
+
+  depends_on = [
+    module.cert_manager,
+    module.nginx_ingress
+  ]
+}
+
 # Outputs
 output "external_dns_status" {
   description = "External DNS deployment status"
@@ -304,6 +353,27 @@ output "keda_status" {
   }
 }
 
+output "prometheus_stack_status" {
+  description = "Prometheus stack deployment status"
+  value = {
+    enabled      = module.prometheus_stack.namespace != null
+    namespace    = module.prometheus_stack.namespace
+    version      = module.prometheus_stack.helm_release_version
+    prometheus_host = module.prometheus_stack.prometheus_hostname
+    grafana_host    = module.prometheus_stack.grafana_hostname
+  }
+}
+
+output "argocd_status" {
+  description = "Argo CD deployment status"
+  value = {
+    enabled   = module.argocd.namespace != null
+    namespace = module.argocd.namespace
+    version   = module.argocd.helm_release_version
+    hostname  = module.argocd.hostname
+  }
+}
+
 output "addons_summary" {
   description = "Summary of all deployed add-ons"
   value = {
@@ -320,6 +390,8 @@ output "addons_summary" {
         { name = "virtual-node", enabled = local.plugins.virtual_node.enabled },
         { name = "azure-disk-csi-driver", enabled = local.plugins.azure_disk_csi_driver.enabled },
         { name = "keda", enabled = local.plugins.keda.enabled },
+        { name = "prometheus-stack", enabled = local.plugins.prometheus_stack.enabled },
+        { name = "argocd", enabled = local.plugins.argocd.enabled }
       ] : addon.name if addon.enabled
     ]
     
@@ -330,6 +402,8 @@ output "addons_summary" {
       "virtual-node" = "independent"
       "azure-disk-csi-driver" = "independent"
       "keda" = "independent"
+      "prometheus-stack" = "depends on cert-manager and nginx-ingress"
+      "argocd" = "depends on cert-manager and nginx-ingress"
     }
   }
 }
