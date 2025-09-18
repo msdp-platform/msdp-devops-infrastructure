@@ -132,7 +132,7 @@ variable "plugins" {
     cert_manager             = { enabled = true }
     nginx_ingress            = { enabled = true }
     virtual_node             = { enabled = false }
-    azure_disk_csi_driver    = { enabled = true }
+    azure_disk_csi_driver    = { enabled = false }
     azure_file_csi_driver    = { enabled = false }
     keda                     = { enabled = true }
     azure_keyvault_csi_driver = { enabled = false }
@@ -140,7 +140,7 @@ variable "plugins" {
     grafana                  = { enabled = true }
     fluent_bit               = { enabled = true }
     external_secrets         = { enabled = true }
-    argocd                   = { enabled = false }
+    argocd                   = { enabled = true }
     velero                   = { enabled = false }
   }
 }
