@@ -31,20 +31,39 @@ resource "kubernetes_namespace" "cert_manager" {
 }
 
 # Install CRDs first
-resource "kubernetes_manifest" "cert_manager_crds" {
-  for_each = var.enabled ? tomap({
-    for entry in csvdecode(file("${path.module}/crds-list.csv")) :
-    entry.name => entry.name
-  }) : {}
+resource "helm_release" "cert_manager_crds" {
+  count = var.enabled ? 1 : 0
 
-  manifest = yamldecode(file("${path.module}/crds/${each.key}.yaml"))
+  name       = "cert-manager-crds"
+  repository = "https://charts.jetstack.io"
+  chart      = "cert-manager"
+  version    = var.chart_version
+  namespace  = "kube-system"
 
-  wait {
-    condition {
-      type   = "Established"
-      status = "True"
-    }
+  values = [
+    yamlencode({
+      installCRDs = true
+    })
+  ]
+
+  # Install only the CRDs
+  set {
+    name  = "installCRDs"
+    value = "true"
   }
+
+  # Disable all components except CRDs
+  set {
+    name  = "extraArgs"
+    value = "{}"
+  }
+
+  wait              = true
+  wait_for_jobs     = true
+  timeout           = var.installation_timeout
+  cleanup_on_fail   = true
+  atomic            = true
+  dependency_update = false
 }
 
 # Create AWS credentials secret for cross-cloud access (Azure clusters)
@@ -100,7 +119,7 @@ resource "helm_release" "cert_manager" {
     kubernetes_namespace.cert_manager,
     kubernetes_service_account.cert_manager,
     kubernetes_secret.aws_credentials,
-    kubernetes_manifest.cert_manager_crds
+    helm_release.cert_manager_crds
   ]
   
   values = [
