@@ -351,8 +351,10 @@ module "argocd" {
   ]
 }
 
-# Backstage (Developer Portal)
+# Backstage (Developer Portal) - Disabled for now
 module "backstage" {
+  count = local.plugins.backstage.enabled ? 1 : 0
+
   source = "../../modules/backstage"
 
   enabled             = local.plugins.backstage.enabled
@@ -455,8 +457,10 @@ module "backstage" {
   ]
 }
 
-# Crossplane (Infrastructure Engine)
+# Crossplane (Infrastructure Engine) - Disabled for now
 module "crossplane" {
+  count = local.plugins.crossplane.enabled ? 1 : 0
+
   source = "../../modules/crossplane"
 
   enabled           = local.plugins.crossplane.enabled
