@@ -1,0 +1,421 @@
+# Platform Engineering Configuration
+# Backstage + Crossplane + ArgoCD stack configuration
+
+environment:
+  name: platform-engineering
+  description: "Platform Engineering Stack for MSDP"
+
+# Component versions (latest stable)
+versions:
+  backstage:
+    chart_version: "2.6.1"  # Latest Backstage Helm chart
+    app_version: "1.33.0"   # Latest Backstage application
+  crossplane:
+    chart_version: "1.17.1"  # Latest Crossplane 2.x series
+    app_version: "1.17.1"
+  argocd:
+    chart_version: "7.7.5"   # Latest ArgoCD Helm chart
+    app_version: "2.13.2"    # Latest ArgoCD application
+
+# Platform engineering components
+components:
+  crossplane:
+    enabled: true
+    namespace: "crossplane-system"
+    chart_version: "1.17.1"
+    repository: "https://charts.crossplane.io/stable"
+    values:
+      # Crossplane 2.x configuration
+      configuration:
+        packages:
+          - "xpkg.upbound.io/crossplane-contrib/provider-azure:v0.20.0"
+          - "xpkg.upbound.io/crossplane-contrib/provider-aws:v1.14.0"
+          - "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.15.0"
+      
+      resourcesCrossplane:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      
+      rbacManager:
+        replicas: 1
+        resourcesRbacManager:
+          limits:
+            cpu: 100m
+            memory: 512Mi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+      
+      # Enable package manager for provider installation
+      packageManager:
+        enabled: true
+        configMap: crossplane-packages
+    
+    providers:
+      azure:
+        enabled: true
+        version: "v0.20.0"
+        config:
+          credentials:
+            source: Secret
+            secretRef:
+              namespace: crossplane-system
+              name: azure-secret
+              key: creds
+      
+      aws:
+        enabled: true
+        version: "v1.14.0"
+        config:
+          credentials:
+            source: Secret
+            secretRef:
+              namespace: crossplane-system
+              name: aws-secret
+              key: creds
+      
+      kubernetes:
+        enabled: true
+        version: "v0.15.0"
+
+  backstage:
+    enabled: true
+    namespace: "backstage"
+    chart_version: "2.6.1"
+    repository: "https://backstage.github.io/charts"
+    
+    # MSDP-specific configuration
+    app_config:
+      app:
+        title: "MSDP Service Catalog"
+        baseUrl: "https://backstage.msdp.platform"
+        listen:
+          host: "0.0.0.0"
+          port: 3000
+      
+      organization:
+        name: "MSDP Platform"
+      
+      backend:
+        baseUrl: "https://backstage-api.msdp.platform"
+        listen:
+          host: "0.0.0.0"
+          port: 7007
+        
+        cors:
+          origin:
+            - "https://backstage.msdp.platform"
+            - "http://localhost:*"
+          credentials: true
+        
+        database:
+          client: pg
+          connection:
+            host: "${POSTGRES_HOST}"
+            port: 5432
+            user: "${POSTGRES_USER}"
+            password: "${POSTGRES_PASSWORD}"
+            database: "${POSTGRES_DB}"
+            ssl:
+              require: true
+              rejectUnauthorized: false
+      
+      auth:
+        environment: production
+        providers:
+          guest: {}
+          github:
+            production:
+              clientId: "${GITHUB_CLIENT_ID}"
+              clientSecret: "${GITHUB_CLIENT_SECRET}"
+      
+      catalog:
+        rules:
+          - allow: [Component, System, API, Resource, Location, User, Group, Template]
+        
+        locations:
+          - type: url
+            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/catalog/msdp-services.yaml
+          - type: url
+            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/catalog/msdp-teams.yaml
+          - type: url
+            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/templates/
+        
+        providers:
+          # Crossplane integration
+          crossplane:
+            production:
+              baseUrl: "https://crossplane-api.msdp.platform"
+              schedule:
+                frequency: { minutes: 10 }
+          
+          # ArgoCD integration
+          argocd:
+            production:
+              baseUrl: "https://argocd.msdp.platform"
+              schedule:
+                frequency: { minutes: 5 }
+      
+      # MSDP service proxies (initially laptop, later AWS Lambda)
+      proxy:
+        '/api/msdp':
+          target: 'http://192.168.1.189:3000'
+          changeOrigin: true
+        '/api/location':
+          target: 'http://192.168.1.189:3001'
+          changeOrigin: true
+        '/api/merchant':
+          target: 'http://192.168.1.189:3002'
+          changeOrigin: true
+        '/api/user':
+          target: 'http://192.168.1.189:3003'
+          changeOrigin: true
+        '/api/order':
+          target: 'http://192.168.1.189:3006'
+          changeOrigin: true
+        '/api/payment':
+          target: 'http://192.168.1.189:3007'
+          changeOrigin: true
+      
+      integrations:
+        github:
+          - host: github.com
+            token: "${GITHUB_TOKEN}"
+        
+        azure:
+          - host: dev.azure.com
+            token: "${AZURE_DEVOPS_TOKEN}"
+    
+    # Database configuration
+    postgresql:
+      enabled: true  # Start with included PostgreSQL
+      auth:
+        username: backstage
+        password: "backstage-secure-password"
+        database: backstage
+      primary:
+        persistence:
+          enabled: true
+          size: 20Gi
+          storageClass: "managed-csi"
+        resources:
+          requests:
+            memory: 512Mi
+            cpu: 250m
+          limits:
+            memory: 1Gi
+            cpu: 500m
+    
+    # Ingress configuration
+    ingress:
+      enabled: true
+      className: "nginx"
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+      hosts:
+        - host: "backstage.msdp.platform"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: backstage-tls
+          hosts:
+            - "backstage.msdp.platform"
+    
+    # Resource configuration
+    resources:
+      backend:
+        requests:
+          memory: 1Gi
+          cpu: 500m
+        limits:
+          memory: 2Gi
+          cpu: 1000m
+      frontend:
+        requests:
+          memory: 512Mi
+          cpu: 250m
+        limits:
+          memory: 1Gi
+          cpu: 500m
+
+  argocd:
+    enabled: true
+    namespace: "argocd"
+    chart_version: "7.7.5"
+    repository: "https://argoproj.github.io/argo-helm"
+    
+    values:
+      server:
+        ingress:
+          enabled: true
+          ingressClassName: "nginx"
+          hosts:
+            - "argocd.msdp.platform"
+          annotations:
+            cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+          tls:
+            - secretName: argocd-tls
+              hosts:
+                - "argocd.msdp.platform"
+        
+        extraArgs:
+          - --insecure  # For development, remove in production
+        
+        config:
+          url: "https://argocd.msdp.platform"
+          application.instanceLabelKey: argocd.argoproj.io/instance
+          
+          # OIDC configuration (future)
+          oidc.config: |
+            name: Azure AD
+            issuer: https://login.microsoftonline.com/${{ secrets.AZURE_TENANT_ID }}/v2.0
+            clientId: ${{ secrets.AZURE_CLIENT_ID }}
+            clientSecret: ${{ secrets.AZURE_CLIENT_SECRET }}
+            requestedScopes: ["openid", "profile", "email"]
+      
+      # Redis for HA setup
+      redis:
+        enabled: true
+        auth:
+          enabled: false
+      
+      # Repository credentials for MSDP repos
+      configs:
+        repositories:
+          - url: https://github.com/msdp-platform/msdp-platform-core
+            name: msdp-platform-core
+            type: git
+          - url: https://github.com/msdp-platform/msdp-customer-frontends
+            name: msdp-customer-frontends
+            type: git
+          - url: https://github.com/msdp-platform/msdp-merchant-frontends
+            name: msdp-merchant-frontends
+            type: git
+          - url: https://github.com/msdp-platform/msdp-admin-frontends
+            name: msdp-admin-frontends
+            type: git
+
+# Environment-specific overrides
+environments:
+  dev:
+    domain_suffix: "dev.msdp.platform"
+    replicas:
+      backstage: 1
+      argocd: 1
+    resources:
+      tier: "small"
+  
+  staging:
+    domain_suffix: "staging.msdp.platform"
+    replicas:
+      backstage: 2
+      argocd: 2
+    resources:
+      tier: "medium"
+  
+  prod:
+    domain_suffix: "msdp.platform"
+    replicas:
+      backstage: 3
+      argocd: 3
+    resources:
+      tier: "large"
+    
+    # Production-specific settings
+    security:
+      pod_security_standards: "restricted"
+      network_policies: true
+      image_scanning: true
+    
+    # External database for production
+    external_database:
+      enabled: true
+      type: "aurora-serverless"  # Future AWS Aurora integration
+      connection_secret: "aurora-backstage-connection"
+
+# Integration configuration
+integrations:
+  # GitHub integration
+  github:
+    organization: "msdp-platform"
+    repositories:
+      - "msdp-platform-core"
+      - "msdp-customer-frontends"
+      - "msdp-merchant-frontends"
+      - "msdp-admin-frontends"
+      - "msdp-shared-libs"
+      - "msdp-testing"
+      - "msdp-devops-infrastructure"
+      - "msdp-documentation"
+  
+  # Azure DevOps integration (if needed)
+  azure_devops:
+    organization: "msdp-platform"
+    enabled: false
+  
+  # AWS integration
+  aws:
+    regions:
+      - "us-east-1"
+      - "eu-west-1"
+      - "ap-southeast-1"
+    services:
+      - "lambda"
+      - "api-gateway"
+      - "aurora-serverless"
+
+# Monitoring and observability
+observability:
+  prometheus:
+    enabled: true
+    namespace: "monitoring"
+  
+  grafana:
+    enabled: true
+    namespace: "monitoring"
+    dashboards:
+      - "crossplane-resources"
+      - "argocd-applications"
+      - "backstage-metrics"
+  
+  alerting:
+    enabled: true
+    channels:
+      - type: "slack"
+        webhook: "${SLACK_WEBHOOK_URL}"
+      - type: "email"
+        recipients: ["platform-team@msdp.platform"]
+
+# Security configuration
+security:
+  rbac:
+    enabled: true
+    cluster_admin_users:
+      - "santanu@msdp.platform"
+  
+  network_policies:
+    enabled: true
+    default_deny: true
+  
+  pod_security:
+    enforcement: "restricted"
+    audit: "restricted"
+    warn: "restricted"
+
+# Tags applied to all resources (following your convention)
+tags:
+  Environment: "{{ environment }}"
+  Project: "msdp"
+  Component: "platform-engineering"
+  ManagedBy: "terraform"
+  Owner: "platform-team"
+  Purpose: "developer-portal"
