@@ -595,16 +595,16 @@ output "argocd_status" {
   }
 }
 
-output "backstage_status" {
-  description = "Backstage deployment status"
-  value = {
-    enabled     = module.backstage.namespace != null
-    namespace   = module.backstage.namespace
-    version     = module.backstage.helm_release_version
-    hostname    = module.backstage.hostname
-    app_version = module.backstage.app_version
-  }
-}
+# output "backstage_status" {
+#   description = "Backstage deployment status"
+#   value = {
+#     enabled     = module.backstage.namespace != null
+#     namespace   = module.backstage.namespace
+#     version     = module.backstage.helm_release_version
+#     hostname    = module.backstage.hostname
+#     app_version = module.backstage.app_version
+#   }
+# }
 
 # output "crossplane_status" {
 #   description = "Crossplane deployment status"
