@@ -8,7 +8,8 @@ NAMESPACE="external-dns-system"
 AWS_AUTH_MODE=""
 AWS_CREDENTIALS_SECRET_NAME="${AWS_CREDENTIALS_SECRET_NAME:-external-dns-aws-credentials}"
 # Allow separate DNS provider selection (defaults to cloud provider for backward compatibility)
-DNS_PROVIDER="${DNS_PROVIDER:-${EXTERNAL_DNS_PROVIDER:-$CLOUD_PROVIDER}}"
+# Prefer explicit DNS provider overrides, fall back to plugin config `provider`, then cloud provider
+DNS_PROVIDER="${DNS_PROVIDER:-${EXTERNAL_DNS_PROVIDER:-${PROVIDER:-$CLOUD_PROVIDER}}}"
 
 echo "🚀 Installing plugin: $PLUGIN_NAME"
 echo "Environment: $ENVIRONMENT"
