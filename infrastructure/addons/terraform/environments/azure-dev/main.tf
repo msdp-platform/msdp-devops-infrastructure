@@ -80,7 +80,7 @@ locals {
     
     cert_manager = {
       enabled = var.plugins.cert_manager.enabled
-      cluster_issuer = var.environment == "prod" ? "letsencrypt-prod" : "letsencrypt-staging"
+      cluster_issuer = var.environment == "prod" ? "letsencrypt-prod" : "letsencrypt-prod"
     }
     
     nginx_ingress = {

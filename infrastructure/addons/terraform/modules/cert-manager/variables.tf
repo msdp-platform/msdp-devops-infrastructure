@@ -39,11 +39,11 @@ variable "create_cluster_issuer" {
 variable "cluster_issuer_name" {
   description = "Name of the ClusterIssuer to create"
   type        = string
-  default     = "letsencrypt-staging"
+  default     = "letsencrypt-prod"
   
   validation {
-    condition     = contains(["letsencrypt-staging", "letsencrypt-prod"], var.cluster_issuer_name)
-    error_message = "Cluster issuer name must be either 'letsencrypt-staging' or 'letsencrypt-prod'."
+    condition     = contains(["letsencrypt-prod", "letsencrypt-prod"], var.cluster_issuer_name)
+    error_message = "Cluster issuer name must be either 'letsencrypt-prod'."
   }
 }
 

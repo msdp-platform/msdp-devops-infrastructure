@@ -60,7 +60,7 @@ plugin:
     cluster_issuer:
       type: string
       required: true
-      enum: ["letsencrypt-staging", "letsencrypt-prod"]
+      enum: ["letsencrypt-prod"]
       description: "Default cluster issuer to create"
     email:
       type: string

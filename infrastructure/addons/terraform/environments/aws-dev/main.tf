@@ -89,7 +89,7 @@ locals {
     
     cert_manager = {
       enabled = var.plugins.cert_manager.enabled
-      cluster_issuer = var.environment == "prod" ? "letsencrypt-prod" : "letsencrypt-staging"
+      cluster_issuer = var.environment == "prod" ? "letsencrypt-prod" : "letsencrypt-prod"
       aws_role_arn = "arn:aws:iam::${local.account_id}:role/CertManagerRole"
     }
     
