@@ -115,9 +115,7 @@ webhook:
   config:
     apiVersion: webhook.config.cert-manager.io/v1alpha1
     kind: WebhookConfiguration
-    tlsConfig:
-      cipherSuites: []
-      minTLSVersion: "1.2"
+    tlsConfig: {}
 
 # CA Injector configuration
 cainjector:
