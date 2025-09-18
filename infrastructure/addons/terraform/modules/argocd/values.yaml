@@ -7,7 +7,13 @@ server:
     hosts:
       - ${hostname}
     annotations:
-${ingress_annotations}
+%{ if length(ingress_annotations) == 0 }
+      {}
+%{ else }
+%{ for k, v in ingress_annotations }
+      ${k}: ${v}
+%{ endfor }
+%{ endif }
     paths:
       - /
     pathType: Prefix

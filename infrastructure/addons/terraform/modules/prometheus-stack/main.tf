@@ -52,13 +52,13 @@ resource "helm_release" "prometheus_stack" {
 
   values = [
     templatefile("${path.module}/values.yaml", {
-      prometheus_hostname      = var.prometheus_hostname
-      grafana_hostname         = var.grafana_hostname
-      ingress_class_name       = var.ingress_class_name
-      prometheus_tls_secret    = var.prometheus_tls_secret_name
-      grafana_tls_secret       = var.grafana_tls_secret_name
-      prometheus_annotations   = indent(6, yamlencode(local.prometheus_annotations))
-      grafana_annotations      = indent(6, yamlencode(local.grafana_annotations))
+      prometheus_hostname    = var.prometheus_hostname
+      grafana_hostname       = var.grafana_hostname
+      ingress_class_name     = var.ingress_class_name
+      prometheus_tls_secret  = var.prometheus_tls_secret_name
+      grafana_tls_secret     = var.grafana_tls_secret_name
+      prometheus_annotations = local.prometheus_annotations
+      grafana_annotations    = local.grafana_annotations
     })
   ]
 

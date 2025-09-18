@@ -45,11 +45,11 @@ resource "helm_release" "argocd" {
 
   values = [
     templatefile("${path.module}/values.yaml", {
-      hostname                 = var.hostname
-      ingress_class_name       = var.ingress_class_name
-      tls_secret_name          = var.tls_secret_name
-      ingress_annotations      = indent(6, yamlencode(local.ingress_annotations))
-      server_extra_args        = var.server_extra_args
+      hostname            = var.hostname
+      ingress_class_name  = var.ingress_class_name
+      tls_secret_name     = var.tls_secret_name
+      ingress_annotations = local.ingress_annotations
+      server_extra_args   = var.server_extra_args
     })
   ]
 
