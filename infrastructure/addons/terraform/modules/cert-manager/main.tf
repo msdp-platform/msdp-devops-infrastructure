@@ -128,15 +128,17 @@ locals {
 
   acme_server_url = var.cluster_issuer_name == "letsencrypt-prod" ? "https://acme-v02.api.letsencrypt.org/directory" : "https://acme-staging-v02.api.letsencrypt.org/directory"
 
-  cluster_issuer_solvers = var.dns_challenge ? [
-    var.dns_provider == "route53" ? {
+  cluster_issuer_dns_solvers = var.dns_provider == "route53" ? [
+    {
       dns01 = {
         route53 = {
           region       = var.aws_region
           hostedZoneID = var.hosted_zone_id
         }
       }
-      } : {
+    }
+    ] : [
+    {
       dns01 = {
         azureDNS = {
           subscriptionID    = var.azure_subscription_id
@@ -145,7 +147,9 @@ locals {
         }
       }
     }
-    ] : [
+  ]
+
+  cluster_issuer_http_solver = [
     {
       http01 = {
         ingress = {
@@ -157,6 +161,8 @@ locals {
       }
     }
   ]
+
+  cluster_issuer_solvers = var.dns_challenge ? local.cluster_issuer_dns_solvers : local.cluster_issuer_http_solver
 
   cluster_issuer_manifest = var.create_cluster_issuer ? {
     apiVersion = "cert-manager.io/v1"
