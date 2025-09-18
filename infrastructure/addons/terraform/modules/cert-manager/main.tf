@@ -186,26 +186,24 @@ resource "kubernetes_manifest" "cluster_issuer" {
       acme = {
         server = var.cluster_issuer_name == "letsencrypt-prod" ? "https://acme-v02.api.letsencrypt.org/directory" : "https://acme-staging-v02.api.letsencrypt.org/directory"
         email = var.email
-        privateKeySecretRef = {
-          name = "${var.cluster_issuer_name}-private-key"
-        }
-       solvers = var.dns_challenge ? [
-         {
-           dns01 = var.dns_provider == "route53" ? {
-             route53 = {
-               region = var.aws_region
-               hostedZoneID = var.hosted_zone_id
-             }
-           } : {
-             azureDNS = {
-               subscriptionID = var.azure_subscription_id
-               resourceGroupName = var.azure_resource_group
-               hostedZoneName = var.azure_hosted_zone_name
-             }
-           }
-         }
-       ] : [
-          {
+       privateKeySecretRef = {
+         name = "${var.cluster_issuer_name}-private-key"
+       }
+        solvers = [
+          var.dns_challenge ? {
+            dns01 = var.dns_provider == "route53" ? {
+              route53 = {
+                region = var.aws_region
+                hostedZoneID = var.hosted_zone_id
+              }
+            } : {
+              azureDNS = {
+                subscriptionID    = var.azure_subscription_id
+                resourceGroupName = var.azure_resource_group
+                hostedZoneName    = var.azure_hosted_zone_name
+              }
+            }
+          } : {
             http01 = {
               ingress = {
                 class            = var.ingress_class_name
