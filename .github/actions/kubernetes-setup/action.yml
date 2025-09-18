@@ -191,7 +191,7 @@ runs:
           echo "EKS region not resolved. Provide eks-region or ensure AWS_REGION is set by cloud login." >&2
           exit 1
         fi
-        ACCOUNT_ID=$(aws sts get-caller-identity --query Account -o text)
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
         if [ -z "$ACCOUNT_ID" ]; then
           echo "Unable to resolve AWS Account ID via STS. Verify AWS OIDC login step." >&2
           exit 1
