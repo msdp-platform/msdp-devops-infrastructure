@@ -160,7 +160,7 @@ module "cert_manager" {
   create_cluster_issuer = true
   
   # DNS challenge configuration (using AWS Route53 with OIDC)
-  dns_challenge           = true
+  dns_challenge           = false
   dns_provider            = "route53"
   hosted_zone_id          = var.hosted_zone_id
   aws_region             = var.aws_region
