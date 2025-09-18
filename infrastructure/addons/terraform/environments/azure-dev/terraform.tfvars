@@ -11,6 +11,7 @@ ingress_class_name      = "nginx"
 prometheus_hostname    = "prometheus.dev.aztech-msdp.com"
 grafana_hostname       = "grafana.dev.aztech-msdp.com"
 argocd_hostname        = "argocd.dev.aztech-msdp.com"
+backstage_hostname     = "backstage.dev.aztech-msdp.com"
 
 # Domain Configuration (using AWS Route53 for cross-cloud DNS)
 domain_name         = "aztech-msdp.com"
@@ -44,6 +45,18 @@ plugins = {
   prometheus_stack = { enabled = true }
   argocd          = { enabled = true }
   
+  # Platform Engineering
+  backstage = { 
+    enabled           = true
+    chart_version     = "1.8.3"
+    backstage_version = "latest"
+  }
+  crossplane = { 
+    enabled             = true
+    chart_version       = "1.14.5"
+    crossplane_version  = "v1.14.5"
+  }
+  
   # Currently disabled modules
   fluent_bit       = { enabled = false }
   external_secrets = { enabled = false }
@@ -51,6 +64,18 @@ plugins = {
 }
 
 azure_workload_identity_client_id = "07f609da-cc9f-4433-8ded-f5f3522cc175"
+
+# TLS Secret Names
+backstage_tls_secret_name = "backstage-tls"
+
+# GitHub credentials for Backstage (set these as GitHub secrets or locally)
+github_client_id     = ""  # Add your GitHub OAuth client ID
+github_client_secret = ""  # Add your GitHub OAuth client secret  
+github_token         = ""  # Add your GitHub token
+
+# Azure credentials for Crossplane (set these as GitHub secrets or locally)
+azure_client_id     = ""  # Add your Azure service principal client ID
+azure_client_secret = ""  # Add your Azure service principal client secret
 
 aws_access_key_id = "YOUR_ACCESS_KEY_ID"  # Add your access key ID locally
 aws_secret_access_key = "YOUR_SECRET_ACCESS_KEY"  # Add your secret access key locally

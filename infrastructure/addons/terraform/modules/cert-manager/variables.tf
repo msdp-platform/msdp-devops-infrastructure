@@ -122,6 +122,12 @@ variable "use_oidc" {
   default     = false
 }
 
+variable "azure_workload_identity_client_id" {
+  description = "Azure Workload Identity client ID for OIDC federation (when accessing AWS from Azure)"
+  type        = string
+  default     = ""
+}
+
 # Azure Configuration
 variable "azure_subscription_id" {
   description = "Azure subscription ID"

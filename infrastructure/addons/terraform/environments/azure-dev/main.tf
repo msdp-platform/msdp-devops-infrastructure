@@ -62,6 +62,7 @@ locals {
   prometheus_hostname = length(trimspace(var.prometheus_hostname)) > 0 ? var.prometheus_hostname : format("prometheus.%s.%s", var.environment, var.domain_name)
   grafana_hostname    = length(trimspace(var.grafana_hostname)) > 0 ? var.grafana_hostname : format("grafana.%s.%s", var.environment, var.domain_name)
   argocd_hostname     = length(trimspace(var.argocd_hostname)) > 0 ? var.argocd_hostname : format("argocd.%s.%s", var.environment, var.domain_name)
+  backstage_hostname  = length(trimspace(var.backstage_hostname)) > 0 ? var.backstage_hostname : format("backstage.%s.%s", var.environment, var.domain_name)
   
   # Common tags
   common_tags = {
@@ -110,6 +111,16 @@ locals {
       enabled  = var.plugins.argocd.enabled
       hostname = local.argocd_hostname
     }
+
+    # Platform Engineering
+    backstage = {
+      enabled  = var.plugins.backstage.enabled
+      hostname = local.backstage_hostname
+    }
+
+    crossplane = {
+      enabled = var.plugins.crossplane.enabled
+    }
   }
 }
 
@@ -149,7 +160,7 @@ module "external_dns" {
   }
 }
 
-# Cert-Manager (using AWS Route53 for DNS challenges with OIDC)
+# Cert-Manager (using AWS Route53 for DNS challenges with static credentials)
 module "cert_manager" {
   source = "../../modules/cert-manager"
   
@@ -158,15 +169,15 @@ module "cert_manager" {
   # Certificate configuration
   email                 = var.cert_manager_email
   cluster_issuer_name   = local.plugins.cert_manager.cluster_issuer
-  create_cluster_issuer = true
+  create_cluster_issuer = false  # We'll create explicitly below
   
-  # DNS challenge configuration (using AWS Route53 with OIDC)
-  dns_challenge           = false
+  # DNS challenge configuration (using AWS Route53 with static credentials)
+  dns_challenge           = true
   dns_provider            = "route53"
   hosted_zone_id          = var.hosted_zone_id
   aws_region             = var.aws_region
-  aws_role_arn           = var.aws_role_arn_for_azure
-  aws_web_identity_token_file = var.aws_web_identity_token_file
+  aws_access_key_id      = var.aws_access_key_id
+  aws_secret_access_key  = var.aws_secret_access_key
   use_oidc               = false
   
   # Cloud configuration
@@ -174,6 +185,47 @@ module "cert_manager" {
   
   # Dependencies
   depends_on = [module.external_dns]
+}
+
+# Explicit ClusterIssuer creation for reliability
+resource "kubernetes_manifest" "cluster_issuer" {
+  count = local.plugins.cert_manager.enabled ? 1 : 0
+
+  manifest = {
+    apiVersion = "cert-manager.io/v1"
+    kind       = "ClusterIssuer"
+    metadata = {
+      name = local.plugins.cert_manager.cluster_issuer
+      labels = {
+        "app.kubernetes.io/name"       = "cert-manager"
+        "app.kubernetes.io/managed-by" = "terraform"
+      }
+    }
+    spec = {
+      acme = {
+        server = "https://acme-v02.api.letsencrypt.org/directory"
+        email  = var.cert_manager_email
+        privateKeySecretRef = {
+          name = "${local.plugins.cert_manager.cluster_issuer}-private-key"
+        }
+        solvers = [
+          {
+            dns01 = {
+              route53 = {
+                region       = var.aws_region
+                hostedZoneID = var.hosted_zone_id
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+
+  depends_on = [
+    module.cert_manager,
+    module.external_dns
+  ]
 }
 
 # NGINX Ingress Controller
@@ -299,6 +351,170 @@ module "argocd" {
   ]
 }
 
+# Backstage (Developer Portal)
+module "backstage" {
+  source = "../../modules/backstage"
+
+  enabled             = local.plugins.backstage.enabled
+  environment         = var.environment
+  namespace           = "backstage"
+  chart_version       = var.plugins.backstage.chart_version
+  backstage_version   = var.plugins.backstage.backstage_version
+  hostname            = local.plugins.backstage.hostname
+  ingress_class_name  = local.ingress_class_name
+  cluster_issuer_name = local.plugins.cert_manager.cluster_issuer
+  tls_secret_name     = var.backstage_tls_secret_name
+
+  # App configuration with MSDP integrations
+  app_config = {
+    app = {
+      title   = "MSDP Platform"
+      baseUrl = "https://${local.plugins.backstage.hostname}"
+    }
+    backend = {
+      baseUrl = "https://${local.plugins.backstage.hostname}"
+      listen = {
+        port = 7007
+        host = "0.0.0.0"
+      }
+    }
+    organization = {
+      name = "MSDP Platform Team"
+    }
+    # Integration with existing ArgoCD
+    catalog = {
+      providers = {
+        argocd = {
+          "msdp-production" = {
+            baseUrl = "https://${local.plugins.argocd.hostname}"
+            schedule = {
+              frequency = { minutes = 5 }
+            }
+            filters = [
+              { labelSelector = "app.kubernetes.io/part-of=msdp-platform" }
+            ]
+          }
+        }
+      }
+    }
+    # Proxy to MSDP services (your laptop for now)
+    proxy = {
+      "/api/msdp" = {
+        target       = "http://192.168.1.189:3000"
+        changeOrigin = true
+        headers = {
+          "X-Platform-Source" = "backstage"
+        }
+      }
+    }
+    auth = {
+      providers = {
+        guest = {
+          dangerouslyAllowOutsideDevelopment = true
+        }
+        github = {
+          development = {
+            clientId     = "$${GITHUB_CLIENT_ID}"
+            clientSecret = "$${GITHUB_CLIENT_SECRET}"
+          }
+        }
+      }
+    }
+  }
+
+  # Database configuration
+  postgresql = {
+    enabled = true
+    auth = {
+      username = "backstage"
+      password = "backstage-dev-password"
+      database = "backstage"
+    }
+  }
+
+  # GitHub integration
+  github_client_id     = var.github_client_id
+  github_client_secret = var.github_client_secret
+  github_token         = var.github_token
+
+  # Resource configuration
+  resources = {
+    requests = {
+      cpu    = "250m"
+      memory = "512Mi"
+    }
+    limits = {
+      cpu    = "1000m"
+      memory = "1Gi"
+    }
+  }
+
+  depends_on = [
+    module.cert_manager,
+    module.nginx_ingress
+  ]
+}
+
+# Crossplane (Infrastructure Engine)
+module "crossplane" {
+  source = "../../modules/crossplane"
+
+  enabled           = local.plugins.crossplane.enabled
+  environment       = var.environment
+  namespace         = "crossplane-system"
+  chart_version     = var.plugins.crossplane.chart_version
+  crossplane_version = var.plugins.crossplane.crossplane_version
+
+  # Provider configuration
+  providers = {
+    azure = {
+      enabled = true
+      version = "v0.21.0"
+    }
+    aws = {
+      enabled = true
+      version = "v0.44.0"
+    }
+    kubernetes = {
+      enabled = true
+      version = "v0.11.0"
+    }
+  }
+
+  # Azure credentials (using existing variables)
+  azure_client_id       = var.azure_client_id
+  azure_client_secret   = var.azure_client_secret
+  azure_tenant_id       = var.azure_tenant_id
+  azure_subscription_id = var.azure_subscription_id
+
+  # AWS credentials (using existing variables)
+  aws_access_key_id     = var.aws_access_key_id
+  aws_secret_access_key = var.aws_secret_access_key
+  aws_region           = var.aws_region
+
+  # Resource configuration
+  resources = {
+    requests = {
+      cpu    = "100m"
+      memory = "256Mi"
+    }
+    limits = {
+      cpu    = "1000m"
+      memory = "1Gi"
+    }
+  }
+
+  # MSDP-specific compositions
+  compositions = [
+    "msdp-aurora-serverless",
+    "msdp-azure-postgresql",
+    "msdp-redis-cache",
+    "msdp-storage-bucket"
+  ]
+
+  # No dependencies - Crossplane is foundational
+}
+
 # Outputs
 output "external_dns_status" {
   description = "External DNS deployment status"
@@ -375,6 +591,28 @@ output "argocd_status" {
   }
 }
 
+output "backstage_status" {
+  description = "Backstage deployment status"
+  value = {
+    enabled     = module.backstage.namespace != null
+    namespace   = module.backstage.namespace
+    version     = module.backstage.helm_release_version
+    hostname    = module.backstage.hostname
+    app_version = module.backstage.app_version
+  }
+}
+
+output "crossplane_status" {
+  description = "Crossplane deployment status"
+  value = {
+    enabled           = module.crossplane.namespace != null
+    namespace         = module.crossplane.namespace
+    version           = module.crossplane.helm_release_version
+    crossplane_version = module.crossplane.crossplane_version
+    providers_enabled = module.crossplane.providers_enabled
+  }
+}
+
 output "addons_summary" {
   description = "Summary of all deployed add-ons"
   value = {
@@ -392,7 +630,9 @@ output "addons_summary" {
         { name = "azure-disk-csi-driver", enabled = local.plugins.azure_disk_csi_driver.enabled },
         { name = "keda", enabled = local.plugins.keda.enabled },
         { name = "prometheus-stack", enabled = local.plugins.prometheus_stack.enabled },
-        { name = "argocd", enabled = local.plugins.argocd.enabled }
+        { name = "argocd", enabled = local.plugins.argocd.enabled },
+        { name = "backstage", enabled = local.plugins.backstage.enabled },
+        { name = "crossplane", enabled = local.plugins.crossplane.enabled }
       ] : addon.name if addon.enabled
     ]
     
@@ -405,6 +645,9 @@ output "addons_summary" {
       "keda" = "independent"
       "prometheus-stack" = "depends on cert-manager and nginx-ingress"
       "argocd" = "depends on cert-manager and nginx-ingress"
+      "backstage" = "depends on cert-manager and nginx-ingress"
+      "crossplane" = "foundational (no dependencies)"
     }
   }
 }
+

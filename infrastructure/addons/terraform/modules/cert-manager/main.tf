@@ -91,9 +91,14 @@ resource "kubernetes_service_account" "cert_manager" {
     name      = "cert-manager"
     namespace = kubernetes_namespace.cert_manager[0].metadata[0].name
 
-    annotations = var.cloud_provider == "aws" ? {
-      "eks.amazonaws.com/role-arn" = var.aws_role_arn
-    } : {}
+    annotations = merge(
+      var.cloud_provider == "aws" ? {
+        "eks.amazonaws.com/role-arn" = var.aws_role_arn
+      } : {},
+      var.cloud_provider == "azure" && var.use_oidc ? {
+        "azure.workload.identity/client-id" = var.azure_workload_identity_client_id
+      } : {}
+    )
 
     labels = {
       "app.kubernetes.io/name"       = "cert-manager"

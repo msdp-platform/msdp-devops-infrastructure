@@ -207,3 +207,54 @@ variable "argocd_tls_secret_name" {
   type        = string
   default     = "argocd-tls"
 }
+
+# Platform Engineering Variables
+
+variable "backstage_hostname" {
+  description = "Backstage ingress hostname"
+  type        = string
+  default     = ""
+}
+
+variable "backstage_tls_secret_name" {
+  description = "TLS secret name for Backstage"
+  type        = string
+  default     = "backstage-tls"
+}
+
+# GitHub credentials for Backstage
+variable "github_client_id" {
+  description = "GitHub OAuth client ID for Backstage authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_client_secret" {
+  description = "GitHub OAuth client secret for Backstage authentication"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_token" {
+  description = "GitHub token for Backstage to access repositories"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+# Azure credentials (for Crossplane - may already exist)
+variable "azure_client_id" {
+  description = "Azure service principal client ID (for Crossplane)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "azure_client_secret" {
+  description = "Azure service principal client secret (for Crossplane)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
