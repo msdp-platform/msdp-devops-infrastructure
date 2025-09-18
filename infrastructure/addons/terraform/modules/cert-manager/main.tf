@@ -128,7 +128,7 @@ locals {
 
   acme_server_url = var.cluster_issuer_name == "letsencrypt-prod" ? "https://acme-v02.api.letsencrypt.org/directory" : "https://acme-staging-v02.api.letsencrypt.org/directory"
 
-  cluster_issuer_solver = var.dns_challenge ? (
+  cluster_issuer_solvers = var.dns_challenge ? [
     var.dns_provider == "route53" ? {
       dns01 = {
         route53 = {
@@ -145,16 +145,18 @@ locals {
         }
       }
     }
-    ) : {
-    http01 = {
-      ingress = {
-        ingressClassName = var.ingress_class_name
-        ingressTemplate = {
-          metadata = {}
+    ] : [
+    {
+      http01 = {
+        ingress = {
+          ingressClassName = var.ingress_class_name
+          ingressTemplate = {
+            metadata = {}
+          }
         }
       }
     }
-  }
+  ]
 
   cluster_issuer_manifest = var.create_cluster_issuer ? {
     apiVersion = "cert-manager.io/v1"
@@ -173,7 +175,7 @@ locals {
         privateKeySecretRef = {
           name = "${var.cluster_issuer_name}-private-key"
         }
-        solvers = [local.cluster_issuer_solver]
+        solvers = local.cluster_issuer_solvers
       }
     }
   } : null
