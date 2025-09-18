@@ -27,7 +27,7 @@ plugins:
       
   cert-manager:
     config:
-      cluster_issuer: letsencrypt-staging  # Use staging for dev
+      cluster_issuer: letsencrypt-prod
       email: "devops@aztech-msdp.com"
       dns_challenge: true
       dns_provider: route53
@@ -116,8 +116,8 @@ plugins:
       
 # Environment-specific overrides
 overrides:
-  # Use staging certificates for dev
-  cert_manager_cluster_issuer: letsencrypt-staging
+  # Use production certificates
+  cert_manager_cluster_issuer: letsencrypt-prod
   
   # Reduced resources for dev
   resource_limits:
