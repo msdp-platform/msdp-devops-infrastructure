@@ -3,7 +3,7 @@
 
 terraform {
   required_version = ">= 1.9"
-  
+
   required_providers {
     helm = {
       source  = "hashicorp/helm"
@@ -18,12 +18,12 @@ terraform {
       version = "~> 5.0"
     }
   }
-  
+
   backend "s3" {
     bucket = "msdp-terraform-state-dev"
     key    = "aws/addons/dev/eu-west-1/terraform.tfstate"
     region = "eu-west-1"
-    
+
     dynamodb_table = "msdp-terraform-locks-dev"
     encrypt        = true
   }
@@ -32,13 +32,13 @@ terraform {
 # Configure providers
 provider "aws" {
   region = var.aws_region
-  
+
   default_tags {
     tags = {
-      Environment   = var.environment
-      Project       = "msdp"
-      ManagedBy     = "terraform"
-      Component     = "kubernetes-addons"
+      Environment = var.environment
+      Project     = "msdp"
+      ManagedBy   = "terraform"
+      Component   = "kubernetes-addons"
     }
   }
 }
@@ -71,41 +71,42 @@ data "aws_caller_identity" "current" {}
 # Local values
 locals {
   account_id = data.aws_caller_identity.current.account_id
-  
+
   # Common tags
   common_tags = {
-    Environment = var.environment
+    Environment   = var.environment
     CloudProvider = "aws"
-    Cluster = var.cluster_name
+    Cluster       = var.cluster_name
   }
-  
+
   # Plugin configurations
   plugins = {
     external_dns = {
-      enabled = var.plugins.external_dns.enabled
+      enabled      = var.plugins.external_dns.enabled
       txt_owner_id = var.cluster_name
       aws_role_arn = "arn:aws:iam::${local.account_id}:role/ExternalDNSRole"
     }
-    
+
     cert_manager = {
-      enabled = var.plugins.cert_manager.enabled
+      enabled        = var.plugins.cert_manager.enabled
       cluster_issuer = var.environment == "prod" ? "letsencrypt-prod" : "letsencrypt-prod"
-      aws_role_arn = "arn:aws:iam::${local.account_id}:role/CertManagerRole"
+      aws_role_arn   = "arn:aws:iam::${local.account_id}:role/CertManagerRole"
     }
-    
+
     nginx_ingress = {
-      enabled = var.plugins.nginx_ingress.enabled
+      enabled       = var.plugins.nginx_ingress.enabled
       replica_count = var.environment == "prod" ? 3 : 2
     }
-    
+
     karpenter = {
-      enabled = var.plugins.karpenter.enabled
-      cluster_name = var.cluster_name
-      aws_role_arn = "arn:aws:iam::${local.account_id}:role/KarpenterRole"
+      enabled               = var.plugins.karpenter.enabled
+      cluster_name          = var.cluster_name
+      aws_role_arn          = "arn:aws:iam::${local.account_id}:role/KarpenterRole"
+      node_instance_profile = "KarpenterNodeInstanceProfile"
     }
-    
+
     ebs_csi_driver = {
-      enabled = var.plugins.ebs_csi_driver.enabled
+      enabled      = var.plugins.ebs_csi_driver.enabled
       aws_role_arn = "arn:aws:iam::${local.account_id}:role/EBSCSIDriverRole"
     }
   }
@@ -114,23 +115,23 @@ locals {
 # External DNS
 module "external_dns" {
   source = "../../modules/external-dns"
-  
+
   enabled = local.plugins.external_dns.enabled
-  
+
   # DNS configuration
   domain_filters = [var.domain_name]
   txt_owner_id   = local.plugins.external_dns.txt_owner_id
   hosted_zone_id = var.hosted_zone_id
-  
+
   # Cloud configuration
   cloud_provider = "aws"
   aws_region     = var.aws_region
   aws_role_arn   = local.plugins.external_dns.aws_role_arn
-  
+
   # Application configuration
   replica_count = var.environment == "prod" ? 2 : 1
   log_level     = var.environment == "prod" ? "info" : "debug"
-  
+
   # Resource configuration
   resources = {
     requests = {
@@ -147,23 +148,23 @@ module "external_dns" {
 # Cert-Manager
 module "cert_manager" {
   source = "../../modules/cert-manager"
-  
+
   enabled = local.plugins.cert_manager.enabled
-  
+
   # Certificate configuration
   email          = var.cert_manager_email
   cluster_issuer = local.plugins.cert_manager.cluster_issuer
-  
+
   # DNS challenge configuration
   dns_challenge  = true
   dns_provider   = "route53"
   hosted_zone_id = var.hosted_zone_id
-  
+
   # Cloud configuration
   cloud_provider = "aws"
   aws_region     = var.aws_region
   aws_role_arn   = local.plugins.cert_manager.aws_role_arn
-  
+
   # Dependencies
   depends_on = [module.external_dns]
 }
@@ -171,23 +172,23 @@ module "cert_manager" {
 # NGINX Ingress Controller
 module "nginx_ingress" {
   source = "../../modules/nginx-ingress"
-  
+
   enabled = local.plugins.nginx_ingress.enabled
-  
+
   # Configuration
   replica_count = local.plugins.nginx_ingress.replica_count
   service_type  = "LoadBalancer"
-  
+
   # AWS-specific annotations
   service_annotations = {
     "service.beta.kubernetes.io/aws-load-balancer-type"                              = "nlb"
     "service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled" = "true"
     "service.beta.kubernetes.io/aws-load-balancer-backend-protocol"                  = "tcp"
   }
-  
+
   # SSL configuration
   enable_ssl_redirect = true
-  
+
   # Dependencies
   depends_on = [module.cert_manager]
 }
@@ -195,23 +196,22 @@ module "nginx_ingress" {
 # Karpenter (AWS-specific)
 module "karpenter" {
   source = "../../modules/karpenter"
-  
+
   enabled = local.plugins.karpenter.enabled
-  
+
   # Cluster configuration
   cluster_name = local.plugins.karpenter.cluster_name
-  
+
   # IAM configuration
-  aws_role_arn = local.plugins.karpenter.aws_role_arn
-  
+  aws_role_arn          = local.plugins.karpenter.aws_role_arn
+  node_instance_profile = local.plugins.karpenter.node_instance_profile
+
   # Node configuration
-  instance_types = var.environment == "prod" ? 
-    ["m5.large", "m5.xlarge", "m5.2xlarge", "c5.large", "c5.xlarge"] :
-    ["t3.medium", "t3.large", "m5.large"]
-  
-  # Spot instance configuration
-  spot_enabled = var.environment != "prod"
-  
+  instance_types = var.environment == "prod" ? ["m5.large", "m5.xlarge", "m5.2xlarge", "c5.large", "c5.xlarge"] : ["t3.medium", "t3.large", "m5.large"]
+
+  # Capacity types configuration
+  capacity_types = var.environment == "prod" ? ["on-demand"] : ["spot", "on-demand"]
+
   # Taints and labels
   node_taints = var.environment == "prod" ? [] : [
     {
@@ -225,19 +225,19 @@ module "karpenter" {
 # EBS CSI Driver (AWS-specific)
 module "ebs_csi_driver" {
   source = "../../modules/ebs-csi-driver"
-  
+
   enabled = local.plugins.ebs_csi_driver.enabled
-  
+
   # IAM configuration
   aws_role_arn = local.plugins.ebs_csi_driver.aws_role_arn
-  
+
   # Storage classes
   create_storage_classes = true
   default_storage_class  = "gp3"
-  
+
   # Encryption
   enable_encryption = true
-  kms_key_id       = var.ebs_kms_key_id
+  kms_key_id        = var.ebs_kms_key_id
 }
 
 # Outputs
@@ -284,7 +284,7 @@ output "addons_summary" {
     cloud_provider = "aws"
     cluster_name   = var.cluster_name
     domain_name    = var.domain_name
-    
+
     deployed_addons = [
       for addon in [
         { name = "external-dns", enabled = local.plugins.external_dns.enabled },
