@@ -1,5 +1,26 @@
 # Shared Version Management Outputs
 
+# Core Version Collections
+output "provider_versions" {
+  description = "Terraform provider versions for all infrastructure"
+  value       = local.provider_versions
+}
+
+output "kubernetes_versions" {
+  description = "Kubernetes versions and compatibility info"
+  value       = local.kubernetes_versions
+}
+
+output "tool_versions" {
+  description = "Tool versions for CI/CD and development"
+  value       = local.tool_versions
+}
+
+output "github_actions" {
+  description = "GitHub Actions versions"
+  value       = local.github_actions
+}
+
 output "image_versions" {
   description = "Container image versions for all addons"
   value       = local.image_versions

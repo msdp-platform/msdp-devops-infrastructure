@@ -1,7 +1,46 @@
 # Shared Version Management
-# Centralized version management for all Kubernetes addons
+# Centralized version management for all infrastructure components
 
 locals {
+  # Terraform Provider Versions
+  provider_versions = {
+    terraform      = "~> 1.9"
+    helm          = "~> 2.15"
+    kubernetes    = "~> 2.24"
+    azurerm       = "~> 3.0"
+    aws           = "~> 5.0"
+    kubectl       = "~> 1.14"
+    random        = "~> 3.4"
+    tls           = "~> 4.0"
+  }
+  
+  # Kubernetes Versions
+  kubernetes_versions = {
+    default       = "1.29.7"
+    supported     = ["1.28.5", "1.29.7", "1.30.3"]
+    addon_compat  = "1.29"
+  }
+  
+  # Tool Versions
+  tool_versions = {
+    terraform     = "1.9.5"
+    kubectl       = "1.28.0"
+    helm          = "3.12.0"
+    python        = "3.11"
+    node          = "18"
+    docker        = "24.0"
+  }
+  
+  # GitHub Actions Versions
+  github_actions = {
+    checkout           = "v4"
+    setup_terraform    = "v3"
+    setup_python       = "v4"
+    setup_node         = "v4"
+    cache             = "v3"
+    upload_artifact   = "v4"
+    download_artifact = "v4"
+  }
   # Container image versions
   image_versions = {
     # Cert-Manager
