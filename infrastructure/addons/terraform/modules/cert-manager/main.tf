@@ -30,20 +30,40 @@ resource "kubernetes_namespace" "cert_manager" {
   }
 }
 
-# Install CRDs using kubectl apply
-resource "null_resource" "cert_manager_crds" {
+# Install CRDs using Helm with installCRDs=true
+resource "helm_release" "cert_manager" {
   count = var.enabled ? 1 : 0
 
-  provisioner "local-exec" {
-    command = "kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${var.chart_version}/cert-manager.crds.yaml"
+  name       = "cert-manager"
+  repository = "https://charts.jetstack.io"
+  chart      = "cert-manager"
+  version    = var.chart_version
+  namespace  = kubernetes_namespace.cert_manager[0].metadata[0].name
+
+  # Install CRDs as part of the main chart
+  set {
+    name  = "installCRDs"
+    value = "true"
   }
 
-  provisioner "local-exec" {
-    when    = destroy
-    command = "kubectl delete -f https://github.com/cert-manager/cert-manager/releases/download/${var.chart_version}/cert-manager.crds.yaml --ignore-not-found=true"
-  }
+  # Wait for namespace, service account
+  depends_on = [
+    kubernetes_namespace.cert_manager,
+    kubernetes_service_account.cert_manager,
+    module.aws_credentials
+  ]
 
-  depends_on = [kubernetes_namespace.cert_manager]
+  values = local.cert_manager_values
+
+  # Timeout and retry configuration
+  timeout         = var.installation_timeout
+  wait            = true
+  wait_for_jobs   = true
+  atomic          = var.atomic_installation
+  cleanup_on_fail = true
+
+  # Force update if values change
+  recreate_pods = true
 }
 
 # Use shared AWS credentials module
@@ -93,7 +113,7 @@ resource "kubernetes_service_account" "cert_manager" {
 
 # Deploy Cert-Manager using Helm
 locals {
-  base_cert_manager_values = var.enabled ? [
+  base_cert_manager_values = [
     templatefile("${path.module}/values.yaml", {
       email                             = var.email
       log_level                         = var.log_level
@@ -110,8 +130,9 @@ locals {
       prometheus_servicemonitor_enabled = var.prometheus_servicemonitor_enabled
       webhook_resources                 = jsonencode(var.webhook_resources)
       cainjector_resources              = jsonencode(var.cainjector_resources)
+      cert_manager_controller_version   = var.chart_version
     })
-  ] : []
+  ]
 
   acme_server_url = var.cluster_issuer_name == "letsencrypt-prod" ? "https://acme-v02.api.letsencrypt.org/directory" : "https://acme-staging-v02.api.letsencrypt.org/directory"
 
@@ -181,36 +202,6 @@ locals {
   }) : null
 
   cert_manager_values = compact(concat(local.base_cert_manager_values, [local.cluster_issuer_extra_values]))
-}
-
-resource "helm_release" "cert_manager" {
-  count = var.enabled ? 1 : 0
-
-  name       = "cert-manager"
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
-  version    = var.chart_version
-  namespace  = kubernetes_namespace.cert_manager[0].metadata[0].name
-
-  # Wait for namespace, service account, and CRDs
-  depends_on = [
-    kubernetes_namespace.cert_manager,
-    kubernetes_service_account.cert_manager,
-    module.aws_credentials,
-    null_resource.cert_manager_crds
-  ]
-
-  values = local.cert_manager_values
-
-  # Timeout and retry configuration
-  timeout         = var.installation_timeout
-  wait            = true
-  wait_for_jobs   = true
-  atomic          = var.atomic_installation
-  cleanup_on_fail = true
-
-  # Force update if values change
-  recreate_pods = true
 }
 
 # Output important information

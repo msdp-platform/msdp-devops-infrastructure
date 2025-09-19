@@ -189,54 +189,8 @@ module "cert_manager" {
   depends_on = [module.external_dns]
 }
 
-# Explicit ClusterIssuer creation for reliability
-resource "kubernetes_manifest" "cluster_issuer" {
-  count = local.plugins.cert_manager.enabled ? 1 : 0
-
-  manifest = {
-    apiVersion = "cert-manager.io/v1"
-    kind       = "ClusterIssuer"
-    metadata = {
-      name = local.plugins.cert_manager.cluster_issuer
-      labels = {
-        "app.kubernetes.io/name"       = "cert-manager"
-        "app.kubernetes.io/managed-by" = "terraform"
-      }
-    }
-    spec = {
-      acme = {
-        server = "https://acme-v02.api.letsencrypt.org/directory"
-        email  = var.cert_manager_email
-        privateKeySecretRef = {
-          name = "${local.plugins.cert_manager.cluster_issuer}-private-key"
-        }
-        solvers = [
-          {
-            dns01 = {
-              route53 = {
-                region       = var.aws_region
-                hostedZoneID = var.hosted_zone_id
-                accessKeyIDSecretRef = {
-                  name = "aws-credentials"
-                  key  = "aws-access-key-id"
-                }
-                secretAccessKeySecretRef = {
-                  name = "aws-credentials"
-                  key  = "aws-secret-access-key"
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
-
-  depends_on = [
-    module.cert_manager,
-    module.external_dns
-  ]
-}
+# ClusterIssuer will be created by cert-manager module
+# No need for explicit ClusterIssuer resource here
 
 # NGINX Ingress Controller
 module "nginx_ingress" {
