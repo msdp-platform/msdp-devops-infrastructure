@@ -1,6 +1,6 @@
 name: Infrastructure Orchestrator
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       target_environment:
@@ -26,6 +26,29 @@ name: Infrastructure Orchestrator
         type: choice
         options: [aws, azure]
         default: azure
+      force_sequential:
+        description: "Force sequential execution (disable parallelization)"
+        required: false
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      target_environment:
+        description: "Target environment for deployment"
+        required: true
+        type: string
+      components:
+        description: "Components to deploy (comma-separated: network,clusters,addons,platform)"
+        required: true
+        type: string
+      action:
+        description: "Action to perform"
+        required: true
+        type: string
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: string
       force_sequential:
         description: "Force sequential execution (disable parallelization)"
         required: false
