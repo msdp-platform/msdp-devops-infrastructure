@@ -1,0 +1,164 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: msdp-dev
+
+# Build configuration - how to build your images
+build:
+  # Use your container registry (replace with your actual registry)
+  # For Azure Container Registry: myregistry.azurecr.io
+  # For Docker Hub: docker.io/yourusername
+  # For GitHub Container Registry: ghcr.io/yourusername
+  tagPolicy:
+    envTemplate:
+      template: "{{.IMAGE_NAME}}:{{.USER}}-{{.GIT_COMMIT_SHORT}}"
+
+  artifacts:
+    - image: msdp-api-gateway
+      context: ../msdp-platform-core/services/api-gateway # Adjust path to your service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+    - image: msdp-location-service
+      context: ../msdp-platform-core/services/location-service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+    - image: msdp-merchant-service
+      context: ../msdp-platform-core/services/merchant-service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+    - image: msdp-user-service
+      context: ../msdp-platform-core/services/user-service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+    - image: msdp-order-service
+      context: ../msdp-platform-core/services/order-service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+    - image: msdp-payment-service
+      context: ../msdp-platform-core/services/payment-service
+      docker:
+        dockerfile: Dockerfile
+      sync:
+        manual:
+          - src: "src/**/*.js"
+            dest: /app/src
+          - src: "package.json"
+            dest: /app
+
+# Deploy configuration - how to deploy to Kubernetes
+deploy:
+  kubectl:
+    manifests:
+      - msdp-dev-services.yaml
+
+    # Apply to specific namespace
+    defaultNamespace: msdp-dev
+
+# Port forwarding for easy local access
+portForward:
+  - resourceType: service
+    resourceName: msdp-api-gateway
+    namespace: msdp-dev
+    port: 3000
+    localPort: 3000
+
+  - resourceType: service
+    resourceName: msdp-location-service
+    namespace: msdp-dev
+    port: 3001
+    localPort: 3001
+
+  - resourceType: service
+    resourceName: msdp-merchant-service
+    namespace: msdp-dev
+    port: 3002
+    localPort: 3002
+
+  - resourceType: service
+    resourceName: msdp-user-service
+    namespace: msdp-dev
+    port: 3003
+    localPort: 3003
+
+  - resourceType: service
+    resourceName: msdp-order-service
+    namespace: msdp-dev
+    port: 3006
+    localPort: 3006
+
+  - resourceType: service
+    resourceName: msdp-payment-service
+    namespace: msdp-dev
+    port: 3007
+    localPort: 3007
+
+# Profiles for different environments
+profiles:
+  - name: dev
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:dev-{{.USER}}-{{.GIT_COMMIT_SHORT}}"
+      local:
+        # Use local Docker daemon for faster builds
+        push: true
+
+  - name: debug
+    build:
+      tagPolicy:
+        envTemplate:
+          template: "{{.IMAGE_NAME}}:debug-{{.USER}}-{{.GIT_COMMIT_SHORT}}"
+      local:
+        push: true
+    patches:
+      - op: add
+        path: /build/artifacts/0/docker/buildArgs
+        value:
+          NODE_ENV: development
+          DEBUG: "*"
+
+# File watching patterns
+fileSyncRules:
+  - src: "**/*.js"
+    dest: "/app"
+  - src: "**/*.json"
+    dest: "/app"
+  - src: "**/*.yaml"
+    dest: "/app"
+  - src: "**/*.yml"
+    dest: "/app"

@@ -90,7 +90,26 @@ image: your-registry/msdp-location-service:latest
 | Order Service | 3006 | Order processing |
 | Payment Service | 3007 | Payment processing |
 
-## 🔄 Development Workflow
+## 🚀 **FAST Development Workflow with Skaffold**
+
+### 🎯 **No More Docker Build/Push Cycles!**
+
+Use Skaffold for lightning-fast development:
+
+```bash
+# Start development mode (watches files, auto-syncs changes)
+./dev-with-skaffold.sh dev
+
+# Your services are now running with:
+# ✅ Automatic file sync (no rebuilds needed)
+# ✅ Port forwarding to localhost
+# ✅ Real-time log streaming
+# ✅ Hot reload for code changes
+```
+
+### 🔄 **Traditional Development Workflow (Slower)**
+
+If you prefer the traditional approach:
 
 ### 1. Build and Push Images
 
