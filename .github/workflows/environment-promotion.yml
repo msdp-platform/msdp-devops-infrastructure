@@ -1,6 +1,6 @@
 name: Environment Promotion
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       source_environment:
