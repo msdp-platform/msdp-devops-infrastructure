@@ -95,7 +95,7 @@ extraArgs:
 
 # Environment variables
 %{ if use_aws_credentials || use_oidc }
-extraEnv:
+env:
 %{ if use_aws_credentials }
   - name: AWS_ACCESS_KEY_ID
     valueFrom:
