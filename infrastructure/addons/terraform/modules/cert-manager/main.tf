@@ -30,57 +30,39 @@ resource "kubernetes_namespace" "cert_manager" {
   }
 }
 
-# Install CRDs first
-resource "helm_release" "cert_manager_crds" {
+# Install CRDs using kubectl apply
+resource "null_resource" "cert_manager_crds" {
   count = var.enabled ? 1 : 0
 
-  name       = "cert-manager-crds"
-  repository = "https://charts.jetstack.io"
-  chart      = "cert-manager"
-  version    = var.chart_version
-  namespace  = "kube-system"
-
-  values = [
-    yamlencode({
-      installCRDs = true
-    })
-  ]
-
-  # Install only the CRDs
-  set {
-    name  = "installCRDs"
-    value = "true"
+  provisioner "local-exec" {
+    command = "kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/${var.chart_version}/cert-manager.crds.yaml"
   }
 
-  # Disable all components except CRDs
-  set {
-    name  = "extraArgs"
-    value = "{}"
+  provisioner "local-exec" {
+    when    = destroy
+    command = "kubectl delete -f https://github.com/cert-manager/cert-manager/releases/download/${var.chart_version}/cert-manager.crds.yaml --ignore-not-found=true"
   }
 
-  wait              = true
-  wait_for_jobs     = true
-  timeout           = var.installation_timeout
-  cleanup_on_fail   = true
-  atomic            = true
-  dependency_update = false
+  depends_on = [kubernetes_namespace.cert_manager]
 }
 
-# Create AWS credentials secret for cross-cloud access (Azure clusters)
-resource "kubernetes_secret" "aws_credentials" {
-  count = var.enabled && var.cloud_provider == "azure" ? 1 : 0
+# Use shared AWS credentials module
+module "aws_credentials" {
+  source = "../shared/aws-credentials"
+  count  = var.enabled && var.cloud_provider == "azure" && !var.use_oidc ? 1 : 0
 
-  metadata {
-    name      = "aws-credentials"
-    namespace = kubernetes_namespace.cert_manager[0].metadata[0].name
+  enabled               = true
+  secret_name          = "aws-credentials"
+  namespace            = kubernetes_namespace.cert_manager[0].metadata[0].name
+  aws_access_key_id    = var.aws_access_key_id
+  aws_secret_access_key = var.aws_secret_access_key
+  aws_region           = var.aws_region
+  secret_format        = "standard"
+  
+  labels = {
+    "app.kubernetes.io/name"       = "cert-manager"
+    "app.kubernetes.io/component"  = "aws-credentials"
   }
-
-  data = {
-    aws-access-key-id     = var.aws_access_key_id
-    aws-secret-access-key = var.aws_secret_access_key
-  }
-
-  type = "Opaque"
 }
 
 # Create service account with appropriate annotations
@@ -123,7 +105,7 @@ locals {
       resources                         = jsonencode(var.resources)
       security_context                  = jsonencode(var.security_context)
       use_aws_credentials               = var.cloud_provider == "azure" && !var.use_oidc
-      aws_credentials_secret            = var.cloud_provider == "azure" && !var.use_oidc && length(kubernetes_secret.aws_credentials) > 0 ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      aws_credentials_secret            = var.cloud_provider == "azure" && !var.use_oidc && length(module.aws_credentials) > 0 ? module.aws_credentials[0].secret_name : ""
       metrics_enabled                   = var.metrics_enabled
       prometheus_servicemonitor_enabled = var.prometheus_servicemonitor_enabled
       webhook_resources                 = jsonencode(var.webhook_resources)
@@ -214,8 +196,8 @@ resource "helm_release" "cert_manager" {
   depends_on = [
     kubernetes_namespace.cert_manager,
     kubernetes_service_account.cert_manager,
-    kubernetes_secret.aws_credentials,
-    helm_release.cert_manager_crds
+    module.aws_credentials,
+    null_resource.cert_manager_crds
   ]
 
   values = local.cert_manager_values

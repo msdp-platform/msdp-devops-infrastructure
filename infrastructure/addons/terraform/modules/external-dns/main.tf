@@ -29,21 +29,23 @@ resource "kubernetes_namespace" "external_dns" {
   }
 }
 
-# Create AWS credentials secret for cross-cloud access (Azure clusters - legacy)
-resource "kubernetes_secret" "aws_credentials" {
-  count = var.enabled && var.cloud_provider == "azure" && !var.use_oidc && var.aws_access_key_id != "" ? 1 : 0
+# Use shared AWS credentials module
+module "aws_credentials" {
+  source = "../shared/aws-credentials"
+  count  = var.enabled && var.cloud_provider == "azure" && !var.use_oidc && var.aws_access_key_id != "" ? 1 : 0
+
+  enabled               = true
+  secret_name          = "aws-credentials"
+  namespace            = kubernetes_namespace.external_dns[0].metadata[0].name
+  aws_access_key_id    = var.aws_access_key_id
+  aws_secret_access_key = var.aws_secret_access_key
+  aws_region           = var.aws_region
+  secret_format        = "standard"
   
-  metadata {
-    name      = "aws-credentials"
-    namespace = kubernetes_namespace.external_dns[0].metadata[0].name
+  labels = {
+    "app.kubernetes.io/name"       = "external-dns"
+    "app.kubernetes.io/component"  = "aws-credentials"
   }
-  
-  data = {
-    aws-access-key-id     = var.aws_access_key_id
-    aws-secret-access-key = var.aws_secret_access_key
-  }
-  
-  type = "Opaque"
 }
 
 # Create service account with appropriate annotations
@@ -83,7 +85,7 @@ resource "helm_release" "external_dns" {
   depends_on = [
     kubernetes_namespace.external_dns,
     kubernetes_service_account.external_dns,
-    kubernetes_secret.aws_credentials
+    module.aws_credentials
   ]
   
   values = [
@@ -114,7 +116,7 @@ resource "helm_release" "external_dns" {
       
       # AWS credentials (for Azure clusters)
       use_aws_credentials = var.cloud_provider == "azure" && !var.use_oidc
-      aws_credentials_secret = var.cloud_provider == "azure" && !var.use_oidc && length(kubernetes_secret.aws_credentials) > 0 ? kubernetes_secret.aws_credentials[0].metadata[0].name : ""
+      aws_credentials_secret = var.cloud_provider == "azure" && !var.use_oidc && length(module.aws_credentials) > 0 ? module.aws_credentials[0].secret_name : ""
       
       # OIDC configuration
       use_oidc = var.use_oidc

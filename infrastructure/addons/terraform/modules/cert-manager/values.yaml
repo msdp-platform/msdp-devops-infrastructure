@@ -6,10 +6,10 @@ global:
   leaderElection:
     namespace: cert-manager
 
-# Image configuration
+# Image configuration (versions managed centrally)
 image:
   repository: quay.io/jetstack/cert-manager-controller
-  tag: v1.13.2
+  tag: ${cert_manager_controller_version}
   pullPolicy: IfNotPresent
 
 # Replica count
