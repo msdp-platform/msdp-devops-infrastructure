@@ -196,7 +196,7 @@ jobs:
         uses: ./.github/actions/kubernetes-setup
         with:
           cluster-name: ${{ matrix.cluster_name }}
-          resource-group: "rg-${{ matrix.cluster_name }}"
+          azure-resource-group: "rg-${{ matrix.cluster_name }}"
 
       - name: Setup Terraform Backend
         id: backend
