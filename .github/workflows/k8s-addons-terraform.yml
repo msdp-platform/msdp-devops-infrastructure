@@ -1,6 +1,6 @@
 name: Kubernetes Add-ons (Terraform)
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       cluster_name:
@@ -32,6 +32,36 @@ on:
         required: false
         type: string
         default: "1.9.5"
+  workflow_call:
+    inputs:
+      cluster_name:
+        description: "Target cluster name"
+        required: false
+        type: string
+        default: ""
+      environment:
+        description: "Environment"
+        required: true
+        type: string
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: string
+      action:
+        description: "Action to perform"
+        required: true
+        type: string
+        default: plan
+      auto_approve:
+        description: "Auto-approve Terraform apply"
+        required: false
+        type: boolean
+        default: true
+      terraform_version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.9.8"
 
 permissions:
   id-token: write
@@ -41,11 +71,11 @@ env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
   PYTHONUNBUFFERED: "1"
-  CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
-  ENVIRONMENT: ${{ github.event.inputs.environment }}
-  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
-  TF_VAR_cluster_name: ${{ github.event.inputs.cluster_name }}
-  TF_VAR_environment: ${{ github.event.inputs.environment }}
+  CLUSTER_NAME: ${{ inputs.cluster_name || github.event.inputs.cluster_name }}
+  ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment }}
+  CLOUD_PROVIDER: ${{ inputs.cloud_provider || github.event.inputs.cloud_provider }}
+  TF_VAR_cluster_name: ${{ inputs.cluster_name || github.event.inputs.cluster_name }}
+  TF_VAR_environment: ${{ inputs.environment || github.event.inputs.environment }}
 
 jobs:
   terraform-addons:
@@ -62,14 +92,14 @@ jobs:
           path: |
             ~/.terraform.d/plugin-cache
             **/.terraform/providers
-          key: terraform-${{ github.event.inputs.terraform_version }}-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          key: terraform-${{ inputs.terraform_version || github.event.inputs.terraform_version }}-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
           restore-keys: |
-            terraform-${{ github.event.inputs.terraform_version }}-${{ runner.os }}-
+            terraform-${{ inputs.terraform_version || github.event.inputs.terraform_version }}-${{ runner.os }}-
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: ${{ github.event.inputs.terraform_version }}
+          terraform_version: ${{ inputs.terraform_version || github.event.inputs.terraform_version }}
           terraform_wrapper: false
 
       - name: Configure Terraform Plugin Cache
@@ -255,12 +285,12 @@ jobs:
           fi
 
       - name: Terraform Apply
-        if: ${{ github.event.inputs.action == 'apply' }}
+        if: ${{ (inputs.action || github.event.inputs.action) == 'apply' }}
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🚀 Applying Terraform changes..."
 
-          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+          if [[ "${{ inputs.auto_approve || github.event.inputs.auto_approve }}" == "true" ]]; then
             terraform apply -auto-approve tfplan
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to apply automatically."
@@ -269,12 +299,12 @@ jobs:
           fi
 
       - name: Terraform Destroy
-        if: ${{ github.event.inputs.action == 'destroy' }}
+        if: ${{ (inputs.action || github.event.inputs.action) == 'destroy' }}
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🗑️ Destroying Terraform resources..."
 
-          if [[ "${{ github.event.inputs.auto_approve }}" == "true" ]]; then
+          if [[ "${{ inputs.auto_approve || github.event.inputs.auto_approve }}" == "true" ]]; then
             terraform destroy -auto-approve
           else
             echo "⚠️ Manual approval required. Run with auto_approve=true to destroy automatically."
@@ -283,14 +313,14 @@ jobs:
           fi
 
       - name: Terraform Refresh
-        if: ${{ github.event.inputs.action == 'refresh' }}
+        if: ${{ (inputs.action || github.event.inputs.action) == 'refresh' }}
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "🔄 Refreshing Terraform state..."
           terraform refresh
 
       - name: Generate Terraform Outputs
-        if: ${{ github.event.inputs.action == 'apply' || github.event.inputs.action == 'refresh' }}
+        if: ${{ (inputs.action || github.event.inputs.action) == 'apply' || (inputs.action || github.event.inputs.action) == 'refresh' }}
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
         run: |
           echo "📊 Terraform Outputs:"
@@ -300,7 +330,7 @@ jobs:
           terraform output addons_summary
 
       - name: Validate Deployments
-        if: ${{ github.event.inputs.action == 'apply' }}
+        if: ${{ (inputs.action || github.event.inputs.action) == 'apply' }}
         run: |
           echo "🔍 Validating deployed add-ons..."
 

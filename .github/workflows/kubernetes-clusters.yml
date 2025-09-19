@@ -30,6 +30,27 @@ name: Kubernetes Clusters
         description: "Exact cluster name from config/<env>.yaml. Leave empty to deploy all. If no match, deployment is skipped."
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: string
+      action:
+        description: "Action to perform"
+        required: true
+        type: string
+        default: plan
+      environment:
+        description: "Target environment"
+        required: true
+        type: string
+        default: dev
+      cluster_name:
+        description: "Specific cluster name to deploy"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   id-token: write
@@ -38,13 +59,13 @@ permissions:
 env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
-  ACTION: ${{ github.event.inputs.action || 'plan' }}
-  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
-  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+  ACTION: ${{ inputs.action || github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+  CLOUD_PROVIDER: ${{ inputs.cloud_provider || github.event.inputs.cloud_provider }}
 
 jobs:
   check-network-dependency:
-    if: ${{ github.event.inputs.cloud_provider == 'aws' }}
+    if: ${{ (inputs.cloud_provider || github.event.inputs.cloud_provider) == 'aws' }}
     runs-on: ubuntu-latest
     outputs:
       network-exists: ${{ steps.check.outputs.exists }}
@@ -65,7 +86,7 @@ jobs:
       - name: Check if VPC exists
         id: check
         run: |
-          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
+          ENVIRONMENT="${{ inputs.environment || github.event.inputs.environment || 'dev' }}"
           VPC_NAME="vpc-msdp-${ENVIRONMENT}"
           
           echo "Checking for VPC: $VPC_NAME"
@@ -99,7 +120,7 @@ jobs:
 
   prepare:
     needs: [check-network-dependency]
-    if: ${{ always() && !cancelled() && (github.event.inputs.cloud_provider == 'azure' || needs.check-network-dependency.outputs.network-exists == 'true') }}
+    if: ${{ always() && !cancelled() && ((inputs.cloud_provider || github.event.inputs.cloud_provider) == 'azure' || needs.check-network-dependency.outputs.network-exists == 'true') }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
@@ -114,7 +135,7 @@ jobs:
         with:
           environment: ${{ env.ENVIRONMENT }}
           cloud_provider: ${{ env.CLOUD_PROVIDER }}
-          cluster_filter: ${{ github.event.inputs.cluster_name }}
+          cluster_filter: ${{ inputs.cluster_name || github.event.inputs.cluster_name }}
 
       - name: Check matrix
         id: check-matrix

@@ -25,6 +25,22 @@ name: Network Infrastructure
         default: dev
         type: choice
         options: [dev, staging, prod]
+  workflow_call:
+    inputs:
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: string
+      action:
+        description: "Action to perform"
+        required: true
+        type: string
+        default: plan
+      environment:
+        description: "Environment"
+        required: true
+        type: string
+        default: dev
 
 permissions:
   id-token: write
@@ -44,9 +60,9 @@ jobs:
       ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
       ARM_USE_OIDC: "true"
       AWS_REGION: eu-west-1
-      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
-      CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
-      ACTION: ${{ github.event.inputs.action || 'plan' }}
+      ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+      CLOUD_PROVIDER: ${{ inputs.cloud_provider || github.event.inputs.cloud_provider }}
+      ACTION: ${{ inputs.action || github.event.inputs.action || 'plan' }}
     
     steps:
       - name: Checkout

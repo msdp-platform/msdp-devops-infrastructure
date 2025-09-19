@@ -1,6 +1,6 @@
 name: Platform Engineering Stack (Backstage + Crossplane)
 
-on:
+"on":
   push:
     branches: [main]
     paths:
@@ -30,6 +30,31 @@ on:
         description: "Target AKS cluster name (from config)"
         required: false
         default: ""
+  workflow_call:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        type: string
+        default: plan
+      environment:
+        description: "Target environment"
+        required: true
+        type: string
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: string
+      component:
+        description: "Platform component to deploy"
+        required: false
+        type: string
+        default: all
+      cluster_name:
+        description: "Target cluster name"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   id-token: write
@@ -38,9 +63,9 @@ permissions:
 env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
-  ACTION: ${{ github.event.inputs.action || 'plan' }}
-  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
-  COMPONENT: ${{ github.event.inputs.component || 'all' }}
+  ACTION: ${{ inputs.action || github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ inputs.environment || github.event.inputs.environment || 'dev' }}
+  COMPONENT: ${{ inputs.component || github.event.inputs.component || 'all' }}
 
 jobs:
   validate-config:
@@ -76,7 +101,7 @@ jobs:
 
           env = "${{ env.ENVIRONMENT }}"
           component = "${{ env.COMPONENT }}"
-          cluster_filter = "${{ github.event.inputs.cluster_name }}"
+          cluster_filter = "${{ inputs.cluster_name || github.event.inputs.cluster_name }}"
 
           # Load environment configuration
           with open(f'config/{env}.yaml', 'r') as f:
@@ -174,6 +199,7 @@ jobs:
           resource-group: "rg-${{ matrix.cluster_name }}"
 
       - name: Setup Terraform Backend
+        id: backend
         uses: ./.github/actions/terraform-backend-enhanced
         with:
           environment: ${{ matrix.environment }}
@@ -225,7 +251,7 @@ jobs:
         uses: ./.github/actions/terraform-init
         with:
           working-directory: infrastructure/platform-engineering/${{ matrix.component }}
-          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          backend-config-file: ${{ steps.backend.outputs.backend_config_file }}
           terraform-version: 1.9.5
 
       - name: Terraform Plan
