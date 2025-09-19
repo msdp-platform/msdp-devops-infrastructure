@@ -33,7 +33,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.13.2
+          terraform_version: 1.9.8
 
       - name: Cloud Login (AWS + Azure)
         uses: ./.github/actions/cloud-login
@@ -45,18 +45,12 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure Terraform backend
-        uses: ./.github/actions/terraform-backend
+        uses: ./.github/actions/terraform-backend-enhanced
         with:
-          repo-shortname: infra
-          project: msdp
-          env: ${{ inputs.env }}
-          cloud: ${{ inputs.cloud }}
-          cloud-segment: ${{ inputs.cloud }}
-          app: ${{ inputs.app }}
-          function: tfstate
-          key-salt: infrastructure/environment/${{ inputs.env }}/${{ inputs.cloud }}/${{ inputs.app }}
-          aws-region: eu-west-1
-          use-shared-lock-table: "true"
+          environment: ${{ inputs.env }}
+          platform: ${{ inputs.cloud }}
+          component: shared-terraform
+          aws_region: eu-west-1
 
       - name: Terraform Init
         uses: ./.github/actions/terraform-init

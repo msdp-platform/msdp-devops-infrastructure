@@ -1,0 +1,257 @@
+name: Kubernetes Clusters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/*/aks/**"
+      - "infrastructure/environment/*/eks/**"
+      - "config/dev.yaml"
+  workflow_dispatch:
+    inputs:
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+      action:
+        description: "Action: plan (dry-run), apply (create/update), destroy (tear down). On push defaults to plan."
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: "Target environment (maps to config/<env>.yaml). On push defaults to dev."
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+      cluster_name:
+        description: "Exact cluster name from config/<env>.yaml. Leave empty to deploy all. If no match, deployment is skipped."
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+  ACTION: ${{ github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+
+jobs:
+  check-network-dependency:
+    if: ${{ github.event.inputs.cloud_provider == 'aws' }}
+    runs-on: ubuntu-latest
+    outputs:
+      network-exists: ${{ steps.check.outputs.exists }}
+      should-deploy-network: ${{ steps.check.outputs.should-deploy }}
+    env:
+      AWS_REGION: eu-west-1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          role-session-name: GitHubActions-EKS-NetworkCheck
+      
+      - name: Check if VPC exists
+        id: check
+        run: |
+          ENVIRONMENT="${{ github.event.inputs.environment || 'dev' }}"
+          VPC_NAME="vpc-msdp-${ENVIRONMENT}"
+          
+          echo "Checking for VPC: $VPC_NAME"
+          
+          VPC_ID=$(aws ec2 describe-vpcs \
+            --filters "Name=tag:Name,Values=$VPC_NAME" \
+            --query 'Vpcs[0].VpcId' \
+            --output text 2>/dev/null || echo "None")
+          
+          if [ "$VPC_ID" != "None" ] && [ "$VPC_ID" != "null" ]; then
+            echo "✅ VPC exists: $VPC_ID"
+            PRIVATE_SUBNETS=$(aws ec2 describe-subnets \
+              --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Type,Values=private-subnet" \
+              --query 'Subnets[].SubnetId' \
+              --output text)
+            
+            if [ -n "$PRIVATE_SUBNETS" ]; then
+              echo "✅ Private subnets exist"
+              echo "exists=true" >> $GITHUB_OUTPUT
+              echo "should-deploy=false" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️ Private subnets not found"
+              echo "exists=false" >> $GITHUB_OUTPUT
+              echo "should-deploy=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "⚠️ VPC not found - network must be deployed first"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          fi
+
+  prepare:
+    needs: [check-network-dependency]
+    if: ${{ always() && !cancelled() && (github.event.inputs.cloud_provider == 'azure' || needs.check-network-dependency.outputs.network-exists == 'true') }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+      has-clusters: ${{ steps.check-matrix.outputs.has-clusters }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate cluster matrix
+        id: generate-matrix
+        uses: ./.github/actions/generate-cluster-matrix
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          cloud_provider: ${{ env.CLOUD_PROVIDER }}
+          cluster_filter: ${{ github.event.inputs.cluster_name }}
+
+      - name: Check matrix
+        id: check-matrix
+        env:
+          MATRIX: ${{ steps.generate-matrix.outputs.matrix }}
+        run: |
+          echo "Matrix content: $MATRIX"
+          HAS=false
+          if [ -n "$MATRIX" ] && echo "$MATRIX" | jq -e '.include | type=="array" and length>0' >/dev/null 2>&1; then
+            HAS=true
+          fi
+          echo "Has clusters: $HAS"
+          echo "has-clusters=$HAS" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && needs.prepare.outputs.has-clusters == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+      AWS_REGION: ${{ matrix.region || 'eu-west-1' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ matrix.region || 'eu-west-1' }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get AWS Network Information
+        if: ${{ matrix.cloud_provider == 'aws' }}
+        id: aws-network-info
+        run: |
+          VPC_NAME="${{ matrix.vpc_name }}"
+          
+          # Get VPC ID
+          VPC_ID=$(aws ec2 describe-vpcs \
+            --filters "Name=tag:Name,Values=$VPC_NAME" \
+            --query 'Vpcs[0].VpcId' \
+            --output text)
+          
+          # Get private subnet IDs
+          PRIVATE_SUBNET_IDS=$(aws ec2 describe-subnets \
+            --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:Type,Values=private-subnet" \
+            --query 'Subnets[].SubnetId' \
+            --output json)
+          
+          echo "vpc_id=$VPC_ID" >> $GITHUB_OUTPUT
+          echo "private_subnet_ids=$PRIVATE_SUBNET_IDS" >> $GITHUB_OUTPUT
+
+      - name: Generate Terraform Variables
+        uses: ./.github/actions/generate-terraform-vars
+        with:
+          environment: ${{ matrix.environment }}
+          cloud_provider: ${{ matrix.cloud_provider }}
+          component: cluster
+          cluster_config: ${{ toJson(matrix) }}
+          working_directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+
+      - name: Setup Terraform Backend
+        id: backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ matrix.environment }}
+          platform: ${{ matrix.cloud_provider }}
+          component: ${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+          instance: ${{ matrix.name }}
+          aws_region: ${{ matrix.region || 'eu-west-1' }}
+          create_resources: "true"
+
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+          backend-config-file: ${{ steps.backend.outputs.backend_config_file }}
+          terraform-version: 1.9.8
+
+      - name: Terraform Plan
+        if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed successfully for ${{ matrix.name }}"
+
+      - name: Terraform Apply
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "✅ Terraform apply completed successfully for ${{ matrix.name }}"
+
+      - name: Show Outputs
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+        run: |
+          echo "=== ${{ matrix.cloud_provider == 'azure' && 'AKS' || 'EKS' }} Cluster ${{ matrix.name }} Outputs ==="
+          terraform output -json | jq .
+
+      - name: Generate kubeconfig instructions
+        if: ${{ env.ACTION == 'apply' }}
+        run: |
+          echo "=== Kubeconfig Setup Instructions ==="
+          if [ "${{ matrix.cloud_provider }}" = "azure" ]; then
+            echo "To connect to your AKS cluster, run:"
+            echo "az aks get-credentials --resource-group ${{ matrix.resource_group_name }} --name ${{ matrix.name }}"
+          else
+            echo "To connect to your EKS cluster, run:"
+            echo "aws eks update-kubeconfig --region ${{ matrix.region }} --name ${{ matrix.name }}"
+          fi
+          echo ""
+          echo "Verify connection:"
+          echo "kubectl get nodes"
+
+      - name: Terraform Destroy
+        if: ${{ env.ACTION == 'destroy' }}
+        working-directory: infrastructure/environment/${{ matrix.cloud_provider }}/${{ matrix.cloud_provider == 'azure' && 'aks' || 'eks' }}
+        run: |
+          echo "⚠️  WARNING: This will destroy ${{ matrix.cloud_provider == 'azure' && 'AKS' || 'EKS' }} cluster ${{ matrix.name }}!"
+          terraform destroy -auto-approve

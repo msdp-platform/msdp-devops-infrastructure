@@ -236,77 +236,11 @@ jobs:
 
       - name: Generate cluster matrix
         id: generate-matrix
-        run: |
-          python3 << 'EOF'
-          import yaml
-          import json
-          import os
-          import sys
-          
-          try:
-              # Load configuration
-              env = "${{ github.event.inputs.environment || 'dev' }}"
-              cluster_filter = "${{ github.event.inputs.cluster_name }}"
-              
-              print(f"Loading configuration for environment: {env}")
-              config_file = f'config/{env}.yaml'
-              
-              if not os.path.exists(config_file):
-                  print(f"ERROR: Configuration file not found: {config_file}")
-                  # Return empty matrix if config doesn't exist
-                  matrix = {"include": []}
-              else:
-                  with open(config_file, 'r') as f:
-                      config = yaml.safe_load(f)
-                  
-                  # Extract EKS clusters
-                  clusters = config.get('aws', {}).get('eks', {}).get('clusters', [])
-                  
-                  if not clusters:
-                      print(f"WARNING: No EKS clusters defined in {config_file}")
-                      matrix = {"include": []}
-                  else:
-                      print(f"Found {len(clusters)} clusters in configuration")
-                      
-                      # Filter by cluster name if specified
-                      if cluster_filter:
-                          clusters = [c for c in clusters if c.get('name') == cluster_filter]
-                          print(f"Filtered to {len(clusters)} clusters matching '{cluster_filter}'")
-                      
-                      # Add environment and network info to each cluster
-                      network_config = config.get('aws', {}).get('network', {})
-                      
-                      for cluster in clusters:
-                          cluster['environment'] = env
-                          cluster['region'] = config.get('aws', {}).get('region', 'eu-west-1')
-                          cluster['vpc_name'] = network_config.get('vpc_name', '')
-                          
-                          # Ensure all required fields have defaults
-                          cluster.setdefault('kubernetes_version', '1.31')
-                          cluster.setdefault('endpoint_private_access', True)
-                          cluster.setdefault('endpoint_public_access', True)
-                          cluster.setdefault('public_access_cidrs', ['0.0.0.0/0'])
-                          
-                          # Ensure node_groups is a list
-                          if 'node_groups' not in cluster:
-                              cluster['node_groups'] = []
-                      
-                      matrix = {"include": clusters}
-              
-              print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
-              
-              # Write to GitHub output
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"matrix={json.dumps(matrix)}\n")
-                  
-          except Exception as e:
-              print(f"ERROR generating matrix: {e}")
-              # Return empty matrix on error
-              matrix = {"include": []}
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"matrix={json.dumps(matrix)}\n")
-              sys.exit(1)
-          EOF
+        uses: ./.github/actions/generate-cluster-matrix
+        with:
+          environment: ${{ github.event.inputs.environment || 'dev' }}
+          cloud_provider: aws
+          cluster_filter: ${{ github.event.inputs.cluster_name }}
 
   check-matrix:
     needs: prepare
@@ -394,47 +328,13 @@ jobs:
           echo "Private Subnet IDs: $PRIVATE_SUBNET_IDS"
 
       - name: Generate Terraform Variables
-        working-directory: infrastructure/environment/aws/eks
-        run: |
-          cat << 'SCRIPT' > generate_tfvars.py
-          import yaml
-          import json
-          import os
-          
-          # Load configuration
-          with open('../../../../config/${{ matrix.environment }}.yaml', 'r') as f:
-              config = yaml.safe_load(f)
-          
-          # Extract cluster-specific configuration from JSON string
-          cluster_config_json = '''${{ toJson(matrix) }}'''
-          cluster_config = json.loads(cluster_config_json)
-          tags = config.get('tags', {})
-          
-          # Get network info from previous step
-          vpc_id = "${{ steps.network-info.outputs.vpc_id }}"
-          private_subnet_ids = json.loads('${{ steps.network-info.outputs.private_subnet_ids }}')
-          
-          # Generate terraform.tfvars.json
-          tfvars = {
-              'cluster_name': cluster_config.get('name', ''),
-              'kubernetes_version': cluster_config.get('kubernetes_version', '1.31'),
-              'vpc_id': vpc_id,
-              'private_subnet_ids': private_subnet_ids,
-              'endpoint_private_access': cluster_config.get('endpoint_private_access', True),
-              'endpoint_public_access': cluster_config.get('endpoint_public_access', True),
-              'public_access_cidrs': cluster_config.get('public_access_cidrs', ['0.0.0.0/0']),
-              'node_groups': cluster_config.get('node_groups', []),
-              'tags': tags
-          }
-          
-          with open('terraform.tfvars.json', 'w') as f:
-              json.dump(tfvars, f, indent=2)
-          
-          print("Generated terraform.tfvars.json:")
-          print(json.dumps(tfvars, indent=2))
-          SCRIPT
-          
-          python3 generate_tfvars.py
+        uses: ./.github/actions/generate-terraform-vars
+        with:
+          environment: ${{ matrix.environment }}
+          cloud_provider: aws
+          component: cluster
+          cluster_config: ${{ toJson(matrix) }}
+          working_directory: infrastructure/environment/aws/eks
 
       - name: Setup Terraform Backend
         uses: ./.github/actions/terraform-backend-enhanced

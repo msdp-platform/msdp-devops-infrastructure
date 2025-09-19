@@ -109,7 +109,7 @@ jobs:
         run: |
           set -euo pipefail
           RG="rg-${{ env.CLUSTER_NAME }}"
-          echo "K8S_AZURE_RESOURCE_GROUP=$RG" >> $GITHUB_ENV
+          echo "AZURE_RESOURCE_GROUP=$RG" >> $GITHUB_ENV
           echo "Resolved AKS resource group: $RG"
 
       - name: Configure Kubernetes access
@@ -119,7 +119,7 @@ jobs:
           provider: ${{ env.CLOUD_PROVIDER == 'aws' && 'eks' || 'aks' }}
           cluster-name: ${{ env.CLUSTER_NAME }}
           environment: ${{ env.ENVIRONMENT }}
-          azure-resource-group: ${{ env.K8S_AZURE_RESOURCE_GROUP }}
+          azure-resource-group: ${{ env.AZURE_RESOURCE_GROUP }}
           azure-admin: true
           eks-region: eu-west-1
 
@@ -161,11 +161,15 @@ jobs:
           elif [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
             echo "TF_VAR_azure_subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
             echo "TF_VAR_azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
-            echo "TF_VAR_azure_resource_group=${{ env.K8S_AZURE_RESOURCE_GROUP }}" >> $GITHUB_ENV
+            echo "TF_VAR_azure_resource_group=${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_ENV
             
             # Set AWS OIDC configuration for cross-cloud DNS access
-            echo "TF_VAR_aws_role_arn_for_azure=${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" >> $GITHUB_ENV
-            echo "TF_VAR_azure_workload_identity_client_id=${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" >> $GITHUB_ENV
+            if [[ -n "${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" ]]; then
+              echo "TF_VAR_aws_role_arn_for_azure=${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" >> $GITHUB_ENV
+            fi
+            if [[ -n "${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" ]]; then
+              echo "TF_VAR_azure_workload_identity_client_id=${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" >> $GITHUB_ENV
+            fi
           fi
 
       - name: Check Environment Directory
@@ -189,7 +193,8 @@ jobs:
             ls -la "$ENVIRONMENT_DIR"
           fi
 
-      - name: Prepare Backend (Enhanced)
+      - name: Setup Terraform Backend
+        id: backend
         uses: ./.github/actions/terraform-backend-enhanced
         with:
           environment: ${{ env.ENVIRONMENT }}
@@ -202,8 +207,8 @@ jobs:
         uses: ./.github/actions/terraform-init
         with:
           working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}
-          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
-          terraform-version: "1.9.5"
+          backend-config-file: ${{ steps.backend.outputs.backend_config_file }}
+          terraform-version: "1.9.8"
 
       - name: Terraform Validate
         working-directory: infrastructure/addons/terraform/environments/${{ env.CLOUD_PROVIDER }}-${{ env.ENVIRONMENT }}

@@ -1,5 +1,5 @@
-name: "Terraform Backend (AWS)"
-description: "Creates/ensures Terraform S3 state bucket and DynamoDB lock table, and writes backend-config.json."
+name: "Terraform Backend (AWS) - DEPRECATED"
+description: "⚠️ DEPRECATED: Use terraform-backend-enhanced instead. Creates/ensures Terraform S3 state bucket and DynamoDB lock table, and writes backend-config.json."
 
 inputs:
   repo-shortname:

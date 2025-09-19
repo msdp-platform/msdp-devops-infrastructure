@@ -56,76 +56,11 @@ jobs:
 
       - name: Generate cluster matrix
         id: generate-matrix
-        run: |
-          python3 << 'EOF'
-          import yaml
-          import json
-          import os
-          import sys
-          
-          try:
-              # Load configuration
-              env = "${{ github.event.inputs.environment || 'dev' }}"
-              cluster_filter = "${{ github.event.inputs.cluster_name }}"
-              
-              print(f"Loading configuration for environment: {env}")
-              config_file = f'config/{env}.yaml'
-              
-              if not os.path.exists(config_file):
-                  print(f"ERROR: Configuration file not found: {config_file}")
-                  # Return empty matrix if config doesn't exist
-                  matrix = {"include": []}
-              else:
-                  with open(config_file, 'r') as f:
-                      config = yaml.safe_load(f)
-                  
-                  # Extract AKS clusters
-                  clusters = config.get('azure', {}).get('aks', {}).get('clusters', [])
-                  
-                  if not clusters:
-                      print(f"WARNING: No AKS clusters defined in {config_file}")
-                      matrix = {"include": []}
-                  else:
-                      print(f"Found {len(clusters)} clusters in configuration")
-
-                      # Filter by cluster name if specified
-                      if cluster_filter:
-                          clusters = [c for c in clusters if c.get('name') == cluster_filter]
-                          print(f"Filtered to {len(clusters)} clusters matching '{cluster_filter}'")
-
-                      # Add environment info and defaults to each cluster
-                      for cluster in clusters:
-                          cluster['environment'] = env
-                          cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
-                          cluster.setdefault('resource_group_name', f"rg-{cluster.get('name', 'aks')}")
-                          cluster.setdefault('kubernetes_version', '1.31.2')
-                          cluster.setdefault('system_node_count', 2)
-                          cluster.setdefault('system_vm_size', 'Standard_D2s_v3')
-                          cluster.setdefault('user_vm_size', 'Standard_D4s_v3')
-                          cluster.setdefault('user_min_count', 1)
-                          cluster.setdefault('user_max_count', 5)
-                          cluster.setdefault('user_spot_enabled', False)
-                          cluster.setdefault('network_plugin', 'kubenet')
-                          cluster.setdefault('availability_zones', ["1", "2", "3"])
-                          cluster.setdefault('max_pods_per_node', 30)
-                          cluster.setdefault('os_disk_size_gb', 128)
-
-                      matrix = {"include": clusters}
-              
-              print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
-              
-              # Write to GitHub output
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"matrix={json.dumps(matrix)}\n")
-                  
-          except Exception as e:
-              print(f"ERROR generating matrix: {e}")
-              # Return empty matrix on error
-              matrix = {"include": []}
-              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-                  f.write(f"matrix={json.dumps(matrix)}\n")
-              sys.exit(1)
-          EOF
+        uses: ./.github/actions/generate-cluster-matrix
+        with:
+          environment: ${{ github.event.inputs.environment || 'dev' }}
+          cloud_provider: azure
+          cluster_filter: ${{ github.event.inputs.cluster_name }}
 
   check-matrix:
     needs: prepare
@@ -193,56 +128,13 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Generate Terraform Variables
-        working-directory: infrastructure/environment/azure/aks
-        run: |
-          cat << 'SCRIPT' > generate_tfvars.py
-          import yaml
-          import json
-          import os
-          
-          # Load configuration
-          with open('../../../../config/${{ matrix.environment }}.yaml', 'r') as f:
-              config = yaml.safe_load(f)
-          
-          # Extract cluster-specific configuration from JSON string
-          cluster_config_json = '''${{ toJson(matrix) }}'''
-          cluster_config = json.loads(cluster_config_json)
-          tags = config.get('tags', {})
-          
-          # Get tenant ID from environment (set by GitHub secrets)
-          tenant_id = os.environ.get('ARM_TENANT_ID', '')
-          
-          # Generate terraform.tfvars.json
-          tfvars = {
-              'cluster_name': cluster_config.get('name', ''),
-              'kubernetes_version': cluster_config.get('kubernetes_version', '1.31.2'),
-              'resource_group_name': cluster_config.get('resource_group_name', f"rg-{cluster_config.get('name', 'aks')}"),
-              'location': cluster_config.get('location', config.get('azure', {}).get('location', 'uksouth')),
-              'tenant_id': tenant_id,  # Use the secret value from environment
-              'system_node_count': cluster_config.get('system_node_count', 2),
-              'system_vm_size': cluster_config.get('system_vm_size', 'Standard_D2s_v3'),
-              'user_vm_size': cluster_config.get('user_vm_size', 'Standard_D4s_v3'),
-              'user_min_count': cluster_config.get('user_min_count', 1),
-              'user_max_count': cluster_config.get('user_max_count', 5),
-              'user_spot_enabled': cluster_config.get('user_spot_enabled', False),
-              'network_plugin': cluster_config.get('network_plugin', 'kubenet'),
-              'availability_zones': cluster_config.get('availability_zones', ["1", "2", "3"]),
-              'max_pods_per_node': cluster_config.get('max_pods_per_node', 30),
-              'os_disk_size_gb': cluster_config.get('os_disk_size_gb', 128),
-              'tags': tags
-          }
-          
-          with open('terraform.tfvars.json', 'w') as f:
-              json.dump(tfvars, f, indent=2)
-          
-          print("Generated terraform.tfvars.json:")
-          # Don't print tenant_id in logs
-          tfvars_display = tfvars.copy()
-          tfvars_display['tenant_id'] = '***'
-          print(json.dumps(tfvars_display, indent=2))
-          SCRIPT
-          
-          python3 generate_tfvars.py
+        uses: ./.github/actions/generate-terraform-vars
+        with:
+          environment: ${{ matrix.environment }}
+          cloud_provider: azure
+          component: cluster
+          cluster_config: ${{ toJson(matrix) }}
+          working_directory: infrastructure/environment/azure/aks
 
       - name: Setup Terraform Backend
         uses: ./.github/actions/terraform-backend-enhanced
@@ -259,7 +151,7 @@ jobs:
         with:
           working-directory: infrastructure/environment/azure/aks
           backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
-          terraform-version: 1.9.5
+          terraform-version: 1.9.8
 
       - name: Terraform Plan
         if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}

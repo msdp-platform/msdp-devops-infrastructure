@@ -1,0 +1,166 @@
+name: 'Generate Terraform Variables'
+description: 'Generate terraform.tfvars.json from configuration'
+inputs:
+  environment:
+    description: 'Environment name (dev, staging, prod)'
+    required: true
+  cloud_provider:
+    description: 'Cloud provider (aws, azure)'
+    required: true
+  component:
+    description: 'Component type (network, cluster, addons)'
+    required: true
+  cluster_config:
+    description: 'Cluster configuration JSON (for cluster components)'
+    required: false
+    default: '{}'
+  config_path:
+    description: 'Path to configuration files'
+    required: false
+    default: 'config'
+  working_directory:
+    description: 'Working directory to write tfvars file'
+    required: true
+outputs:
+  tfvars_file:
+    description: 'Path to generated tfvars file'
+    value: ${{ steps.generate.outputs.tfvars_file }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install PyYAML
+
+    - name: Generate Terraform variables
+      id: generate
+      shell: bash
+      working-directory: ${{ inputs.working_directory }}
+      run: |
+        python3 << 'EOF'
+        import yaml
+        import json
+        import os
+        
+        env = "${{ inputs.environment }}"
+        cloud = "${{ inputs.cloud_provider }}"
+        component = "${{ inputs.component }}"
+        cluster_config_json = """${{ inputs.cluster_config }}"""
+        config_path = "${{ inputs.config_path }}"
+        
+        print(f"Generating Terraform variables for {cloud} {component} in {env}")
+        
+        # Load main configuration
+        config_file = f'{config_path}/{env}.yaml'
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        tags = config.get('tags', {})
+        tfvars = {}
+        
+        if component == 'network':
+            if cloud == 'azure':
+                network_config = config['azure']['network']
+                tfvars = {
+                    'resource_group_name': network_config['resource_group_name'],
+                    'location': config['azure']['location'],
+                    'vnet_name': network_config['vnet_name'],
+                    'vnet_cidr': network_config['vnet_cidr'],
+                    'subnets': network_config['subnets'],
+                    'tags': tags
+                }
+            elif cloud == 'aws':
+                network_config = config['aws']['network']
+                tfvars = {
+                    'vpc_name': network_config['vpc_name'],
+                    'vpc_cidr': network_config['vpc_cidr'],
+                    'availability_zones': network_config['availability_zones'],
+                    'public_subnets': network_config['public_subnets'],
+                    'private_subnets': network_config['private_subnets'],
+                    'tags': tags
+                }
+                
+        elif component == 'cluster':
+            cluster_config = json.loads(cluster_config_json) if cluster_config_json != '{}' else {}
+            
+            if cloud == 'azure':
+                tenant_id = os.environ.get('ARM_TENANT_ID', '')
+                tfvars = {
+                    'cluster_name': cluster_config.get('name', ''),
+                    'kubernetes_version': cluster_config.get('kubernetes_version', '1.31.2'),
+                    'resource_group_name': cluster_config.get('resource_group_name', f"rg-{cluster_config.get('name', 'aks')}"),
+                    'location': cluster_config.get('location', config.get('azure', {}).get('location', 'uksouth')),
+                    'tenant_id': tenant_id,
+                    'system_node_count': cluster_config.get('system_node_count', 2),
+                    'system_vm_size': cluster_config.get('system_vm_size', 'Standard_D2s_v3'),
+                    'user_vm_size': cluster_config.get('user_vm_size', 'Standard_D4s_v3'),
+                    'user_min_count': cluster_config.get('user_min_count', 1),
+                    'user_max_count': cluster_config.get('user_max_count', 5),
+                    'user_spot_enabled': cluster_config.get('user_spot_enabled', False),
+                    'network_plugin': cluster_config.get('network_plugin', 'kubenet'),
+                    'availability_zones': cluster_config.get('availability_zones', ["1", "2", "3"]),
+                    'max_pods_per_node': cluster_config.get('max_pods_per_node', 30),
+                    'os_disk_size_gb': cluster_config.get('os_disk_size_gb', 128),
+                    'tags': tags
+                }
+            elif cloud == 'aws':
+                tfvars = {
+                    'cluster_name': cluster_config.get('name', ''),
+                    'kubernetes_version': cluster_config.get('kubernetes_version', '1.31'),
+                    'vpc_id': cluster_config.get('vpc_id', ''),
+                    'private_subnet_ids': cluster_config.get('private_subnet_ids', []),
+                    'endpoint_private_access': cluster_config.get('endpoint_private_access', True),
+                    'endpoint_public_access': cluster_config.get('endpoint_public_access', True),
+                    'public_access_cidrs': cluster_config.get('public_access_cidrs', ['0.0.0.0/0']),
+                    'node_groups': cluster_config.get('node_groups', []),
+                    'tags': tags
+                }
+                
+        elif component == 'addons':
+            # Common addon variables
+            tfvars = {
+                'cluster_name': cluster_config.get('name', '') if cluster_config_json != '{}' else '',
+                'environment': env,
+                'domain_name': 'aztech-msdp.com',
+                'hosted_zone_id': 'Z0581458B5QGVNLDPESN',
+                'cert_manager_email': 'devops@aztech-msdp.com',
+                'tags': tags
+            }
+            
+            if cloud == 'aws':
+                tfvars.update({
+                    'aws_region': 'eu-west-1',
+                    'aws_account_id': '319422413814'
+                })
+            elif cloud == 'azure':
+                tfvars.update({
+                    'azure_subscription_id': os.environ.get('ARM_SUBSCRIPTION_ID', ''),
+                    'azure_tenant_id': os.environ.get('ARM_TENANT_ID', ''),
+                    'azure_resource_group': f"rg-{cluster_config.get('name', 'aks')}" if cluster_config_json != '{}' else '',
+                    'aws_role_arn_for_azure': os.environ.get('AWS_ROLE_ARN_FOR_AZURE', ''),
+                    'azure_workload_identity_client_id': os.environ.get('AZURE_WORKLOAD_IDENTITY_CLIENT_ID', '')
+                })
+        
+        # Write terraform.tfvars.json
+        tfvars_file = 'terraform.tfvars.json'
+        with open(tfvars_file, 'w') as f:
+            json.dump(tfvars, f, indent=2)
+        
+        print(f"Generated {tfvars_file}:")
+        # Don't print sensitive values in logs
+        tfvars_display = tfvars.copy()
+        for key in ['tenant_id', 'azure_subscription_id', 'azure_tenant_id', 'aws_role_arn_for_azure', 'azure_workload_identity_client_id']:
+            if key in tfvars_display:
+                tfvars_display[key] = '***'
+        print(json.dumps(tfvars_display, indent=2))
+        
+        # Set output
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+            f.write(f"tfvars_file={tfvars_file}\n")
+        EOF

@@ -40,7 +40,7 @@ on:
         description: "Terraform version to use"
         required: false
         type: string
-        default: "1.13.2"
+        default: "1.9.8"
     secrets:
       AWS_ROLE_ARN:
         description: "AWS IAM role ARN for OIDC authentication"
@@ -89,18 +89,12 @@ jobs:
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Ensure Terraform backend
-        uses: ./.github/actions/terraform-backend
+        uses: ./.github/actions/terraform-backend-enhanced
         with:
-          repo-shortname: infra
-          project: msdp
-          env: ${{ inputs.environment }}
-          cloud: aws
-          cloud-segment: ${{ inputs.cloud-segment }}
-          app: ${{ inputs.app }}
-          function: ${{ inputs.function }}
-          key-salt: ${{ inputs.key-salt }}
-          aws-region: eu-west-1
-          use-shared-lock-table: "true"
+          environment: ${{ inputs.environment }}
+          platform: ${{ inputs.cloud-segment }}
+          component: terraform-validation
+          aws_region: eu-west-1
 
       - name: Show resolved AWS account id
         run: echo "AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID"

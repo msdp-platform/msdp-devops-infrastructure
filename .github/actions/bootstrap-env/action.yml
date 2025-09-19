@@ -15,19 +15,20 @@ runs:
         set -euo pipefail
         REPO_ROOT="$GITHUB_WORKSPACE"
         
-        # Support both old and new config paths for backward compatibility
-        if [ -f "$REPO_ROOT/config/global/naming.yaml" ]; then
-          # New structure
-          echo "TF_VAR_global_config_path=$REPO_ROOT/config/global/naming.yaml" >> "$GITHUB_ENV"
-          echo "TF_VAR_accounts_config_path=$REPO_ROOT/config/global/accounts.yaml" >> "$GITHUB_ENV"
-        else
-          # Old structure (fallback)
-          echo "TF_VAR_global_config_path=$REPO_ROOT/infrastructure/config/globals.yaml" >> "$GITHUB_ENV"
-        fi
-        
+        # Use current config structure
+        echo "TF_VAR_global_config_path=$REPO_ROOT/config/global/naming.yaml" >> "$GITHUB_ENV"
+        echo "TF_VAR_accounts_config_path=$REPO_ROOT/config/global/accounts.yaml" >> "$GITHUB_ENV"
         echo "TF_VAR_env_config_path=$REPO_ROOT/config/envs/${{ inputs.env }}.yaml" >> "$GITHUB_ENV"
         
-        # Backend config file will be set by terraform-backend-enhanced action
-        # This is kept for backward compatibility
-        BACKEND_FILE="$REPO_ROOT/infrastructure/environment/${{ inputs.env }}/backend/backend-config.json"
-        echo "TF_BACKEND_CONFIG_FILE=$BACKEND_FILE" >> "$GITHUB_ENV"
+        # Validate required config files exist
+        for config_file in \
+          "$REPO_ROOT/config/global/naming.yaml" \
+          "$REPO_ROOT/config/global/accounts.yaml" \
+          "$REPO_ROOT/config/envs/${{ inputs.env }}.yaml"; do
+          if [ ! -f "$config_file" ]; then
+            echo "❌ Required config file not found: $config_file" >&2
+            exit 1
+          fi
+        done
+        
+        echo "✅ All required config files validated"
