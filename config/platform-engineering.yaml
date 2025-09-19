@@ -9,10 +9,10 @@ environment:
 versions:
   backstage:
     chart_version: "2.6.1" # Latest Backstage Helm chart
-    app_version: "1.33.0" # Latest Backstage application
+    app_version: "1.43.2" # Latest Backstage application (updated)
   crossplane:
-    chart_version: "1.17.1" # Latest Crossplane 2.x series
-    app_version: "1.17.1"
+    chart_version: "2.0.2" # Latest Crossplane 2.x series (updated)
+    app_version: "2.0.2"   # Latest Crossplane application (updated)
   # argocd: Managed by separate pipeline - not included here
 
 # Platform engineering components
@@ -20,15 +20,15 @@ components:
   crossplane:
     enabled: true
     namespace: "crossplane-system"
-    chart_version: "1.17.1"
+    chart_version: "2.0.2"
     repository: "https://charts.crossplane.io/stable"
     values:
       # Crossplane 2.x configuration
       configuration:
         packages:
           - "xpkg.upbound.io/crossplane-contrib/provider-azure:v0.20.0"
-          - "xpkg.upbound.io/crossplane-contrib/provider-aws:v1.14.0"
-          - "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v0.15.0"
+          - "xpkg.upbound.io/crossplane-contrib/provider-aws:v0.54.2"
+          - "xpkg.upbound.io/crossplane-contrib/provider-kubernetes:v1.0.0"
 
       resourcesCrossplane:
         limits:
@@ -67,7 +67,7 @@ components:
 
       aws:
         enabled: true
-        version: "v1.14.0"
+        version: "v0.54.2"
         config:
           credentials:
             source: Secret
@@ -78,7 +78,7 @@ components:
 
       kubernetes:
         enabled: true
-        version: "v0.15.0"
+        version: "v1.0.0"
 
   backstage:
     enabled: true
@@ -89,24 +89,24 @@ components:
     # MSDP-specific configuration
     app_config:
       app:
-        title: "MSDP Service Catalog"
-        baseUrl: "https://backstage.msdp.platform"
+        title: "{{ ORG_NAME | default('MSDP') }} Service Catalog"
+        baseUrl: "https://backstage.{{ ORG_DOMAIN | default('msdp.platform') }}"
         listen:
           host: "0.0.0.0"
           port: 3000
 
       organization:
-        name: "MSDP Platform"
+        name: "{{ ORG_NAME | default('MSDP') }} Platform"
 
       backend:
-        baseUrl: "https://backstage-api.msdp.platform"
+        baseUrl: "https://backstage-api.{{ ORG_DOMAIN | default('msdp.platform') }}"
         listen:
           host: "0.0.0.0"
           port: 7007
 
         cors:
           origin:
-            - "https://backstage.msdp.platform"
+            - "https://backstage.{{ ORG_DOMAIN | default('msdp.platform') }}"
             - "http://localhost:*"
           credentials: true
 
@@ -147,46 +147,46 @@ components:
 
         locations:
           - type: url
-            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/catalog/msdp-services.yaml
+            target: https://github.com/{{ ORG_GITHUB | default('msdp-platform') }}/{{ ORG_GITHUB | default('msdp-platform') }}-core/blob/dev/backstage-platform/catalog/{{ ORG_NAME | lower | default('msdp') }}-services.yaml
           - type: url
-            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/catalog/msdp-teams.yaml
+            target: https://github.com/{{ ORG_GITHUB | default('msdp-platform') }}/{{ ORG_GITHUB | default('msdp-platform') }}-core/blob/dev/backstage-platform/catalog/{{ ORG_NAME | lower | default('msdp') }}-teams.yaml
           - type: url
-            target: https://github.com/msdp-platform/msdp-platform-core/blob/dev/backstage-platform/templates/
+            target: https://github.com/{{ ORG_GITHUB | default('msdp-platform') }}/{{ ORG_GITHUB | default('msdp-platform') }}-core/blob/dev/backstage-platform/templates/
 
         providers:
           # Crossplane integration
           crossplane:
             production:
-              baseUrl: "https://crossplane-api.msdp.platform"
+              baseUrl: "https://crossplane-api.{{ ORG_DOMAIN | default('msdp.platform') }}"
               schedule:
                 frequency: { minutes: 10 }
 
           # ArgoCD integration (uses existing ArgoCD installation)
           argocd:
             production:
-              baseUrl: "https://argocd.msdp.platform"
+              baseUrl: "https://argocd.{{ ORG_DOMAIN | default('msdp.platform') }}"
               schedule:
                 frequency: { minutes: 5 }
 
-      # MSDP service proxies (initially laptop, later AWS Lambda)
+      # MSDP service proxies (configurable for different environments)
       proxy:
         "/api/msdp":
-          target: "http://192.168.1.189:3000"
+          target: "{{ MSDP_API_ENDPOINT | default('http://192.168.1.189:3000') }}"
           changeOrigin: true
         "/api/location":
-          target: "http://192.168.1.189:3001"
+          target: "{{ LOCATION_API_ENDPOINT | default('http://192.168.1.189:3001') }}"
           changeOrigin: true
         "/api/merchant":
-          target: "http://192.168.1.189:3002"
+          target: "{{ MERCHANT_API_ENDPOINT | default('http://192.168.1.189:3002') }}"
           changeOrigin: true
         "/api/user":
-          target: "http://192.168.1.189:3003"
+          target: "{{ USER_API_ENDPOINT | default('http://192.168.1.189:3003') }}"
           changeOrigin: true
         "/api/order":
-          target: "http://192.168.1.189:3006"
+          target: "{{ ORDER_API_ENDPOINT | default('http://192.168.1.189:3006') }}"
           changeOrigin: true
         "/api/payment":
-          target: "http://192.168.1.189:3007"
+          target: "{{ PAYMENT_API_ENDPOINT | default('http://192.168.1.189:3007') }}"
           changeOrigin: true
 
       integrations:
@@ -227,14 +227,14 @@ components:
         nginx.ingress.kubernetes.io/ssl-redirect: "true"
         nginx.ingress.kubernetes.io/proxy-body-size: "50m"
       hosts:
-        - host: "backstage.msdp.platform"
+        - host: "backstage.{{ ORG_DOMAIN | default('msdp.platform') }}"
           paths:
             - path: /
               pathType: Prefix
       tls:
         - secretName: backstage-tls
           hosts:
-            - "backstage.msdp.platform"
+            - "backstage.{{ ORG_DOMAIN | default('msdp.platform') }}"
 
     # Resource configuration
     resources:
