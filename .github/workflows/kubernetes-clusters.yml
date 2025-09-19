@@ -1,6 +1,6 @@
 name: Kubernetes Clusters
 
-on:
+"on":
   push:
     branches: [main]
     paths:
