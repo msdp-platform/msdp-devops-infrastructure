@@ -144,10 +144,23 @@ locals {
   cluster_issuer_dns_solvers = var.dns_provider == "route53" ? [
     {
       dns01 = {
-        route53 = {
-          region       = var.aws_region
-          hostedZoneID = var.hosted_zone_id
-        }
+        route53 = merge(
+          {
+            region       = var.aws_region
+            hostedZoneID = var.hosted_zone_id
+          },
+          # Add AWS credentials configuration based on cloud provider and auth method
+          var.cloud_provider == "azure" && !var.use_oidc ? {
+            accessKeyIDSecretRef = {
+              name = var.cloud_provider == "azure" && !var.use_oidc && length(module.aws_credentials) > 0 ? module.aws_credentials[0].secret_name : "aws-credentials"
+              key  = "aws-access-key-id"
+            }
+            secretAccessKeySecretRef = {
+              name = var.cloud_provider == "azure" && !var.use_oidc && length(module.aws_credentials) > 0 ? module.aws_credentials[0].secret_name : "aws-credentials"
+              key  = "aws-secret-access-key"
+            }
+          } : {}
+        )
       }
       http01 = null
     }
@@ -202,11 +215,19 @@ locals {
     }
   } : null
 
-  cluster_issuer_extra_values = var.create_cluster_issuer ? yamlencode({
-    extraDeploy = [yamlencode(local.cluster_issuer_manifest)]
-  }) : null
+  cert_manager_values = local.base_cert_manager_values
+}
 
-  cert_manager_values = compact(concat(local.base_cert_manager_values, [local.cluster_issuer_extra_values]))
+# Create ClusterIssuer as a separate Kubernetes resource
+resource "kubernetes_manifest" "cluster_issuer" {
+  count = var.enabled && var.create_cluster_issuer ? 1 : 0
+
+  manifest = local.cluster_issuer_manifest
+
+  depends_on = [
+    helm_release.cert_manager,
+    module.aws_credentials
+  ]
 }
 
 # Output important information

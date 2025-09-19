@@ -171,7 +171,7 @@ module "cert_manager" {
   # Certificate configuration
   email                 = var.cert_manager_email
   cluster_issuer_name   = local.plugins.cert_manager.cluster_issuer
-  create_cluster_issuer = false  # We'll create explicitly below
+  create_cluster_issuer = true  # Enable ClusterIssuer creation
   
   # DNS challenge configuration (using AWS Route53 with static credentials)
   dns_challenge           = true
@@ -188,9 +188,6 @@ module "cert_manager" {
   # Dependencies
   depends_on = [module.external_dns]
 }
-
-# ClusterIssuer will be created by cert-manager module
-# No need for explicit ClusterIssuer resource here
 
 # NGINX Ingress Controller
 module "nginx_ingress" {
