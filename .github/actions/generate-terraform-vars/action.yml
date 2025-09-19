@@ -57,7 +57,10 @@ runs:
         print(f"Generating Terraform variables for {cloud} {component} in {env}")
         
         # Load main configuration
-        config_file = f'{config_path}/{env}.yaml'
+        # Use absolute path from repository root
+        import os
+        repo_root = os.environ.get('GITHUB_WORKSPACE', '.')
+        config_file = f'{repo_root}/{config_path}/{env}.yaml'
         with open(config_file, 'r') as f:
             config = yaml.safe_load(f)
         
