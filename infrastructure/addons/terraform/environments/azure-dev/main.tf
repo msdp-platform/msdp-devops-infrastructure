@@ -214,6 +214,14 @@ resource "kubernetes_manifest" "cluster_issuer" {
               route53 = {
                 region       = var.aws_region
                 hostedZoneID = var.hosted_zone_id
+                accessKeyIDSecretRef = {
+                  name = "aws-credentials"
+                  key  = "aws-access-key-id"
+                }
+                secretAccessKeySecretRef = {
+                  name = "aws-credentials"
+                  key  = "aws-secret-access-key"
+                }
               }
             }
           }
