@@ -192,11 +192,40 @@ jobs:
           azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Setup Kubernetes
+      - name: Resolve AKS resource group
+        run: |
+          set -euo pipefail
+          RG="rg-${{ matrix.cluster_name }}"
+          echo "AZURE_RESOURCE_GROUP=$RG" >> $GITHUB_ENV
+          echo "Resolved AKS resource group: $RG"
+
+      - name: Configure Kubernetes access
+        id: kube_setup
         uses: ./.github/actions/kubernetes-setup
         with:
+          provider: aks
           cluster-name: ${{ matrix.cluster_name }}
-          azure-resource-group: "rg-${{ matrix.cluster_name }}"
+          environment: ${{ matrix.environment }}
+          azure-resource-group: ${{ env.AZURE_RESOURCE_GROUP }}
+          azure-admin: true
+
+      - name: Export kubeconfig path
+        run: |
+          set -euo pipefail
+          KCFG="${{ steps.kube_setup.outputs.kubeconfig-path }}"
+          if [ -z "$KCFG" ]; then
+            echo "::error::kubeconfig path output from kubernetes-setup is empty"
+            exit 1
+          fi
+          echo "KUBECONFIG=$KCFG" >> $GITHUB_ENV
+          echo "TF_VAR_kubeconfig_path=$KCFG" >> $GITHUB_ENV
+
+      - name: Verify kubeconfig
+        run: |
+          set -euo pipefail
+          echo "Using kubeconfig: $KUBECONFIG"
+          ls -l "$KUBECONFIG"
+          kubectl config current-context
 
       - name: Setup Terraform Backend
         id: backend
