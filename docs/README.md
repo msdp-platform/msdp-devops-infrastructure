@@ -1,58 +1,50 @@
-# Documentation Structure
+# MSDP DevOps Infrastructure Documentation 📚
 
-This directory contains all project documentation organized by category:
+This directory contains comprehensive documentation for the MSDP DevOps Infrastructure platform.
 
-## 📁 Directory Structure
+## 🚀 Quick Start
 
-### `/archive/`
-Historical documentation and completed migration notes:
-- Change summaries and cleanup records
-- Dependency restoration notes
-- Naming convention alignment records
-- Legacy fix documentation
+**New to the platform?** Start here:
+- 📖 **[Comprehensive Setup Guide](COMPREHENSIVE_SETUP_GUIDE.md)** - Complete setup instructions
+- 🔧 **[Troubleshooting](troubleshooting/)** - Common issues and solutions
 
-### `/implementation-notes/`
-Technical implementation details and architecture decisions:
-- Kubernetes addons architecture and analysis
-- Multi-cloud compliance strategies
-- Terraform vs Helm analysis
-- Azure deployment flows
-- AWS/Azure integration patterns
+## 📁 Documentation Structure
 
-### `/troubleshooting/`
-Issue resolution guides and fixes:
-- AKS workflow fixes
-- Network deployment issues
-- GitHub Actions deprecation fixes
-- Deployment order problems
+### Production Documentation
+- `COMPREHENSIVE_SETUP_GUIDE.md` - Complete setup and configuration guide
+- `docker-build.md` - Docker build workflow documentation
+- `karpenter-aks-analysis.md` - Karpenter on AKS technical analysis
+- `naming-convention-strategy.md` - Standardized naming conventions
+- `terraform-backend-best-practices.md` - Terraform backend best practices
+- `terraform-backend-strategy-final.md` - Current backend strategy
 
-### `/ci-cd/`
-CI/CD pipeline documentation and guides
+### Organized Sections
+- 📁 **[implementation-notes/](implementation-notes/)** - Historical implementation records and milestones
+- 📁 **[troubleshooting/](troubleshooting/)** - Operational troubleshooting guides
+- 📁 **[ci-cd/](ci-cd/)** - CI/CD pipeline documentation
+- 📁 **[team-guides/](team-guides/)** - Team-specific guides and procedures
+- 📁 **[preflight/](preflight/)** - Pre-deployment checks and validations
+- 📁 **[archive/](archive/)** - Historical documentation and deprecated content
 
-### `/preflight/`
-Pre-deployment checklists and requirements
+## 🎯 Key Documents
 
-## 📋 Key Documents
+### For Setup & Operations
+1. **[COMPREHENSIVE_SETUP_GUIDE.md](COMPREHENSIVE_SETUP_GUIDE.md)** - Start here for complete setup
+2. **[troubleshooting/](troubleshooting/)** - When things go wrong
+3. **[terraform-backend-strategy-final.md](terraform-backend-strategy-final.md)** - Backend configuration
 
-- `azure-auth-troubleshooting.md` - Azure authentication issues
-- `azure-oidc-setup-guide.md` - OIDC configuration guide
-- `implementation-guide.md` - General implementation guide
-- `terraform-backend-*.md` - Terraform backend strategies
+### For Development & Architecture
+1. **[naming-convention-strategy.md](naming-convention-strategy.md)** - Resource naming standards
+2. **[karpenter-aks-analysis.md](karpenter-aks-analysis.md)** - Technical architecture analysis
+3. **[implementation-notes/](implementation-notes/)** - Implementation history and decisions
 
-## 🔍 Finding Documentation
+## 📊 Documentation Status
 
-Use the following patterns to locate specific documentation:
+- ✅ **Production Ready**: All core documentation updated and current
+- ✅ **Organized Structure**: Clear separation of production vs historical docs
+- ✅ **Comprehensive Coverage**: Setup, operations, troubleshooting, and architecture
+- ✅ **Clean & Focused**: Obsolete documents removed, relevant content preserved
 
-- **Architecture decisions**: `/implementation-notes/`
-- **Deployment issues**: `/troubleshooting/`
-- **Historical context**: `/archive/`
-- **Setup guides**: Root level `.md` files
-- **Pipeline issues**: `/ci-cd/`
+---
 
-## 📝 Contributing
-
-When adding new documentation:
-1. Place in appropriate category directory
-2. Use descriptive filenames
-3. Include date in filename for time-sensitive docs
-4. Update this README if adding new categories
+**Need Help?** Start with the [Comprehensive Setup Guide](COMPREHENSIVE_SETUP_GUIDE.md) or check [troubleshooting/](troubleshooting/) for common issues.
