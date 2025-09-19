@@ -1,16 +1,16 @@
 # Azure Development Environment Plugin Configuration
 environment: dev
 cloud_provider: azure
-cluster_name: aks-msdp-dev-01
+cluster_name: "{{ CLUSTER_NAME | default('aks-msdp-dev-01') }}"
 
 # Azure-specific settings
 azure:
-  subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+  subscription_id: "{{ AZURE_SUBSCRIPTION_ID | default('ecd977ed-b8df-4eb6-9cba-98397e1b2491') }}"
   tenant_id: "{{ AZURE_TENANT_ID }}"
-  resource_group: "rg-msdp-network-dev"
-  location: "uksouth"
-  vnet_name: "vnet-msdp-dev"
-  subnet_name: "snet-aks-system-dev"
+  resource_group: "{{ RESOURCE_GROUP | default('rg-msdp-network-dev') }}"
+  location: "{{ AZURE_LOCATION | default('uksouth') }}"
+  vnet_name: "{{ VNET_NAME | default('vnet-msdp-dev') }}"
+  subnet_name: "{{ SUBNET_NAME | default('snet-aks-system-dev') }}"
 
 # Plugin-specific configurations
 plugins:
@@ -18,9 +18,9 @@ plugins:
     config:
       provider: aws
       aws_zone_type: public
-      domain_filters: ["aztech-msdp.com"]
-      txt_owner_id: "aks-msdp-dev-01"
-      aws_region: eu-west-1
+      domain_filters: ["{{ ORG_DOMAIN | default('aztech-msdp.com') }}"]
+      txt_owner_id: "{{ CLUSTER_NAME | default('aks-msdp-dev-01') }}"
+      aws_region: "{{ AWS_REGION | default('eu-west-1') }}"
       policy: sync
       registry: txt
       txt_prefix: "external-dns-"
@@ -28,11 +28,11 @@ plugins:
   cert-manager:
     config:
       cluster_issuer: letsencrypt-prod
-      email: "devops@aztech-msdp.com"
+      email: "{{ ORG_EMAIL | default('devops@aztech-msdp.com') }}"
       dns_challenge: true
       dns_provider: route53
-      aws_region: eu-west-1
-      hosted_zone_id: "Z0581458B5QGVNLDPESN"
+      aws_region: "{{ AWS_REGION | default('eu-west-1') }}"
+      hosted_zone_id: "{{ HOSTED_ZONE_ID | default('Z0581458B5QGVNLDPESN') }}"
       
   external-secrets:
     config:

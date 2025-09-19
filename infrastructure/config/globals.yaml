@@ -18,9 +18,9 @@ accounts:
   azure_subscription_id: "${AZURE_SUBSCRIPTION_ID:-ecd977ed-b8df-4eb6-9cba-98397e1b2491}"
 
 registries:
-  ghcr: "${CONTAINER_REGISTRY:-ghcr.io/msdp-platform}" # GitHub Container Registry org scope
-  aws_ecr: "${AWS_ECR_REGISTRY:-319422413814.dkr.ecr.eu-west-1.amazonaws.com}"
-  azure_acr: "${AZURE_ACR_REGISTRY:-msdp.azurecr.io}"
+  ghcr: "${CONTAINER_REGISTRY:-ghcr.io/${ORG_GITHUB:-msdp-platform}}" # GitHub Container Registry org scope
+  aws_ecr: "${AWS_ECR_REGISTRY:-${AWS_ACCOUNT_ID:-319422413814}.dkr.ecr.${AWS_DEFAULT_REGION:-eu-west-1}.amazonaws.com}"
+  azure_acr: "${AZURE_ACR_REGISTRY:-${ORG_NAME:-msdp}.azurecr.io}"
 default_registry: ghcr # use GHCR by default
 
 naming:

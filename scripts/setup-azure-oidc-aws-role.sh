@@ -9,15 +9,16 @@ echo "=============================================================="
 
 # Configuration variables
 AZURE_TENANT_ID="${AZURE_TENANT_ID:-}"
-AZURE_SUBSCRIPTION_ID="ecd977ed-b8df-4eb6-9cba-98397e1b2491"
-AWS_ACCOUNT_ID="319422413814"
-AWS_REGION="eu-west-1"
-RESOURCE_GROUP="rg-msdp-network-dev"
-IDENTITY_NAME="id-aks-route53-access"
-ROLE_NAME="AzureRoute53AccessRole"
-POLICY_NAME="Route53AccessPolicy"
-HOSTED_ZONE_ID="Z0581458B5QGVNLDPESN"
-CLUSTER_NAME="aks-msdp-dev-01"
+# Configuration variables (can be overridden by environment variables)
+AZURE_SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID:-ecd977ed-b8df-4eb6-9cba-98397e1b2491}"
+AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-319422413814}"
+AWS_REGION="${AWS_REGION:-eu-west-1}"
+RESOURCE_GROUP="${RESOURCE_GROUP:-rg-msdp-network-dev}"
+IDENTITY_NAME="${IDENTITY_NAME:-id-aks-route53-access}"
+ROLE_NAME="${ROLE_NAME:-AzureRoute53AccessRole}"
+POLICY_NAME="${POLICY_NAME:-Route53AccessPolicy}"
+HOSTED_ZONE_ID="${HOSTED_ZONE_ID:-Z0581458B5QGVNLDPESN}"
+CLUSTER_NAME="${CLUSTER_NAME:-aks-msdp-dev-01}"
 
 # Colors for output
 RED='\033[0;31m'

@@ -1,12 +1,12 @@
 # AWS Development Environment Plugin Configuration
 environment: dev
 cloud_provider: aws
-cluster_name: eks-msdp-dev-01
+cluster_name: "{{ CLUSTER_NAME | default('eks-msdp-dev-01') }}"
 
 # AWS-specific settings
 aws:
-  region: eu-west-1
-  account_id: "319422413814"
+  region: "{{ AWS_REGION | default('eu-west-1') }}"
+  account_id: "{{ AWS_ACCOUNT_ID | default('319422413814') }}"
   vpc_id: "{{ VPC_ID }}"  # Will be resolved from network outputs
   private_subnet_ids: "{{ PRIVATE_SUBNET_IDS }}"
   public_subnet_ids: "{{ PUBLIC_SUBNET_IDS }}"
