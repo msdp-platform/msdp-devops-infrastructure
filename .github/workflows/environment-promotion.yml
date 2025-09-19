@@ -1,6 +1,6 @@
 name: Environment Promotion
 
-"on":
+on:
   workflow_dispatch:
     inputs:
       source_environment:
@@ -28,6 +28,11 @@ name: Environment Promotion
         default: azure
       auto_approve:
         description: "Auto-approve deployment (skip manual approval for non-prod)"
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: "Perform dry run only (plan without apply)"
         required: false
         default: false
         type: boolean
@@ -232,7 +237,7 @@ jobs:
     with:
       target_environment: ${{ github.event.inputs.target_environment }}
       components: ${{ github.event.inputs.components }}
-      action: apply
+      action: ${{ github.event.inputs.dry_run == 'true' && 'plan' || 'apply' }}
       cloud_provider: ${{ github.event.inputs.cloud_provider }}
       force_sequential: false
     secrets: inherit
