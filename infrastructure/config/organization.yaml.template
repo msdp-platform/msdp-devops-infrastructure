@@ -1,0 +1,155 @@
+# Organization Configuration Template
+# 
+# INSTRUCTIONS:
+# 1. Copy this file to 'organization.yaml' in the same directory
+# 2. Replace all placeholder values with your organization's details
+# 3. Add 'organization.yaml' to your .gitignore to keep it private
+# 4. Use environment variables for sensitive values in CI/CD
+
+# =============================================================================
+# ORGANIZATION DETAILS
+# =============================================================================
+organization:
+  # Your organization name (used in resource naming)
+  name: "your-org"
+  
+  # Your organization's primary domain
+  domain: "your-domain.com"
+  
+  # Email address for certificates and notifications
+  email: "devops@your-domain.com"
+  
+  # GitHub organization name
+  github_org: "your-github-org"
+
+# =============================================================================
+# CLOUD ACCOUNTS
+# =============================================================================
+cloud_accounts:
+  aws:
+    # Your AWS Account ID (12-digit number)
+    account_id: "123456789012"
+    
+    # Default AWS region for resources
+    default_region: "us-east-1"
+    
+    # Alternative regions (optional)
+    regions:
+      primary: "us-east-1"
+      secondary: "us-west-2"
+  
+  azure:
+    # Your Azure Subscription ID (GUID)
+    subscription_id: "12345678-1234-1234-1234-123456789012"
+    
+    # Default Azure location for resources
+    default_location: "eastus"
+    
+    # Alternative locations (optional)
+    locations:
+      primary: "eastus"
+      secondary: "westus2"
+
+# =============================================================================
+# DNS CONFIGURATION
+# =============================================================================
+dns:
+  # DNS provider: "route53" or "azure-dns"
+  provider: "route53"
+  
+  # Route53 configuration (if using AWS Route53)
+  route53:
+    # Hosted Zone ID from AWS Route53
+    zone_id: "Z1234567890ABC"
+  
+  # Azure DNS configuration (if using Azure DNS)
+  azure_dns:
+    # Resource group containing the DNS zone
+    resource_group: "rg-dns"
+    # DNS zone name (usually same as domain)
+    zone_name: "your-domain.com"
+
+# =============================================================================
+# CONTAINER REGISTRIES
+# =============================================================================
+registries:
+  # GitHub Container Registry
+  ghcr: "ghcr.io/your-github-org"
+  
+  # AWS Elastic Container Registry (optional)
+  aws_ecr: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+  
+  # Azure Container Registry (optional)
+  azure_acr: "yourregistry.azurecr.io"
+  
+  # Default registry to use
+  default: "ghcr"
+
+# =============================================================================
+# NAMING CONVENTIONS
+# =============================================================================
+naming:
+  # Prefix for all resources (usually organization name or abbreviation)
+  prefix: "your-org"
+  
+  # Environment names
+  environments:
+    - "dev"
+    - "staging"
+    - "prod"
+  
+  # Cluster naming pattern: {prefix}-{cloud}-{env}-{number}
+  cluster_pattern: "{prefix}-{cloud}-{env}-{number:02d}"
+
+# =============================================================================
+# DEFAULT CONFIGURATIONS
+# =============================================================================
+defaults:
+  # Default Kubernetes version
+  kubernetes_version: "1.31.2"
+  
+  # Default VM/instance sizes
+  vm_sizes:
+    aws:
+      small: "t3.medium"
+      medium: "t3.large"
+      large: "m5.large"
+    azure:
+      small: "Standard_D2s_v3"
+      medium: "Standard_D4s_v3"
+      large: "Standard_D8s_v3"
+
+# =============================================================================
+# SECURITY SETTINGS
+# =============================================================================
+security:
+  # Enable image signing
+  sign_images: false
+  
+  # Enable vulnerability scanning
+  vulnerability_scanning: true
+  
+  # Enable network policies
+  network_policies: true
+
+# =============================================================================
+# EXAMPLE VALUES (for reference)
+# =============================================================================
+# organization:
+#   name: "acme"
+#   domain: "acme-corp.com"
+#   email: "devops@acme-corp.com"
+#   github_org: "acme-corp"
+# 
+# cloud_accounts:
+#   aws:
+#     account_id: "123456789012"
+#     default_region: "us-east-1"
+#   azure:
+#     subscription_id: "12345678-1234-1234-1234-123456789012"
+#     default_location: "eastus"
+# 
+# dns:
+#   provider: "route53"
+#   route53:
+#     zone_id: "Z1234567890ABC"
