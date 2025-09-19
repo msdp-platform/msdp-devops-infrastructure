@@ -14,6 +14,11 @@ terraform {
   }
 }
 
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
+}
+
 # Create namespace
 resource "kubernetes_namespace" "external_dns" {
   count = var.enabled ? 1 : 0
@@ -78,7 +83,7 @@ resource "helm_release" "external_dns" {
   name       = "external-dns"
   repository = "https://kubernetes-sigs.github.io/external-dns/"
   chart      = "external-dns"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.external_dns
   namespace  = kubernetes_namespace.external_dns[0].metadata[0].name
   
   # Wait for namespace and service account

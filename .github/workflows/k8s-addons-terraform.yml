@@ -27,6 +27,11 @@ on:
         required: false
         type: boolean
         default: false
+      terraform_version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.9.5"
 
 permissions:
   id-token: write
@@ -35,6 +40,7 @@ permissions:
 env:
   TF_INPUT: "false"
   ARM_USE_OIDC: "true"
+  PYTHONUNBUFFERED: "1"
   CLUSTER_NAME: ${{ github.event.inputs.cluster_name }}
   ENVIRONMENT: ${{ github.event.inputs.environment }}
   CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
@@ -44,16 +50,40 @@ env:
 jobs:
   terraform-addons:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Terraform Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            **/.terraform/providers
+          key: terraform-${{ github.event.inputs.terraform_version }}-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ github.event.inputs.terraform_version }}-${{ runner.os }}-
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.9.5"
+          terraform_version: ${{ github.event.inputs.terraform_version }}
           terraform_wrapper: false
+
+      - name: Configure Terraform Plugin Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraformrc
+
+      - name: Setup Python Cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: python-3.11-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            python-3.11-${{ runner.os }}-
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -62,6 +92,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          pip install --upgrade pip
           pip install PyYAML requests
 
       - name: Cloud Login

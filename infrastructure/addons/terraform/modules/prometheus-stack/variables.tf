@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "monitoring"
 }
 
-variable "chart_version" {
-  description = "Helm chart version for kube-prometheus-stack"
-  type        = string
-  default     = "65.5.1"
-}
 
 variable "cluster_issuer_name" {
   description = "Cert-Manager cluster issuer used for TLS"
@@ -33,11 +28,21 @@ variable "ingress_class_name" {
 variable "prometheus_hostname" {
   description = "Hostname used to expose the Prometheus UI"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*$", var.prometheus_hostname))
+    error_message = "Prometheus hostname must be a valid DNS hostname format."
+  }
 }
 
 variable "grafana_hostname" {
   description = "Hostname used to expose the Grafana UI"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*$", var.grafana_hostname))
+    error_message = "Grafana hostname must be a valid DNS hostname format."
+  }
 }
 
 variable "prometheus_tls_secret_name" {

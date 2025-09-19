@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "karpenter"
 }
 
-variable "chart_version" {
-  description = "Version of the Karpenter Helm chart"
-  type        = string
-  default     = "v0.32.1"
-}
 
 # Cluster Configuration
 variable "cluster_name" {

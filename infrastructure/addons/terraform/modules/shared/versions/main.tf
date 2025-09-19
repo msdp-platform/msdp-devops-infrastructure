@@ -49,13 +49,14 @@ locals {
   chart_versions = {
     cert_manager      = "v1.13.2"
     external_dns      = "1.13.1"
-    nginx_ingress     = "4.8.3"
-    argocd           = "5.46.7"
-    prometheus_stack  = "51.2.0"
-    karpenter        = "v0.31.0"
-    keda             = "2.11.2"
-    crossplane       = "1.14.1"
-    backstage        = "1.4.0"
+    nginx_ingress     = "4.11.3"
+    argocd           = "5.51.3"
+    prometheus_stack  = "65.5.1"
+    karpenter        = "v0.32.1"
+    keda             = "2.12.1"
+    crossplane       = "2.0.2"
+    backstage        = "2.6.1"
+    azure_disk_csi   = "v1.29.2"
   }
   
   # Repository URLs

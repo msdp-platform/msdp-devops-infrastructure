@@ -14,6 +14,11 @@ terraform {
   }
 }
 
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
+}
+
 # Create namespace
 resource "kubernetes_namespace" "cert_manager" {
   count = var.enabled ? 1 : 0
@@ -37,7 +42,7 @@ resource "helm_release" "cert_manager" {
   name       = "cert-manager"
   repository = "https://charts.jetstack.io"
   chart      = "cert-manager"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.cert_manager
   namespace  = kubernetes_namespace.cert_manager[0].metadata[0].name
 
   # Install CRDs as part of the main chart
@@ -130,7 +135,7 @@ locals {
       prometheus_servicemonitor_enabled = var.prometheus_servicemonitor_enabled
       webhook_resources                 = jsonencode(var.webhook_resources)
       cainjector_resources              = jsonencode(var.cainjector_resources)
-      cert_manager_controller_version   = var.chart_version
+      cert_manager_controller_version   = module.versions.chart_versions.cert_manager
     })
   ]
 

@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "cert-manager"
 }
 
-variable "chart_version" {
-  description = "Version of the Cert-Manager Helm chart"
-  type        = string
-  default     = "v1.13.2"
-}
 
 variable "crds_version" {
   description = "Version of the Cert-Manager CRDs to install"
@@ -28,6 +23,11 @@ variable "crds_version" {
 variable "email" {
   description = "Email address for Let's Encrypt registration"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", var.email))
+    error_message = "Email must be a valid email address format."
+  }
 }
 
 variable "create_cluster_issuer" {
@@ -42,8 +42,8 @@ variable "cluster_issuer_name" {
   default     = "letsencrypt-prod"
 
   validation {
-    condition     = contains(["letsencrypt-prod", "letsencrypt-prod"], var.cluster_issuer_name)
-    error_message = "Cluster issuer name must be either 'letsencrypt-prod'."
+    condition     = contains(["letsencrypt-prod", "letsencrypt-staging"], var.cluster_issuer_name)
+    error_message = "Cluster issuer name must be either 'letsencrypt-prod' or 'letsencrypt-staging'."
   }
 }
 
@@ -269,6 +269,11 @@ variable "installation_timeout" {
   description = "Timeout for Helm installation in seconds"
   type        = number
   default     = 600
+
+  validation {
+    condition     = var.installation_timeout >= 60 && var.installation_timeout <= 3600
+    error_message = "Installation timeout must be between 60 and 3600 seconds (1 minute to 1 hour)."
+  }
 }
 
 variable "atomic_installation" {

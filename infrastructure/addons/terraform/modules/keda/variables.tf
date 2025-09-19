@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "keda"
 }
 
-variable "chart_version" {
-  description = "Version of the KEDA Helm chart"
-  type        = string
-  default     = "2.12.1"
-}
 
 # Azure Configuration
 variable "azure_subscription_id" {

@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "external-dns-system"
 }
 
-variable "chart_version" {
-  description = "Version of the External DNS Helm chart"
-  type        = string
-  default     = "1.13.1"
-}
 
 # DNS Configuration
 variable "domain_filters" {
@@ -28,6 +23,11 @@ variable "domain_filters" {
 variable "txt_owner_id" {
   description = "Unique identifier for this External DNS instance"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$", var.txt_owner_id))
+    error_message = "TXT owner ID must be a valid DNS label (lowercase alphanumeric and hyphens, max 63 chars)."
+  }
 }
 
 variable "policy" {

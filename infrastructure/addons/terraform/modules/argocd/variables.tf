@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "argocd"
 }
 
-variable "chart_version" {
-  description = "Helm chart version for argo-cd"
-  type        = string
-  default     = "5.51.3"
-}
 
 variable "cluster_issuer_name" {
   description = "Cert-Manager cluster issuer for TLS"
@@ -33,6 +28,11 @@ variable "ingress_class_name" {
 variable "hostname" {
   description = "Hostname used to expose the Argo CD UI"
   type        = string
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9\\-]{0,61}[a-zA-Z0-9])?)*$", var.hostname))
+    error_message = "Hostname must be a valid DNS hostname format."
+  }
 }
 
 variable "tls_secret_name" {
@@ -41,7 +41,7 @@ variable "tls_secret_name" {
   default     = "argocd-tls"
 }
 
-variable "additional_ingress_annotations" {
+variable "ingress_annotations" {
   description = "Additional ingress annotations"
   type        = map(string)
   default     = {}

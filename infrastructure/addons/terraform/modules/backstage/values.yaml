@@ -1,0 +1,149 @@
+# Backstage custom values rendered by Terraform
+
+backstage:
+  image:
+    repository: backstage/backstage
+    tag: ${backstage_version}
+    pullPolicy: IfNotPresent
+
+  # App configuration from Terraform
+  appConfig:
+    configMapRef: backstage-app-config
+
+  # Environment variables for credentials
+  extraEnvVars:
+    - name: GITHUB_CLIENT_ID
+      value: "${github_client_id}"
+    - name: GITHUB_CLIENT_SECRET
+      value: "${github_client_secret}"
+    - name: GITHUB_TOKEN
+      value: "${github_token}"
+%{ if postgresql_enabled }
+    - name: POSTGRES_HOST
+      value: "backstage-postgresql"
+    - name: POSTGRES_PORT
+      value: "5432"
+    - name: POSTGRES_USER
+      value: "${postgresql_username}"
+    - name: POSTGRES_PASSWORD
+      value: "${postgresql_password}"
+    - name: POSTGRES_DB
+      value: "${postgresql_database}"
+%{ else }
+    - name: POSTGRES_HOST
+      value: "${external_postgres_host}"
+    - name: POSTGRES_PORT
+      value: "5432"
+    - name: POSTGRES_USER
+      value: "${postgresql_username}"
+    - name: POSTGRES_PASSWORD
+      value: "${postgresql_password}"
+    - name: POSTGRES_DB
+      value: "${postgresql_database}"
+%{ endif }
+
+  # Resource configuration
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # Security context
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    runAsGroup: 1001
+
+  # Node selector
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+    successThreshold: 1
+
+  readinessProbe:
+    httpGet:
+      path: /healthcheck
+      port: 7007
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+    successThreshold: 1
+
+# PostgreSQL configuration
+postgresql:
+  enabled: ${postgresql_enabled}
+%{ if postgresql_enabled }
+  auth:
+    username: ${postgresql_username}
+    password: ${postgresql_password}
+    database: ${postgresql_database}
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi
+%{ endif }
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ${ingress_class_name}
+  annotations:
+%{ if length(ingress_annotations) == 0 }
+    {}
+%{ else }
+%{ for k, v in ingress_annotations }
+    ${k}: ${v}
+%{ endfor }
+%{ endif }
+  hosts:
+    - host: ${hostname}
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: ${tls_secret_name}
+      hosts:
+        - ${hostname}
+
+# Service configuration
+service:
+  type: ClusterIP
+  ports:
+    backend:
+      port: 7007
+      targetPort: backend
+      protocol: TCP
+
+# Service account
+serviceAccount:
+  create: true
+  name: backstage
+  annotations: {}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1001
+
+# Additional ConfigMap for app configuration
+extraObjects:
+  - apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      name: backstage-app-config
+      namespace: backstage
+    data:
+      app-config.yaml: |
+${indent(8, app_config_yaml)}

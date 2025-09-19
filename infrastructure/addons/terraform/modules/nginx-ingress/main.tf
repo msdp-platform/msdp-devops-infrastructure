@@ -14,6 +14,11 @@ terraform {
   }
 }
 
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
+}
+
 # Create namespace
 resource "kubernetes_namespace" "nginx_ingress" {
   count = var.enabled ? 1 : 0
@@ -53,7 +58,7 @@ resource "helm_release" "nginx_ingress" {
   name       = "ingress-nginx"
   repository = "https://kubernetes.github.io/ingress-nginx"
   chart      = "ingress-nginx"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.nginx_ingress
   namespace  = kubernetes_namespace.nginx_ingress[0].metadata[0].name
   
   # Wait for namespace and service account

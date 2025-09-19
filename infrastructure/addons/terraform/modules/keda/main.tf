@@ -1,17 +1,22 @@
-# KEDA (Kubernetes Event-driven Autoscaling) Terraform Module
+# KEDA Terraform Module
 # This module manages KEDA using Terraform + Helm Provider
 
 terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12"
+      version = "~> 2.24"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24"
     }
   }
+}
+
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
 }
 
 # Create namespace
@@ -36,7 +41,7 @@ resource "helm_release" "keda" {
   name       = "keda"
   repository = "https://kedacore.github.io/charts"
   chart      = "keda"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.keda
   namespace  = kubernetes_namespace.keda[0].metadata[0].name
   
   # Wait for namespace

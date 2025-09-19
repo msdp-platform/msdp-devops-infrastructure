@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "kube-system"
 }
 
-variable "chart_version" {
-  description = "Version of the Azure Disk CSI Driver Helm chart"
-  type        = string
-  default     = "v1.29.2"
-}
 
 # Storage Configuration
 variable "create_storage_classes" {

@@ -12,11 +12,6 @@ variable "namespace" {
   default     = "nginx-ingress"
 }
 
-variable "chart_version" {
-  description = "Version of the NGINX Ingress Controller Helm chart"
-  type        = string
-  default     = "4.11.3"
-}
 
 # Application Configuration
 variable "replica_count" {

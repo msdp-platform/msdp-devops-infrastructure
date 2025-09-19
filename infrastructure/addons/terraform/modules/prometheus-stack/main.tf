@@ -1,4 +1,5 @@
 # Prometheus Stack Terraform Module
+# This module manages Prometheus Stack using Terraform + Helm Provider
 
 terraform {
   required_providers {
@@ -11,6 +12,11 @@ terraform {
       version = "~> 2.24"
     }
   }
+}
+
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
 }
 
 resource "kubernetes_namespace" "prometheus" {
@@ -47,7 +53,7 @@ resource "helm_release" "prometheus_stack" {
   name       = "kube-prometheus-stack"
   repository = "https://prometheus-community.github.io/helm-charts"
   chart      = "kube-prometheus-stack"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.prometheus_stack
   namespace  = kubernetes_namespace.prometheus[0].metadata[0].name
 
   values = [

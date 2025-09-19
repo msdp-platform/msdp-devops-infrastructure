@@ -1,4 +1,5 @@
-# Argo CD Terraform Module
+# ArgoCD Terraform Module
+# This module manages ArgoCD using Terraform + Helm Provider
 
 terraform {
   required_providers {
@@ -11,6 +12,11 @@ terraform {
       version = "~> 2.24"
     }
   }
+}
+
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
 }
 
 resource "kubernetes_namespace" "argocd" {
@@ -30,7 +36,7 @@ locals {
     var.cluster_issuer_name != "" ? {
       "cert-manager.io/cluster-issuer" = var.cluster_issuer_name
     } : {},
-    var.additional_ingress_annotations
+    var.ingress_annotations
   )
 }
 
@@ -40,7 +46,7 @@ resource "helm_release" "argocd" {
   name       = "argocd"
   repository = "https://argoproj.github.io/argo-helm"
   chart      = "argo-cd"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.argocd
   namespace  = kubernetes_namespace.argocd[0].metadata[0].name
 
   values = [

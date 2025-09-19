@@ -1,0 +1,98 @@
+# Crossplane custom values rendered by Terraform
+
+# Image configuration
+image:
+  repository: crossplane/crossplane
+  tag: ${crossplane_version}
+  pullPolicy: IfNotPresent
+
+# Core Crossplane configuration
+args:
+  - --enable-composition-revisions
+  - --enable-environment-configs
+  - --enable-usages
+
+# Resource limits
+resourcesCrossplane:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+# RBAC manager configuration
+rbacManager:
+  deploy: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Package manager configuration
+packageManager:
+  deploy: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Metrics and monitoring
+metrics:
+  enabled: true
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+
+# Node selector
+nodeSelector:
+  kubernetes.io/os: linux
+
+# Tolerations for system workloads
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+
+# Service account
+serviceAccount:
+  customAnnotations: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Replica count
+replicas: 1
+
+# Update strategy
+deploymentStrategy: RollingUpdate
+
+# Priority class for system workloads
+priorityClassName: system-cluster-critical
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/component: infrastructure-engine
+
+# Affinity rules
+affinity: {}
+
+# Extra environment variables
+extraEnvVars: []
+
+# Extra volumes and volume mounts
+extraVolumes: []
+extraVolumeMounts: []
+
+# Pod annotations
+podAnnotations: {}

@@ -11,11 +11,12 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.24"
     }
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
   }
+}
+
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
 }
 
 # Data sources
@@ -71,7 +72,7 @@ resource "helm_release" "karpenter" {
   name       = "karpenter"
   repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.karpenter
   namespace  = kubernetes_namespace.karpenter[0].metadata[0].name
   
   # Wait for namespace and service account

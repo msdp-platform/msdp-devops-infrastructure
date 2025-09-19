@@ -14,6 +14,11 @@ terraform {
   }
 }
 
+# Import shared versions
+module "versions" {
+  source = "../shared/versions"
+}
+
 # Create namespace
 resource "kubernetes_namespace" "azure_disk_csi" {
   # Do not attempt to create kube-system; it already exists on all clusters
@@ -37,7 +42,7 @@ resource "helm_release" "azure_disk_csi" {
   name       = "azuredisk-csi-driver"
   repository = "https://raw.githubusercontent.com/kubernetes-sigs/azuredisk-csi-driver/master/charts"
   chart      = "azuredisk-csi-driver"
-  version    = var.chart_version
+  version    = module.versions.chart_versions.azure_disk_csi
   # Always deploy into the requested namespace (kube-system is pre-existing)
   namespace  = var.namespace
   
