@@ -175,14 +175,14 @@ jobs:
         run: |
           echo "🔧 Setting Terraform variables..."
 
-          # Common variables
-          echo "TF_VAR_domain_name=aztech-msdp.com" >> $GITHUB_ENV
-          echo "TF_VAR_hosted_zone_id=Z0581458B5QGVNLDPESN" >> $GITHUB_ENV
-          echo "TF_VAR_cert_manager_email=devops@aztech-msdp.com" >> $GITHUB_ENV
+          # Common variables (use repository variables or fallback to defaults)
+          echo "TF_VAR_domain_name=${{ vars.ORG_DOMAIN || 'aztech-msdp.com' }}" >> $GITHUB_ENV
+          echo "TF_VAR_hosted_zone_id=${{ vars.ROUTE53_ZONE_ID || 'Z0581458B5QGVNLDPESN' }}" >> $GITHUB_ENV
+          echo "TF_VAR_cert_manager_email=${{ vars.ORG_EMAIL || 'devops@aztech-msdp.com' }}" >> $GITHUB_ENV
 
           if [[ "${{ env.CLOUD_PROVIDER }}" == "aws" ]]; then
-            echo "TF_VAR_aws_region=eu-west-1" >> $GITHUB_ENV
-            echo "TF_VAR_aws_account_id=319422413814" >> $GITHUB_ENV
+            echo "TF_VAR_aws_region=${{ vars.AWS_DEFAULT_REGION || 'eu-west-1' }}" >> $GITHUB_ENV
+            echo "TF_VAR_aws_account_id=${{ vars.AWS_ACCOUNT_ID || '319422413814' }}" >> $GITHUB_ENV
             
             # Get cluster endpoint
             CLUSTER_ENDPOINT=$(aws eks describe-cluster --name ${{ env.CLUSTER_NAME }} --query 'cluster.endpoint' --output text)

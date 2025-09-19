@@ -1,0 +1,59 @@
+# MSDP Organization Configuration
+# This file contains organization-specific values that were previously hardcoded
+
+organization:
+  name: "msdp"
+  domain: "aztech-msdp.com"
+  email: "devops@aztech-msdp.com"
+  github_org: "msdp-platform"
+
+cloud_accounts:
+  aws:
+    account_id: "319422413814"
+    default_region: "eu-west-1"
+    regions:
+      primary: "eu-west-1"
+      secondary: "us-east-1"
+  
+  azure:
+    subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+    default_location: "uksouth"
+    locations:
+      primary: "uksouth"
+      secondary: "eastus"
+
+dns:
+  provider: "route53"
+  route53:
+    zone_id: "Z0581458B5QGVNLDPESN"
+
+registries:
+  ghcr: "ghcr.io/msdp-platform"
+  aws_ecr: "319422413814.dkr.ecr.eu-west-1.amazonaws.com"
+  azure_acr: "msdp.azurecr.io"
+  default: "ghcr"
+
+naming:
+  prefix: "msdp"
+  environments:
+    - "dev"
+    - "staging"
+    - "prod"
+  cluster_pattern: "{prefix}-{cloud}-{env}-{number:02d}"
+
+defaults:
+  kubernetes_version: "1.31.2"
+  vm_sizes:
+    aws:
+      small: "t3.medium"
+      medium: "t3.large"
+      large: "m5.large"
+    azure:
+      small: "Standard_D2s_v3"
+      medium: "Standard_D4s_v3"
+      large: "Standard_D8s_v3"
+
+security:
+  sign_images: false
+  vulnerability_scanning: true
+  network_policies: true

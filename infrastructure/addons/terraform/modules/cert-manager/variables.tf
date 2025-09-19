@@ -87,7 +87,7 @@ variable "aws_region" {
 variable "hosted_zone_id" {
   description = "AWS Route53 hosted zone ID"
   type        = string
-  default     = "Z0581458B5QGVNLDPESN"
+  default     = "Z0581458B5QGVNLDPESN" # Override with your Route53 zone ID
 }
 
 variable "aws_role_arn" {

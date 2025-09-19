@@ -17,7 +17,7 @@ variable "namespace" {
 variable "domain_filters" {
   description = "List of domains to manage"
   type        = list(string)
-  default     = ["aztech-msdp.com"]
+  default     = ["aztech-msdp.com"] # Override with your organization's domain
 }
 
 variable "txt_owner_id" {
@@ -95,7 +95,7 @@ variable "aws_zone_type" {
 variable "hosted_zone_id" {
   description = "AWS Route53 hosted zone ID"
   type        = string
-  default     = "Z0581458B5QGVNLDPESN"
+  default     = "Z0581458B5QGVNLDPESN" # Override with your Route53 zone ID
 }
 
 # AWS Authentication (for cross-cloud access)

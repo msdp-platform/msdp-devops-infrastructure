@@ -1,6 +1,8 @@
-org: msdp
-base_domain: aztech-msdp.com
-git_org: msdp-platform
+# Organization-specific values (loaded from organization.yaml)
+# These values can be overridden by environment variables for CI/CD
+org: "${ORG_NAME:-msdp}"
+base_domain: "${ORG_DOMAIN:-aztech-msdp.com}"
+git_org: "${ORG_GITHUB:-msdp-platform}"
 dictionary_ref: ./dictionary.yaml # canonical naming templates and constraints
 
 cloud_providers:
@@ -8,17 +10,17 @@ cloud_providers:
   - azure
 
 default_regions:
-  aws: us-east-1
-  azure: uksouth
+  aws: "${AWS_DEFAULT_REGION:-eu-west-1}"
+  azure: "${AZURE_DEFAULT_LOCATION:-uksouth}"
 
 accounts:
-  aws_account_id: "319422413814"
-  azure_subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+  aws_account_id: "${AWS_ACCOUNT_ID:-319422413814}"
+  azure_subscription_id: "${AZURE_SUBSCRIPTION_ID:-ecd977ed-b8df-4eb6-9cba-98397e1b2491}"
 
 registries:
-  ghcr: ghcr.io/msdp-platform # GitHub Container Registry org scope
-  aws_ecr: public.ecr.aws/acme # optional, for future multi-cloud
-  azure_acr: acme.azurecr.io # optional, for future multi-cloud
+  ghcr: "${CONTAINER_REGISTRY:-ghcr.io/msdp-platform}" # GitHub Container Registry org scope
+  aws_ecr: "${AWS_ECR_REGISTRY:-319422413814.dkr.ecr.eu-west-1.amazonaws.com}"
+  azure_acr: "${AZURE_ACR_REGISTRY:-msdp.azurecr.io}"
 default_registry: ghcr # use GHCR by default
 
 naming:
@@ -54,8 +56,8 @@ autoscaling:
   pods: keda
 
 dns:
-  provider: route53
-  route53_zone_id: Z0581458B5QGVNLDPESN
+  provider: "${DNS_PROVIDER:-route53}"
+  route53_zone_id: "${ROUTE53_ZONE_ID:-Z0581458B5QGVNLDPESN}"
 
 security_baseline:
   sign_images: false

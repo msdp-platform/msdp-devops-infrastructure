@@ -21,19 +21,19 @@ variable "aws_region" {
 variable "domain_name" {
   description = "Domain name for DNS management"
   type        = string
-  default     = "aztech-msdp.com"
+  default     = "aztech-msdp.com" # Override with your organization's domain
 }
 
 variable "hosted_zone_id" {
   description = "Route53 hosted zone ID"
   type        = string
-  default     = "Z0581458B5QGVNLDPESN"
+  default     = "Z0581458B5QGVNLDPESN" # Override with your Route53 zone ID
 }
 
 variable "cert_manager_email" {
   description = "Email address for Let's Encrypt certificates"
   type        = string
-  default     = "devops@aztech-msdp.com"
+  default     = "devops@aztech-msdp.com" # Override with your organization's email
 }
 
 variable "ebs_kms_key_id" {
