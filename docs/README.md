@@ -24,7 +24,6 @@ This directory contains comprehensive documentation for the MSDP DevOps Infrastr
 - 📁 **[ci-cd/](ci-cd/)** - CI/CD pipeline documentation
 - 📁 **[team-guides/](team-guides/)** - Team-specific guides and procedures
 - 📁 **[preflight/](preflight/)** - Pre-deployment checks and validations
-- 📁 **[archive/](archive/)** - Historical documentation and deprecated content
 
 ## 🎯 Key Documents
 
