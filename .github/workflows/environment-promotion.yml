@@ -237,8 +237,7 @@ jobs:
     with:
       target_environment: ${{ github.event.inputs.target_environment }}
       components: ${{ github.event.inputs.components }}
-      action: ${{ github.event.inputs.dry_run == 'true' && 'plan' || 'apply' }}
-      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      action: ${{ github.event.inputs.dry_run == 'true' && 'plan' || 'apply' }}      cloud_provider: ${{ github.event.inputs.cloud_provider }}
       force_sequential: false
     secrets: inherit
 
