@@ -135,9 +135,11 @@ module "external_dns" {
   txt_owner_id   = local.plugins.external_dns.txt_owner_id
   hosted_zone_id = var.hosted_zone_id
   
-  # Cloud configuration (Azure cluster using AWS Route53 with OIDC)
+  # Cloud configuration (Azure cluster using AWS Route53 with static credentials)
   cloud_provider              = "azure"
   aws_region                 = var.aws_region
+  aws_access_key_id          = var.aws_access_key_id
+  aws_secret_access_key      = var.aws_secret_access_key
   aws_role_arn               = var.aws_role_arn_for_azure
   aws_web_identity_token_file = var.aws_web_identity_token_file
   use_oidc                   = false
