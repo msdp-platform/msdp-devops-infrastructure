@@ -1,22 +1,22 @@
 # Cert-Manager Terraform Module
 # This module manages Cert-Manager using Terraform + Helm Provider
 
-# Import shared versions
-module "versions" {
-  source = "../shared/versions"
-}
-
 terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = module.versions.provider_versions.helm
+      version = "~> 2.15"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = module.versions.provider_versions.kubernetes
+      version = "~> 2.24"
     }
   }
+}
+
+# Import shared versions for chart and image versions
+module "versions" {
+  source = "../shared/versions"
 }
 
 # Create namespace

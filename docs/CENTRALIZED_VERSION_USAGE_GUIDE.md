@@ -61,28 +61,29 @@ tool_versions = {
 
 ### **1. In Terraform Modules**
 ```hcl
-# Import shared versions
-module "versions" {
-  source = "../shared/versions"
-}
-
+# Provider versions must be literals (Terraform limitation)
 terraform {
   required_providers {
     helm = {
       source  = "hashicorp/helm"
-      version = module.versions.provider_versions.helm
+      version = "~> 2.15"  # Reference centralized versions for consistency
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = module.versions.provider_versions.kubernetes
+      version = "~> 2.24"  # Reference centralized versions for consistency
     }
   }
 }
 
-# Use in resources
+# Import shared versions for chart and image versions
+module "versions" {
+  source = "../shared/versions"
+}
+
+# Use centralized versions in resources
 resource "helm_release" "example" {
   chart   = "my-chart"
-  version = module.versions.chart_versions.my_chart
+  version = module.versions.chart_versions.my_chart  # This works!
 }
 ```
 
