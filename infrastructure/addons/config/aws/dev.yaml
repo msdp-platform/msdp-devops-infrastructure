@@ -1,0 +1,134 @@
+# AWS Development Environment Plugin Configuration
+environment: dev
+cloud_provider: aws
+cluster_name: eks-msdp-dev-01
+
+# AWS-specific settings
+aws:
+  region: eu-west-1
+  account_id: "319422413814"
+  vpc_id: "{{ VPC_ID }}"  # Will be resolved from network outputs
+  private_subnet_ids: "{{ PRIVATE_SUBNET_IDS }}"
+  public_subnet_ids: "{{ PUBLIC_SUBNET_IDS }}"
+
+# Plugin-specific configurations
+plugins:
+  external-dns:
+    config:
+      provider: aws
+      aws_zone_type: public
+      domain_filters: ["aztech-msdp.com"]
+      txt_owner_id: "eks-msdp-dev-01"
+      aws_region: eu-west-1
+      policy: sync  # sync, upsert-only
+      registry: txt
+      txt_prefix: "external-dns-"
+      
+  cert-manager:
+    config:
+      cluster_issuer: letsencrypt-prod
+      email: "devops@aztech-msdp.com"
+      dns_challenge: true
+      dns_provider: route53
+      aws_region: eu-west-1
+      hosted_zone_id: "Z0581458B5QGVNLDPESN"
+      
+  external-secrets:
+    config:
+      provider: aws-secrets-manager
+      region: eu-west-1
+      role_arn: "arn:aws:iam::319422413814:role/EKSExternalSecretsRole"
+      secret_stores:
+        - name: aws-secrets-manager
+          provider: aws
+          region: eu-west-1
+          
+  nginx-ingress:
+    config:
+      replica_count: 2
+      service_type: LoadBalancer
+      service_annotations:
+        service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+        service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+      enable_ssl_redirect: true
+      default_ssl_certificate: "nginx-ingress/wildcard-tls"
+      
+  aws-load-balancer-controller:
+    config:
+      cluster_name: eks-msdp-dev-01
+      service_account_name: aws-load-balancer-controller
+      role_arn: "arn:aws:iam::319422413814:role/AWSLoadBalancerControllerRole"
+      vpc_id: "{{ VPC_ID }}"
+      region: eu-west-1
+      
+  prometheus-stack:
+    config:
+      retention: 7d  # Shorter retention for dev
+      storage_class: gp3
+      storage_size: 20Gi
+      replica_count: 1
+      alertmanager_enabled: true
+      grafana_enabled: false  # Separate Grafana plugin
+      node_exporter_enabled: true
+      kube_state_metrics_enabled: true
+      
+  grafana:
+    config:
+      admin_password: "{{ GRAFANA_ADMIN_PASSWORD }}"
+      storage_class: gp3
+      storage_size: 10Gi
+      ingress_enabled: true
+      hostname: "grafana-dev.aztech-msdp.com"
+      datasources:
+        - name: Prometheus
+          url: "http://prometheus-stack-prometheus:9090"
+          type: prometheus
+          
+  fluent-bit:
+    config:
+      output_plugin: cloudwatch
+      aws_region: eu-west-1
+      log_group_name: "/aws/eks/msdp-dev/fluent-bit"
+      log_stream_prefix: "fluent-bit-"
+      auto_create_group: true
+      
+  jaeger:
+    config:
+      storage_type: elasticsearch
+      elasticsearch_url: "http://elasticsearch:9200"
+      ingress_enabled: true
+      hostname: "jaeger-dev.aztech-msdp.com"
+      
+  argocd:
+    config:
+      admin_password: "{{ ARGOCD_ADMIN_PASSWORD }}"
+      ingress_enabled: true
+      hostname: "argocd-dev.aztech-msdp.com"
+      repositories:
+        - url: "https://github.com/msdp-platform/msdp-applications"
+          type: git
+          
+  velero:
+    config:
+      provider: aws
+      bucket: "msdp-velero-backups-dev"
+      region: eu-west-1
+      backup_location: "default"
+      volume_snapshot_location: "default"
+      
+# Environment-specific overrides
+overrides:
+  # Use staging certificates for dev
+  cert_manager_cluster_issuer: letsencrypt-prod
+  
+  # Reduced resources for dev
+  resource_limits:
+    small:
+      cpu: "200m"
+      memory: "256Mi"
+    medium:
+      cpu: "500m"
+      memory: "512Mi"
+    large:
+      cpu: "1000m"
+      memory: "1Gi"

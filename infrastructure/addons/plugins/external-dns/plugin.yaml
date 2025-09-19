@@ -1,0 +1,110 @@
+# External DNS Plugin Specification
+plugin:
+  name: external-dns
+  version: "0.14.0"
+  description: "Kubernetes External DNS Controller for automatic DNS management"
+  category: core
+  priority: 1
+  
+  # Plugin capabilities
+  capabilities:
+    - dns-management
+    - service-discovery
+    - ingress-integration
+    - automatic-dns-records
+    
+  # Supported cloud providers
+  cloud_providers:
+    - aws
+    - azure
+    - gcp
+    - cloudflare
+    
+  # Dependencies
+  dependencies:
+    required: []
+    optional: ["cert-manager"]
+    conflicts: []
+    
+  # Resource requirements
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+    
+  # Installation method
+  installation:
+    method: helm
+    chart: "external-dns/external-dns"
+    version: "1.13.1"
+    repository: "https://kubernetes-sigs.github.io/external-dns/"
+    namespace: "external-dns-system"
+    create_namespace: true
+    
+  # Health check configuration
+  health_check:
+    type: "http"
+    endpoint: "/healthz"
+    port: 7979
+    timeout: 30
+    retries: 3
+    initial_delay: 30
+    
+  # Configuration schema
+  config_schema:
+    provider:
+      type: string
+      required: true
+      enum: ["aws", "azure", "cloudflare", "google"]
+      description: "DNS provider to use"
+    domain_filters:
+      type: array
+      required: true
+      description: "List of domains to manage"
+    txt_owner_id:
+      type: string
+      required: true
+      description: "Unique identifier for this ExternalDNS instance"
+    policy:
+      type: string
+      required: false
+      default: "sync"
+      enum: ["sync", "upsert-only"]
+      description: "DNS record management policy"
+    registry:
+      type: string
+      required: false
+      default: "txt"
+      enum: ["txt", "noop"]
+      description: "Registry type for tracking DNS records"
+      
+  # Monitoring and observability
+  monitoring:
+    metrics:
+      enabled: true
+      port: 7979
+      path: "/metrics"
+    logs:
+      level: "info"
+      format: "text"
+      
+  # Security settings
+  security:
+    run_as_non_root: true
+    read_only_root_filesystem: true
+    drop_capabilities: ["ALL"]
+    
+# Plugin metadata
+metadata:
+  maintainer: "MSDP Platform Team"
+  documentation: "https://github.com/kubernetes-sigs/external-dns"
+  source: "https://github.com/kubernetes-sigs/external-dns"
+  license: "Apache-2.0"
+  tags:
+    - dns
+    - networking
+    - automation
+    - core

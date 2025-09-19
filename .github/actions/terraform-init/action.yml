@@ -1,0 +1,68 @@
+name: "Terraform Init (Reusable)"
+description: "Composite action to install Terraform, initialize backend, and validate configuration."
+
+inputs:
+  working-directory:
+    description: "Directory containing Terraform configuration (where init/validate will run)"
+    required: true
+  terraform-version:
+    description: "Terraform version to install"
+    required: false
+    default: "1.9.8"
+  backend-config-file:
+    description: "Required path to backend config JSON file"
+    required: true
+  var-file:
+    description: "Optional path to a .tfvars file (reserved for future steps like plan/apply)"
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    # Step 1: Install Terraform at the requested version.
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+
+    # Step 2: Initialize Terraform with required backend config file.
+    - name: Terraform init
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Resolve backend-config-file to an absolute path (works regardless of cwd)
+        CONFIG_FILE="${{ inputs.backend-config-file }}"
+        if [[ "$CONFIG_FILE" != /* ]]; then
+          CONFIG_FILE="${GITHUB_WORKSPACE}/$CONFIG_FILE"
+        fi
+
+        # Validate backend config file exists BEFORE changing directory
+        if [ ! -f "$CONFIG_FILE" ]; then
+          echo "ERROR: Backend config file not found: $CONFIG_FILE" >&2
+          exit 1
+        fi
+        echo "Using backend config: $CONFIG_FILE"
+
+        # Extract backend config values using jq from the absolute CONFIG_FILE
+        BUCKET=$(jq -r '.bucket' "$CONFIG_FILE")
+        KEY=$(jq -r '.key' "$CONFIG_FILE")
+        REGION=$(jq -r '.region' "$CONFIG_FILE")
+        DYNAMODB_TABLE=$(jq -r '.dynamodb_table' "$CONFIG_FILE")
+
+        echo "Using state key: $KEY (pipeline_name from config if present)"
+
+        # Change to the Terraform working directory and initialize with backend config
+        cd "${{ inputs.working-directory }}"
+        terraform init \
+          -backend-config="bucket=$BUCKET" \
+          -backend-config="key=$KEY" \
+          -backend-config="region=$REGION" \
+          -backend-config="dynamodb_table=$DYNAMODB_TABLE"
+
+    # Step 3: Validate Terraform configuration.
+    - name: Terraform validate
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{ inputs.working-directory }}"
+        terraform validate

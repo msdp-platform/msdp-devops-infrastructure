@@ -1,0 +1,234 @@
+# Global Kubernetes Add-ons Plugin Configuration
+# This file defines all available plugins and their global settings
+
+plugins:
+  # Core Infrastructure Plugins
+  external-dns:
+    enabled: true
+    priority: 1
+    category: core
+    dependencies: []
+    description: "Kubernetes External DNS Controller for automatic DNS management"
+    
+  cert-manager:
+    enabled: true
+    priority: 2
+    category: core
+    dependencies: ["external-dns"]
+    description: "Automatic TLS certificate management with Let's Encrypt"
+    
+  external-secrets:
+    enabled: true
+    priority: 3
+    category: security
+    dependencies: []
+    description: "Synchronize external secrets from cloud providers"
+    
+  # Ingress Controllers
+  nginx-ingress:
+    enabled: true
+    priority: 4
+    category: ingress
+    dependencies: ["cert-manager"]
+    description: "NGINX Ingress Controller for HTTP/HTTPS traffic management"
+    
+  aws-load-balancer-controller:
+    enabled: true
+    priority: 4
+    category: ingress
+    dependencies: []
+    cloud_provider: aws
+    description: "AWS Load Balancer Controller for ALB/NLB integration"
+    
+  azure-application-gateway:
+    enabled: true
+    priority: 4
+    category: ingress
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Application Gateway Ingress Controller"
+    
+  # Observability Stack
+  prometheus-stack:
+    enabled: true
+    priority: 5
+    category: observability
+    dependencies: []
+    description: "Prometheus monitoring stack with AlertManager"
+    
+  grafana:
+    enabled: true
+    priority: 6
+    category: observability
+    dependencies: ["prometheus-stack"]
+    description: "Grafana dashboards and visualization"
+    
+  fluent-bit:
+    enabled: true
+    priority: 7
+    category: observability
+    dependencies: []
+    description: "Fluent Bit log forwarding and processing"
+    
+  jaeger:
+    enabled: true
+    priority: 8
+    category: observability
+    dependencies: []
+    description: "Jaeger distributed tracing system"
+    
+  # Security Plugins
+  gatekeeper:
+    enabled: true
+    priority: 9
+    category: security
+    dependencies: []
+    description: "OPA Gatekeeper for policy enforcement"
+    
+  trivy-operator:
+    enabled: true
+    priority: 10
+    category: security
+    dependencies: []
+    description: "Trivy Operator for vulnerability scanning"
+    
+  # GitOps and CI/CD
+  argocd:
+    enabled: true
+    priority: 11
+    category: gitops
+    dependencies: ["nginx-ingress", "cert-manager"]
+    description: "ArgoCD for GitOps continuous delivery"
+    
+  # Backup and Storage
+  velero:
+    enabled: true
+    priority: 12
+    category: backup
+    dependencies: []
+    description: "Velero for cluster backup and disaster recovery"
+    
+  # AWS-Specific Add-ons
+  karpenter:
+    enabled: true
+    priority: 13
+    category: autoscaling
+    dependencies: []
+    cloud_provider: aws
+    description: "Advanced node autoscaling and provisioning for EKS"
+    
+  ebs-csi-driver:
+    enabled: true
+    priority: 2
+    category: storage
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon EBS Container Storage Interface (CSI) driver"
+    
+  efs-csi-driver:
+    enabled: true
+    priority: 14
+    category: storage
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon EFS Container Storage Interface (CSI) driver"
+    
+  aws-node-termination-handler:
+    enabled: true
+    priority: 15
+    category: reliability
+    dependencies: []
+    cloud_provider: aws
+    description: "Gracefully handle EC2 instance shutdown within Kubernetes"
+    
+  vpc-cni:
+    enabled: true
+    priority: 1
+    category: networking
+    dependencies: []
+    cloud_provider: aws
+    description: "Amazon VPC CNI plugin for Kubernetes"
+    
+  # Azure-Specific Add-ons
+  virtual-node:
+    enabled: true
+    priority: 13
+    category: autoscaling
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Container Instances virtual nodes for AKS"
+    
+  azure-disk-csi-driver:
+    enabled: true
+    priority: 2
+    category: storage
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Disk Container Storage Interface (CSI) driver"
+    
+  azure-file-csi-driver:
+    enabled: true
+    priority: 14
+    category: storage
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Files Container Storage Interface (CSI) driver"
+    
+  keda:
+    enabled: true
+    priority: 16
+    category: autoscaling
+    dependencies: []
+    cloud_provider: azure
+    description: "Kubernetes Event-Driven Autoscaling with Azure integration"
+    
+  azure-keyvault-csi-driver:
+    enabled: true
+    priority: 17
+    category: security
+    dependencies: []
+    cloud_provider: azure
+    description: "Azure Key Vault CSI driver for secret management"
+
+# Global Settings
+settings:
+  installation_timeout: 600        # 10 minutes per plugin
+  health_check_retries: 5         # Number of health check attempts
+  health_check_interval: 30       # Seconds between health checks
+  rollback_on_failure: true       # Rollback on plugin installation failure
+  parallel_installation: false    # Install plugins sequentially
+  dry_run: false                  # Global dry-run mode
+  log_level: info                 # Logging level: debug, info, warn, error
+  
+# Plugin Categories
+categories:
+  core:
+    description: "Essential infrastructure components"
+    color: "blue"
+  security:
+    description: "Security and compliance tools"
+    color: "red"
+  ingress:
+    description: "Traffic management and ingress controllers"
+    color: "green"
+  observability:
+    description: "Monitoring, logging, and tracing"
+    color: "yellow"
+  gitops:
+    description: "GitOps and continuous delivery"
+    color: "purple"
+  backup:
+    description: "Backup and disaster recovery"
+    color: "orange"
+  autoscaling:
+    description: "Node and pod autoscaling solutions"
+    color: "cyan"
+  storage:
+    description: "Persistent and shared storage drivers"
+    color: "brown"
+  reliability:
+    description: "High availability and fault tolerance"
+    color: "gray"
+  networking:
+    description: "Advanced networking and service mesh"
+    color: "teal"

@@ -1,0 +1,55 @@
+accounts:
+  aws:
+    dev:
+      account_id: "319422413814"
+      region: "eu-west-1"
+      purpose: "Development and testing workloads"
+      cost_center: "engineering"
+      
+    staging:
+      account_id: "319422413814"  # Same as dev for now
+      region: "eu-west-1"
+      purpose: "Pre-production testing and validation"
+      cost_center: "engineering"
+      
+    prod:
+      account_id: "319422413814"  # Update when you have separate prod account
+      region: "eu-west-1"
+      purpose: "Production workloads"
+      cost_center: "operations"
+      
+    shared:
+      account_id: "319422413814"  # Update when you have shared services account
+      region: "eu-west-1"
+      purpose: "Shared services and tools"
+      cost_center: "platform"
+      
+  azure:
+    dev:
+      subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+      tenant_id: "{{ AZURE_TENANT_ID }}"  # Will be replaced by secrets
+      region: "uksouth"
+      purpose: "Development and testing workloads"
+      cost_center: "engineering"
+      
+    staging:
+      subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"  # Same as dev for now
+      tenant_id: "{{ AZURE_TENANT_ID }}"
+      region: "uksouth"
+      purpose: "Pre-production testing and validation"
+      cost_center: "engineering"
+      
+    prod:
+      subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"  # Update when you have separate prod subscription
+      tenant_id: "{{ AZURE_TENANT_ID }}"
+      region: "uksouth"
+      purpose: "Production workloads"
+      cost_center: "operations"
+
+# Account mapping for different environments
+environment_account_mapping:
+  dev: dev
+  staging: staging
+  prod: prod
+  sandbox: dev
+  test: dev

@@ -1,0 +1,330 @@
+name: Terraform Operations (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: "Terraform working directory"
+        required: true
+        type: string
+      action:
+        description: "Terraform action (validate, plan, apply, destroy)"
+        required: true
+        type: string
+      environment:
+        description: "Environment name"
+        required: true
+        type: string
+      cloud_provider:
+        description: "Cloud provider (aws, azure)"
+        required: true
+        type: string
+      auto_approve:
+        description: "Auto-approve destructive actions"
+        required: false
+        type: boolean
+        default: false
+      terraform_version:
+        description: "Terraform version to use"
+        required: false
+        type: string
+        default: "1.9.5"
+    secrets:
+      AWS_ROLE_ARN:
+        required: false
+      AWS_ACCESS_KEY_ID:
+        required: false
+      AWS_SECRET_ACCESS_KEY:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        required: false
+    outputs:
+      plan_exitcode:
+        description: "Terraform plan exit code"
+        value: ${{ jobs.terraform.outputs.plan_exitcode }}
+      validation_status:
+        description: "Validation status"
+        value: ${{ jobs.terraform.outputs.validation_status }}
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      plan_exitcode: ${{ steps.plan.outputs.exitcode }}
+      validation_status: ${{ steps.validate.outputs.status }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            **/.terraform/providers
+          key: terraform-${{ inputs.terraform_version }}-${{ runner.os }}-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            terraform-${{ inputs.terraform_version }}-${{ runner.os }}-
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform_version }}
+          terraform_wrapper: false
+
+      - name: Configure Terraform Plugin Cache
+        run: |
+          mkdir -p ~/.terraform.d/plugin-cache
+          echo 'plugin_cache_dir = "$HOME/.terraform.d/plugin-cache"' > ~/.terraformrc
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install Python Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install PyYAML requests
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Working Directory
+        run: |
+          if [[ ! -d "${{ inputs.working_directory }}" ]]; then
+            echo "❌ Working directory not found: ${{ inputs.working_directory }}"
+            echo "Available directories:"
+            find . -name "*.tf" -type f | head -10 | xargs dirname | sort -u
+            exit 1
+          fi
+          echo "✅ Working directory found: ${{ inputs.working_directory }}"
+
+      - name: Prepare Backend Configuration
+        id: backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ inputs.environment }}
+          platform: ${{ inputs.cloud_provider }}
+          component: ${{ contains(inputs.working_directory, 'addons') && 'addons' || 'infrastructure' }}
+          aws_region: eu-west-1
+          create_resources: true
+
+      - name: Terraform Init
+        id: init
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "🚀 Initializing Terraform..."
+          set +e
+          terraform init \
+            -backend-config="${{ steps.backend.outputs.backend_config_file }}" \
+            -upgrade \
+            -no-color
+          INIT_EXIT_CODE=$?
+          set -e
+          
+          if [[ $INIT_EXIT_CODE -ne 0 ]]; then
+            echo "❌ Terraform init failed"
+            exit $INIT_EXIT_CODE
+          fi
+          echo "✅ Terraform init successful"
+
+      - name: Terraform Format Check
+        if: ${{ inputs.action == 'validate' || inputs.action == 'plan' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "🎨 Checking Terraform formatting..."
+          if ! terraform fmt -recursive -check -diff; then
+            echo "❌ Terraform files are not properly formatted"
+            echo "💡 Run 'terraform fmt -recursive' to fix formatting issues"
+            exit 1
+          fi
+          echo "✅ Terraform formatting check passed"
+
+      - name: Terraform Validate
+        id: validate
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "🔍 Validating Terraform configuration..."
+          set +e
+          terraform validate -no-color
+          VALIDATE_EXIT_CODE=$?
+          set -e
+          
+          if [[ $VALIDATE_EXIT_CODE -eq 0 ]]; then
+            echo "✅ Terraform validation passed"
+            echo "status=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Terraform validation failed"
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+            exit $VALIDATE_EXIT_CODE
+          fi
+
+      - name: Terraform Plan
+        if: ${{ inputs.action == 'plan' || inputs.action == 'apply' }}
+        id: plan
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "📋 Planning Terraform changes..."
+          
+          # Build terraform plan command with conditional variables
+          PLAN_CMD="terraform plan -no-color -detailed-exitcode"
+          
+          # Add AWS credentials if provided (for cross-cloud scenarios)
+          if [[ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]]; then
+            PLAN_CMD="$PLAN_CMD -var=\"aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}\""
+            PLAN_CMD="$PLAN_CMD -var=\"aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}\""
+          fi
+          
+          # Add output file for apply action
+          if [[ "${{ inputs.action }}" == "apply" ]]; then
+            PLAN_CMD="$PLAN_CMD -out=tfplan"
+          fi
+          
+          set +e
+          eval $PLAN_CMD
+          PLAN_EXIT_CODE=$?
+          set -e
+          
+          case "$PLAN_EXIT_CODE" in
+            0)
+              echo "✅ No changes required"
+              ;;
+            2)
+              echo "✅ Plan generated with changes"
+              ;;
+            *)
+              echo "❌ Terraform plan failed with exit code $PLAN_EXIT_CODE"
+              exit "$PLAN_EXIT_CODE"
+              ;;
+          esac
+          
+          echo "exitcode=$PLAN_EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+      - name: Terraform Apply
+        if: ${{ inputs.action == 'apply' && steps.plan.outputs.exitcode == '2' }}
+        working-directory: ${{ inputs.working_directory }}
+        timeout-minutes: 60
+        run: |
+          echo "🚀 Applying Terraform changes..."
+          
+          if [[ "${{ inputs.auto_approve }}" == "true" ]]; then
+            terraform apply -auto-approve -no-color tfplan
+            echo "✅ Terraform apply completed successfully"
+          else
+            echo "⚠️ Manual approval required"
+            echo "Plan summary:"
+            terraform show -no-color tfplan
+            echo ""
+            echo "To apply these changes, re-run with auto_approve=true"
+            exit 1
+          fi
+
+      - name: Terraform Destroy
+        if: ${{ inputs.action == 'destroy' }}
+        working-directory: ${{ inputs.working_directory }}
+        timeout-minutes: 30
+        run: |
+          echo "🗑️ Destroying Terraform resources..."
+          
+          if [[ "${{ inputs.auto_approve }}" == "true" ]]; then
+            # Build destroy command with conditional variables
+            DESTROY_CMD="terraform destroy -auto-approve -no-color"
+            
+            if [[ -n "${{ secrets.AWS_ACCESS_KEY_ID }}" ]]; then
+              DESTROY_CMD="$DESTROY_CMD -var=\"aws_access_key_id=${{ secrets.AWS_ACCESS_KEY_ID }}\""
+              DESTROY_CMD="$DESTROY_CMD -var=\"aws_secret_access_key=${{ secrets.AWS_SECRET_ACCESS_KEY }}\""
+            fi
+            
+            eval $DESTROY_CMD
+            echo "✅ Terraform destroy completed successfully"
+          else
+            echo "⚠️ Manual approval required for destroy operation"
+            terraform plan -destroy -no-color
+            echo ""
+            echo "To destroy these resources, re-run with auto_approve=true"
+            exit 1
+          fi
+
+      - name: Generate Outputs
+        if: ${{ (inputs.action == 'apply' || inputs.action == 'plan') && steps.plan.outputs.exitcode == '2' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: |
+          echo "📊 Generating Terraform outputs..."
+          if terraform output -json > terraform-outputs.json 2>/dev/null; then
+            echo "✅ Outputs generated successfully"
+            echo "## Terraform Outputs"
+            terraform output -no-color
+          else
+            echo "ℹ️ No outputs defined or available"
+          fi
+
+      - name: Upload Plan Artifact
+        if: ${{ inputs.action == 'plan' && steps.plan.outputs.exitcode == '2' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ inputs.cloud_provider }}-${{ inputs.environment }}-${{ github.run_number }}
+          path: ${{ inputs.working_directory }}/tfplan
+          retention-days: 7
+
+      - name: Upload Outputs Artifact
+        if: ${{ inputs.action == 'apply' && steps.plan.outputs.exitcode == '2' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-outputs-${{ inputs.cloud_provider }}-${{ inputs.environment }}-${{ github.run_number }}
+          path: ${{ inputs.working_directory }}/terraform-outputs.json
+          retention-days: 30
+
+      - name: Upload Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-logs-${{ inputs.cloud_provider }}-${{ inputs.environment }}-${{ github.run_number }}
+          path: |
+            ${{ inputs.working_directory }}/.terraform/
+            ${{ inputs.working_directory }}/terraform.log
+            ${{ inputs.working_directory }}/*.tfplan
+          retention-days: 7
+
+      - name: Operation Summary
+        if: always()
+        run: |
+          echo "## 🎯 Terraform Operation Summary"
+          echo ""
+          echo "**Action:** ${{ inputs.action }}"
+          echo "**Working Directory:** ${{ inputs.working_directory }}"
+          echo "**Environment:** ${{ inputs.environment }}"
+          echo "**Cloud Provider:** ${{ inputs.cloud_provider }}"
+          echo "**Terraform Version:** ${{ inputs.terraform_version }}"
+          echo ""
+          
+          if [[ "${{ steps.validate.outputs.status }}" == "success" ]]; then
+            echo "✅ **Validation:** Passed"
+          else
+            echo "❌ **Validation:** Failed"
+          fi
+          
+          if [[ -n "${{ steps.plan.outputs.exitcode }}" ]]; then
+            case "${{ steps.plan.outputs.exitcode }}" in
+              0) echo "✅ **Plan:** No changes required" ;;
+              2) echo "✅ **Plan:** Changes detected" ;;
+              *) echo "❌ **Plan:** Failed" ;;
+            esac
+          fi

@@ -1,0 +1,182 @@
+name: Azure AKS Clusters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/azure/aks/**"
+      - "config/dev.yaml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action: plan (dry-run), apply (create/update), destroy (tear down). On push defaults to plan."
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: "Target environment (maps to config/<env>.yaml). On push defaults to dev."
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+      cluster_name:
+        description: "Exact cluster name from config/<env>.yaml (e.g., aks-msdp-dev-01). Leave empty to deploy all. If no match, deployment is skipped."
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+  # Resolved defaults for non-dispatch events (e.g., push)
+  ACTION: ${{ github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+
+jobs:
+  prepare:
+    if: ${{ always() && !cancelled() }}
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Generate cluster matrix
+        id: generate-matrix
+        uses: ./.github/actions/generate-cluster-matrix
+        with:
+          environment: ${{ github.event.inputs.environment || 'dev' }}
+          cloud_provider: azure
+          cluster_filter: ${{ github.event.inputs.cluster_name }}
+
+  check-matrix:
+    needs: prepare
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() }}
+    outputs:
+      has-clusters: ${{ steps.check.outputs.has-clusters }}
+    steps:
+      - name: Check if matrix has clusters
+        id: check
+        env:
+          MATRIX: ${{ needs.prepare.outputs.matrix }}
+        run: |
+          echo "Matrix content: $MATRIX"
+          HAS=false
+          if [ -n "$MATRIX" ] && echo "$MATRIX" | jq -e '.include | type=="array" and length>0' >/dev/null 2>&1; then
+            HAS=true
+          fi
+          echo "Has clusters: $HAS"
+          if [ "$HAS" = "true" ]; then
+            echo "has-clusters=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-clusters=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Debug output
+          echo "=== Matrix Check Debug ==="
+          echo "Matrix: $MATRIX"
+          echo "Has clusters: $HAS"
+          echo "Output set to: $(grep has-clusters $GITHUB_OUTPUT | cut -d= -f2)"
+
+  deploy:
+    needs: [prepare, check-matrix]
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && needs.check-matrix.outputs.has-clusters == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+    
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Terraform Variables
+        uses: ./.github/actions/generate-terraform-vars
+        with:
+          environment: ${{ matrix.environment }}
+          cloud_provider: azure
+          component: cluster
+          cluster_config: ${{ toJson(matrix) }}
+          working_directory: infrastructure/environment/azure/aks
+
+      - name: Setup Terraform Backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ matrix.environment }}
+          platform: azure
+          component: aks
+          instance: ${{ matrix.name }}
+          aws_region: eu-west-1
+          create_resources: "true"
+
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/aks
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: 1.9.8
+
+      - name: Terraform Plan
+        if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed successfully for ${{ matrix.name }}"
+
+      - name: Terraform Apply
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "✅ Terraform apply completed successfully for ${{ matrix.name }}"
+
+      - name: Show Outputs
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: |
+          echo "=== AKS Cluster ${{ matrix.name }} Outputs ==="
+          terraform output -json | jq .
+
+      - name: Terraform Destroy
+        if: ${{ env.ACTION == 'destroy' }}
+        working-directory: infrastructure/environment/azure/aks
+        run: |
+          echo "⚠️  WARNING: This will destroy AKS cluster ${{ matrix.name }}!"
+          terraform destroy -auto-approve

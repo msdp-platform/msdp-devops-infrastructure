@@ -1,0 +1,322 @@
+name: "Kubernetes Setup (AKS | EKS | Kubeconfig)"
+description: "Composite action to prepare kubectl/helm and configure KUBECONFIG for AKS or EKS clusters, or from a supplied kubeconfig. Designed to pair with the Cloud Login action. Supports deriving AKS Resource ID and EKS ARN from minimal inputs."
+
+author: "msdp-platform"
+
+inputs:
+  provider:
+    description: "Kubernetes provider: aks | eks | kubeconfig"
+    required: true
+    default: "aks"
+
+  # Minimal discovery inputs
+  cluster-name:
+    description: "Cluster name (used for AKS/EKS when explicit values not provided)"
+    required: false
+    default: ""
+  environment:
+    description: "Environment identifier used for discovery filtering (optional, e.g., dev/test/prod)"
+    required: false
+    default: ""
+
+  # Tooling versions
+  kubectl-version:
+    description: "kubectl version to install (e.g., v1.30.3 or latest)"
+    required: false
+    default: "latest"
+  helm-version:
+    description: "helm version to install (e.g., v3.15.3 or latest)"
+    required: false
+    default: "latest"
+
+  # Optional UX niceties
+  context-name:
+    description: "Optional friendly context name to set/rename to"
+    required: false
+    default: ""
+  namespace:
+    description: "Optional namespace to create (if missing) and set on current context"
+    required: false
+    default: ""
+  validate:
+    description: "Run basic kubectl validation checks (true/false)"
+    required: false
+    default: "true"
+
+  # AKS-specific explicit inputs (will be auto-derived if omitted)
+  azure-resource-group:
+    description: "Azure Resource Group containing the AKS cluster"
+    required: false
+    default: ""
+  azure-aks-name:
+    description: "AKS cluster name (overrides cluster-name if provided)"
+    required: false
+    default: ""
+  azure-admin:
+    description: "Use --admin credentials (cluster-admin) for AKS context"
+    required: false
+    default: "false"
+
+  # EKS-specific explicit inputs (will be auto-derived if omitted)
+  eks-cluster-name:
+    description: "EKS cluster name (overrides cluster-name if provided)"
+    required: false
+    default: ""
+  eks-region:
+    description: "AWS region for EKS (falls back to AWS_REGION/AWS_DEFAULT_REGION)"
+    required: false
+    default: ""
+
+  # Generic kubeconfig (explicit path, no discovery)
+  kubeconfig-base64:
+    description: "Base64-encoded kubeconfig content (when provider=kubeconfig)"
+    required: false
+    default: ""
+
+outputs:
+  kubeconfig-path:
+    description: "Path to the kubeconfig file configured by this action"
+    value: ${{ steps.set-outputs.outputs.kubeconfig_path }}
+  context:
+    description: "The current kubectl context name"
+    value: ${{ steps.set-outputs.outputs.context }}
+  namespace:
+    description: "The current kubectl namespace (if set)"
+    value: ${{ steps.set-outputs.outputs.namespace }}
+  aks-resource-id:
+    description: "Derived AKS resource ID (when provider=aks)"
+    value: ${{ steps.set-outputs.outputs.aks_resource_id }}
+  eks-cluster-arn:
+    description: "Derived EKS cluster ARN (when provider=eks)"
+    value: ${{ steps.set-outputs.outputs.eks_cluster_arn }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up kubectl
+      uses: azure/setup-kubectl@v4
+      with:
+        version: ${{ inputs.kubectl-version }}
+
+    - name: Set up Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: ${{ inputs.helm-version }}
+
+    - name: Prepare KUBECONFIG path
+      id: prep
+      shell: bash
+      run: |
+        set -euo pipefail
+        KCFG="$RUNNER_TEMP/kubeconfig"
+        echo "KUBECONFIG=$KCFG" >> "$GITHUB_ENV"
+        echo "kubeconfig_path=$KCFG" >> "$GITHUB_OUTPUT"
+
+    # Derive AKS/EKS identifiers from minimal inputs
+    - name: Derive AKS identifiers (Resource Group, Resource ID)
+      if: ${{ inputs.provider == 'aks' }}
+      id: derive-aks
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Resolve AKS name precedence: explicit then generic cluster-name
+        AKS_NAME="${{ inputs.azure-aks-name }}"
+        if [ -z "$AKS_NAME" ]; then AKS_NAME="${{ inputs.cluster-name }}"; fi
+        if [ -z "$AKS_NAME" ]; then
+          echo "AKS name not provided. Specify azure-aks-name or cluster-name." >&2
+          exit 1
+        fi
+        # Resolve Resource Group: use explicit input when provided
+        RG_IN="${{ inputs.azure-resource-group }}"
+        ENV_FILTER="${{ inputs.environment }}"
+        if [ -n "$RG_IN" ]; then
+          RG="$RG_IN"
+        else
+          # Attempt discovery via az aks list
+          # If environment filter provided, use tags.env or resourceGroup name heuristic
+          if [ -n "$ENV_FILTER" ]; then
+            RG_LIST=$(az aks list \
+              --query "[?name=='$AKS_NAME' && (tags.env=='$ENV_FILTER' || contains(resourceGroup, '$ENV_FILTER'))].resourceGroup" -o tsv)
+          else
+            RG_LIST=$(az aks list --query "[?name=='$AKS_NAME'].resourceGroup" -o tsv)
+          fi
+          # Normalize whitespace and ensure unique
+          RG=$(echo "$RG_LIST" | awk 'NF')
+          COUNT=$(echo "$RG" | wc -l | tr -d ' ')
+          if [ -z "$RG" ]; then
+            echo "Failed to discover Resource Group for AKS '$AKS_NAME'. Provide azure-resource-group or ensure unique naming/tags." >&2
+            exit 1
+          fi
+          if [ "$COUNT" -gt 1 ]; then
+            echo "Multiple Resource Groups matched for AKS '$AKS_NAME':" >&2
+            echo "$RG" >&2
+            echo "Provide azure-resource-group or environment filter to disambiguate." >&2
+            exit 1
+          fi
+        fi
+        # Resolve Subscription ID from the current Azure CLI context
+        SUB=$(az account show --query id -o tsv)
+        if [ -z "$SUB" ]; then
+          echo "Unable to resolve Azure subscription ID from az account show." >&2
+          exit 1
+        fi
+        AKS_RESOURCE_ID="/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ContainerService/managedClusters/$AKS_NAME"
+        {
+          echo "AKS_NAME=$AKS_NAME"
+          echo "AKS_RG=$RG"
+          echo "AZ_SUBSCRIPTION_ID=$SUB"
+          echo "AKS_RESOURCE_ID=$AKS_RESOURCE_ID"
+        } >> "$GITHUB_ENV"
+        printf "aks_name=%s\naks_rg=%s\naks_resource_id=%s\n" "$AKS_NAME" "$RG" "$AKS_RESOURCE_ID" >> "$GITHUB_OUTPUT"
+
+    - name: Derive EKS identifiers (Region, Account, ARN)
+      if: ${{ inputs.provider == 'eks' }}
+      id: derive-eks
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Resolve EKS name precedence: explicit then generic cluster-name
+        EKS_NAME="${{ inputs.eks-cluster-name }}"
+        if [ -z "$EKS_NAME" ]; then EKS_NAME="${{ inputs.cluster-name }}"; fi
+        if [ -z "$EKS_NAME" ]; then
+          echo "EKS cluster name not provided. Specify eks-cluster-name or cluster-name." >&2
+          exit 1
+        fi
+        # Region precedence: explicit input -> AWS_REGION -> AWS_DEFAULT_REGION
+        REGION_IN="${{ inputs.eks-region }}"
+        REGION="$REGION_IN"
+        if [ -z "$REGION" ]; then REGION="$AWS_REGION"; fi
+        if [ -z "$REGION" ]; then REGION="$AWS_DEFAULT_REGION"; fi
+        if [ -z "$REGION" ]; then
+          echo "EKS region not resolved. Provide eks-region or ensure AWS_REGION is set by cloud login." >&2
+          exit 1
+        fi
+        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        if [ -z "$ACCOUNT_ID" ]; then
+          echo "Unable to resolve AWS Account ID via STS. Verify AWS OIDC login step." >&2
+          exit 1
+        fi
+        EKS_CLUSTER_ARN="arn:aws:eks:$REGION:$ACCOUNT_ID:cluster/$EKS_NAME"
+        {
+          echo "EKS_NAME=$EKS_NAME"
+          echo "EKS_REGION=$REGION"
+          echo "AWS_ACCOUNT_ID=$ACCOUNT_ID"
+          echo "EKS_CLUSTER_ARN=$EKS_CLUSTER_ARN"
+        } >> "$GITHUB_ENV"
+        printf "eks_name=%s\neks_region=%s\neks_cluster_arn=%s\n" "$EKS_NAME" "$REGION" "$EKS_CLUSTER_ARN" >> "$GITHUB_OUTPUT"
+
+    # AKS flow: assumes azure/login has already run in the job
+    - name: Install kubelogin for AKS
+      if: ${{ inputs.provider == 'aks' }}
+      uses: azure/use-kubelogin@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        kubelogin-version: latest
+
+    - name: Configure KUBECONFIG from AKS
+      if: ${{ inputs.provider == 'aks' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        ADMIN_FLAG=""
+        if [ "${{ inputs.azure-admin }}" = "true" ]; then
+          ADMIN_FLAG="--admin"
+        fi
+        # Prefer explicitly provided inputs, else use derived values
+        AKS_NAME="${{ inputs.azure-aks-name }}"; [ -z "$AKS_NAME" ] && AKS_NAME="${AKS_NAME:-${{ steps.derive-aks.outputs.aks_name }}}"
+        AKS_RG="${{ inputs.azure-resource-group }}"; [ -z "$AKS_RG" ] && AKS_RG="${AKS_RG:-${{ steps.derive-aks.outputs.aks_rg }}}"
+        # Normalize whitespace just in case
+        AKS_NAME="$(echo -n "$AKS_NAME" | xargs)"
+        AKS_RG="$(echo -n "$AKS_RG" | xargs)"
+        if [ -z "$AKS_NAME" ] || [ -z "$AKS_RG" ]; then
+          echo "AKS name/resource group unresolved. Provide azure-aks-name/azure-resource-group or cluster-name for discovery." >&2
+          exit 1
+        fi
+        az aks get-credentials --resource-group "$AKS_RG" --name "$AKS_NAME" $ADMIN_FLAG --overwrite-existing
+
+    # EKS flow: assumes aws-actions/configure-aws-credentials has already run
+    - name: Configure KUBECONFIG from EKS
+      if: ${{ inputs.provider == 'eks' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        EKS_NAME="${{ inputs.eks-cluster-name }}"; [ -z "$EKS_NAME" ] && EKS_NAME="${EKS_NAME:-${{ steps.derive-eks.outputs.eks_name }}}"
+        REGION="${{ inputs.eks-region }}"; [ -z "$REGION" ] && REGION="${REGION:-${{ steps.derive-eks.outputs.eks_region }}}"
+        EKS_NAME="$(echo -n "$EKS_NAME" | xargs)"
+        REGION="$(echo -n "$REGION" | xargs)"
+        if [ -z "$EKS_NAME" ] || [ -z "$REGION" ]; then
+          echo "EKS name/region unresolved. Provide eks-cluster-name/eks-region or cluster-name with AWS_REGION set." >&2
+          exit 1
+        fi
+        aws eks update-kubeconfig --name "$EKS_NAME" --region "$REGION"
+
+    # Generic kubeconfig
+    - name: Configure from provided kubeconfig (base64)
+      if: ${{ inputs.provider == 'kubeconfig' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        if [ -z "${{ inputs.kubeconfig-base64 }}" ]; then
+          echo "kubeconfig-base64 input is required for provider=kubeconfig" >&2
+          exit 1
+        fi
+        echo "${{ inputs.kubeconfig-base64 }}" | base64 -d > "$KUBECONFIG"
+        chmod 600 "$KUBECONFIG"
+
+    - name: Set friendly context name (optional)
+      if: ${{ inputs.context-name != '' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        CUR=$(kubectl config current-context || true)
+        if [ -n "$CUR" ] && [ "$CUR" != "${{ inputs.context-name }}" ]; then
+          kubectl config rename-context "$CUR" "${{ inputs.context-name }}" || true
+        fi
+
+    - name: Create and set namespace (optional)
+      if: ${{ inputs.namespace != '' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        NS="${{ inputs.namespace }}"
+        kubectl get ns "$NS" >/dev/null 2>&1 || kubectl create ns "$NS"
+        kubectl config set-context --current --namespace "$NS"
+
+    - name: Validate kubectl context and cluster (optional)
+      if: ${{ inputs.validate == 'true' }}
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        kubectl version --short || true
+        kubectl cluster-info || true
+        kubectl get nodes -o wide || true
+        kubectl auth can-i list pods --all-namespaces || true
+
+    - name: Set outputs
+      id: set-outputs
+      shell: bash
+      env:
+        KUBECONFIG: ${{ steps.prep.outputs.kubeconfig_path }}
+      run: |
+        set -euo pipefail
+        CTX=$(kubectl config current-context || echo "")
+        NS=$(kubectl config view --minify --output 'jsonpath={..namespace}' || echo "")
+        echo "kubeconfig_path=$KUBECONFIG" >> "$GITHUB_OUTPUT"
+        echo "context=$CTX" >> "$GITHUB_OUTPUT"
+        echo "namespace=$NS" >> "$GITHUB_OUTPUT"
+        # Bubble up derived identifiers when available
+        echo "aks_resource_id=${AKS_RESOURCE_ID:-}" >> "$GITHUB_OUTPUT"
+        echo "eks_cluster_arn=${EKS_CLUSTER_ARN:-}" >> "$GITHUB_OUTPUT"

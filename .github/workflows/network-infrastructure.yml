@@ -1,0 +1,124 @@
+name: Network Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/*/network/**"
+      - "config/dev.yaml"
+  workflow_dispatch:
+    inputs:
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+      action:
+        description: "Action to perform"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: "Environment"
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+      AWS_REGION: eu-west-1
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+      CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+      ACTION: ${{ github.event.inputs.action || 'plan' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Terraform Variables
+        uses: ./.github/actions/generate-terraform-vars
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          cloud_provider: ${{ env.CLOUD_PROVIDER }}
+          component: network
+          working_directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+
+      - name: Setup Terraform Backend
+        id: backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          platform: ${{ env.CLOUD_PROVIDER }}
+          component: network
+          aws_region: eu-west-1
+          create_resources: "true"
+
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+          backend-config-file: ${{ steps.backend.outputs.backend_config_file }}
+          terraform-version: 1.9.8
+
+      - name: Terraform Plan
+        if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed successfully"
+
+      - name: Terraform Apply
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "✅ Terraform apply completed successfully"
+
+      - name: Show Outputs
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+        run: |
+          echo "=== Network Infrastructure Outputs ==="
+          terraform output -json | jq .
+
+      - name: Terraform Destroy
+        if: ${{ env.ACTION == 'destroy' }}
+        working-directory: infrastructure/environment/${{ env.CLOUD_PROVIDER }}/network
+        run: |
+          echo "⚠️  WARNING: This will destroy the network infrastructure!"
+          echo "Make sure no clusters are using this network."
+          terraform destroy -auto-approve

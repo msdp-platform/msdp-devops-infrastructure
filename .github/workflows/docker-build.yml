@@ -1,0 +1,104 @@
+name: docker-build
+
+on:
+  workflow_call:
+    inputs:
+      registry:
+        description: "Container registry provider (ghcr | ecr | acr)"
+        required: true
+        type: string
+      repository:
+        description: "Repository path/name"
+        required: true
+        type: string
+      context:
+        description: "Docker build context"
+        required: false
+        default: .
+        type: string
+      file:
+        description: "Dockerfile path"
+        required: false
+        default: ./Dockerfile
+        type: string
+      platforms:
+        description: "Target platforms (comma-separated)"
+        required: false
+        default: linux/amd64
+        type: string
+      push:
+        description: "Push built image to registry"
+        required: false
+        default: true
+        type: boolean
+      tags:
+        description: "Additional tags (comma-separated)"
+        required: false
+        default: ""
+        type: string
+      labels:
+        description: "Additional labels (key=value)"
+        required: false
+        default: ""
+        type: string
+      cache:
+        description: "Enable Buildx GHA cache"
+        required: false
+        default: true
+        type: boolean
+      use_cloud_login:
+        description: "Use reusable cloud OIDC login (AWS/Azure)"
+        required: false
+        default: false
+        type: boolean
+      aws_region:
+        description: "AWS region (for ECR)"
+        required: false
+        default: eu-west-1
+        type: string
+      acr_name:
+        description: "Azure Container Registry name"
+        required: false
+        default: ""
+        type: string
+    secrets:
+      AWS_ROLE_ARN:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      AZURE_SUBSCRIPTION_ID:
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Docker build and push
+        uses: ./.github/actions/docker-build
+        with:
+          registry: ${{ inputs.registry }}
+          repository: ${{ inputs.repository }}
+          context: ${{ inputs.context }}
+          file: ${{ inputs.file }}
+          platforms: ${{ inputs.platforms }}
+          push: ${{ inputs.push }}
+          tags: ${{ inputs.tags }}
+          labels: ${{ inputs.labels }}
+          cache: ${{ inputs.cache }}
+          use_cloud_login: ${{ inputs.use_cloud_login }}
+          aws_region: ${{ inputs.aws_region }}
+          acr_name: ${{ inputs.acr_name }}
+          aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}

@@ -1,0 +1,143 @@
+name: 'Generate Cluster Matrix'
+description: 'Generate deployment matrix for Kubernetes clusters'
+inputs:
+  environment:
+    description: 'Environment name (dev, staging, prod)'
+    required: true
+  cloud_provider:
+    description: 'Cloud provider (aws, azure)'
+    required: true
+  cluster_filter:
+    description: 'Filter by specific cluster name'
+    required: false
+    default: ''
+  config_path:
+    description: 'Path to configuration file'
+    required: false
+    default: 'config'
+outputs:
+  matrix:
+    description: 'Generated matrix for cluster deployment'
+    value: ${{ steps.generate.outputs.matrix }}
+  has_clusters:
+    description: 'Whether matrix has clusters'
+    value: ${{ steps.check.outputs.has_clusters }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install PyYAML
+
+    - name: Generate matrix
+      id: generate
+      shell: bash
+      run: |
+        python3 << 'EOF'
+        import yaml
+        import json
+        import os
+        import sys
+        
+        try:
+            env = "${{ inputs.environment }}"
+            cloud = "${{ inputs.cloud_provider }}"
+            cluster_filter = "${{ inputs.cluster_filter }}"
+            config_path = "${{ inputs.config_path }}"
+            
+            print(f"Loading configuration for environment: {env}, cloud: {cloud}")
+            config_file = f'{config_path}/{env}.yaml'
+            
+            if not os.path.exists(config_file):
+                print(f"ERROR: Configuration file not found: {config_file}")
+                matrix = {"include": []}
+            else:
+                with open(config_file, 'r') as f:
+                    config = yaml.safe_load(f)
+                
+                # Extract clusters based on cloud provider
+                if cloud == 'azure':
+                    clusters = config.get('azure', {}).get('aks', {}).get('clusters', [])
+                    # Add Azure-specific defaults
+                    for cluster in clusters:
+                        cluster['environment'] = env
+                        cluster['cloud_provider'] = 'azure'
+                        cluster['location'] = config.get('azure', {}).get('location', 'uksouth')
+                        cluster.setdefault('resource_group_name', f"rg-{cluster.get('name', 'aks')}")
+                        cluster.setdefault('kubernetes_version', '1.31.2')
+                        cluster.setdefault('system_node_count', 2)
+                        cluster.setdefault('system_vm_size', 'Standard_D2s_v3')
+                        cluster.setdefault('user_vm_size', 'Standard_D4s_v3')
+                        cluster.setdefault('user_min_count', 1)
+                        cluster.setdefault('user_max_count', 5)
+                        cluster.setdefault('user_spot_enabled', False)
+                        cluster.setdefault('network_plugin', 'kubenet')
+                        cluster.setdefault('availability_zones', ["1", "2", "3"])
+                        cluster.setdefault('max_pods_per_node', 30)
+                        cluster.setdefault('os_disk_size_gb', 128)
+                        
+                elif cloud == 'aws':
+                    clusters = config.get('aws', {}).get('eks', {}).get('clusters', [])
+                    network_config = config.get('aws', {}).get('network', {})
+                    # Add AWS-specific defaults
+                    for cluster in clusters:
+                        cluster['environment'] = env
+                        cluster['cloud_provider'] = 'aws'
+                        cluster['region'] = config.get('aws', {}).get('region', 'eu-west-1')
+                        cluster['vpc_name'] = network_config.get('vpc_name', '')
+                        cluster.setdefault('kubernetes_version', '1.31')
+                        cluster.setdefault('endpoint_private_access', True)
+                        cluster.setdefault('endpoint_public_access', True)
+                        cluster.setdefault('public_access_cidrs', ['0.0.0.0/0'])
+                        if 'node_groups' not in cluster:
+                            cluster['node_groups'] = []
+                else:
+                    print(f"ERROR: Unsupported cloud provider: {cloud}")
+                    clusters = []
+                
+                if not clusters:
+                    print(f"WARNING: No {cloud.upper()} clusters defined in {config_file}")
+                    matrix = {"include": []}
+                else:
+                    print(f"Found {len(clusters)} clusters in configuration")
+                    
+                    # Filter by cluster name if specified
+                    if cluster_filter:
+                        clusters = [c for c in clusters if c.get('name') == cluster_filter]
+                        print(f"Filtered to {len(clusters)} clusters matching '{cluster_filter}'")
+                    
+                    matrix = {"include": clusters}
+            
+            print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
+            
+            # Write to GitHub output
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"matrix={json.dumps(matrix)}\n")
+                
+        except Exception as e:
+            print(f"ERROR generating matrix: {e}")
+            matrix = {"include": []}
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"matrix={json.dumps(matrix)}\n")
+            sys.exit(1)
+        EOF
+
+    - name: Check matrix
+      id: check
+      shell: bash
+      env:
+        MATRIX: ${{ steps.generate.outputs.matrix }}
+      run: |
+        echo "Matrix content: $MATRIX"
+        HAS=false
+        if [ -n "$MATRIX" ] && echo "$MATRIX" | jq -e '.include | type=="array" and length>0' >/dev/null 2>&1; then
+          HAS=true
+        fi
+        echo "Has clusters: $HAS"
+        echo "has_clusters=$HAS" >> $GITHUB_OUTPUT

@@ -1,0 +1,187 @@
+# Cert-Manager Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Global configuration
+global:
+  leaderElection:
+    namespace: cert-manager
+
+# Image configuration (versions managed centrally)
+image:
+  repository: quay.io/jetstack/cert-manager-controller
+  tag: ${cert_manager_controller_version}
+  pullPolicy: IfNotPresent
+
+# Replica count
+replicaCount: 1
+
+# Resource configuration
+resources: ${resources}
+
+# Security context
+securityContext: ${security_context}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+
+# Service account configuration
+serviceAccount:
+  create: false  # We create it via Terraform
+  name: ${service_account_name}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Install CRDs (set to false since we install them separately)
+installCRDs: false
+
+# Monitoring configuration
+prometheus:
+  enabled: ${metrics_enabled}
+  servicemonitor:
+    enabled: ${prometheus_servicemonitor_enabled}
+    prometheusInstance: default
+    targetPort: 9402
+    path: /metrics
+    interval: 60s
+    scrapeTimeout: 30s
+
+# Logging configuration
+logLevel: ${log_level}
+
+# Feature gates
+featureGates: ""
+
+# Extra arguments
+extraArgs:
+  - --dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
+  - --dns01-recursive-nameservers-only
+
+# Environment variables
+%{if use_aws_credentials}
+extraEnv:
+  - name: AWS_ACCESS_KEY_ID
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-access-key-id
+  - name: AWS_SECRET_ACCESS_KEY
+    valueFrom:
+      secretKeyRef:
+        name: ${aws_credentials_secret}
+        key: aws-secret-access-key
+  - name: AWS_REGION
+    value: ${aws_region}
+%{endif}
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/managed-by: terraform
+  app.kubernetes.io/part-of: kubernetes-addons
+
+# Webhook configuration
+webhook:
+  replicaCount: 1
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-webhook
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources: ${webhook_resources}
+  
+  securityContext: ${security_context}
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-webhook
+    annotations: {}
+  
+  # Webhook-specific configuration
+  config:
+    apiVersion: webhook.config.cert-manager.io/v1alpha1
+    kind: WebhookConfiguration
+    tlsConfig: {}
+
+# CA Injector configuration
+cainjector:
+  enabled: true
+  replicaCount: 1
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-cainjector
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources: ${cainjector_resources}
+  
+  securityContext: ${security_context}
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-cainjector
+    annotations: {}
+
+# Startup API check
+startupapicheck:
+  enabled: true
+  
+  image:
+    repository: quay.io/jetstack/cert-manager-ctl
+    tag: v1.13.2
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+  
+  securityContext: ${security_context}
+  
+  podSecurityContext:
+    fsGroup: 1000
+  
+  serviceAccount:
+    create: true
+    name: cert-manager-startupapicheck
+    annotations: {}
+
+# DNS configuration
+dns01RecursiveNameservers: "8.8.8.8:53,1.1.1.1:53"
+dns01RecursiveNameserversOnly: true
+
+# Cluster resource namespace
+clusterResourceNamespace: cert-manager
+
+# Leader election configuration
+leaderElection:
+  namespace: cert-manager
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network policy
+networkPolicy:
+  enabled: false

@@ -1,0 +1,104 @@
+# NGINX Ingress Controller Plugin Specification
+plugin:
+  name: nginx-ingress
+  version: "4.8.3"
+  description: "NGINX Ingress Controller for HTTP/HTTPS traffic management"
+  category: ingress
+  priority: 4
+  
+  # Plugin capabilities
+  capabilities:
+    - http-ingress
+    - https-termination
+    - path-based-routing
+    - host-based-routing
+    - websocket-support
+    - rate-limiting
+    
+  # Supported cloud providers
+  cloud_providers:
+    - aws
+    - azure
+    - gcp
+    - on-premises
+    
+  # Dependencies
+  dependencies:
+    required: ["cert-manager"]
+    optional: ["external-dns"]
+    conflicts: []
+    
+  # Resource requirements
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+    
+  # Installation method
+  installation:
+    method: helm
+    chart: "ingress-nginx/ingress-nginx"
+    version: "4.8.3"
+    repository: "https://kubernetes.github.io/ingress-nginx"
+    namespace: "nginx-ingress"
+    create_namespace: true
+    
+  # Health check configuration
+  health_check:
+    type: "deployment"
+    deployments:
+      - "ingress-nginx-controller"
+    timeout: 60
+    retries: 5
+    
+  # Configuration schema
+  config_schema:
+    replica_count:
+      type: integer
+      required: false
+      default: 2
+      description: "Number of controller replicas"
+    service_type:
+      type: string
+      required: false
+      default: "LoadBalancer"
+      enum: ["LoadBalancer", "NodePort", "ClusterIP"]
+      description: "Service type for the controller"
+    enable_ssl_redirect:
+      type: boolean
+      required: false
+      default: true
+      description: "Enable automatic SSL redirect"
+      
+  # Monitoring and observability
+  monitoring:
+    metrics:
+      enabled: true
+      port: 10254
+      path: "/metrics"
+    logs:
+      level: "info"
+      format: "text"
+      
+  # Security settings
+  security:
+    run_as_non_root: true
+    read_only_root_filesystem: false
+    drop_capabilities: ["ALL"]
+    add_capabilities: ["NET_BIND_SERVICE"]
+    
+# Plugin metadata
+metadata:
+  maintainer: "MSDP Platform Team"
+  documentation: "https://kubernetes.github.io/ingress-nginx/"
+  source: "https://github.com/kubernetes/ingress-nginx"
+  license: "Apache-2.0"
+  tags:
+    - ingress
+    - nginx
+    - load-balancer
+    - ssl-termination
+    - core

@@ -1,0 +1,37 @@
+# Argo CD custom values rendered by Terraform
+
+server:
+  ingress:
+    enabled: true
+    ingressClassName: ${ingress_class_name}
+    hosts:
+      - ${hostname}
+    annotations:
+%{ if length(ingress_annotations) == 0 }
+      {}
+%{ else }
+%{ for k, v in ingress_annotations }
+      ${k}: ${v}
+%{ endfor }
+%{ endif }
+    paths:
+      - /
+    pathType: Prefix
+    tls:
+      - secretName: ${tls_secret_name}
+        hosts:
+          - ${hostname}
+  extraArgs:
+%{ for arg in server_extra_args ~}
+    - ${arg}
+%{ endfor }
+
+configs:
+  cm:
+    url: https://${hostname}
+
+applicationSet:
+  enabled: false
+
+notifications:
+  enabled: false

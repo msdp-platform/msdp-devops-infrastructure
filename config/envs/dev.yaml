@@ -1,0 +1,14 @@
+azure:
+  subscriptionId: <SUBSCRIPTION_ID_DEV>
+  resourceGroup: dev-ops
+  aksName: aks-dev-01
+  vnetName: dev-ops
+  subnetName: snet-aks-dev
+  vnetCidr: 10.60.0.0/16
+  subnetCidr: 10.60.1.0/24
+  aksClusters:
+  - name: dev-ops-01
+    size: large
+  - name: dev-ops-02
+    size: large
+  location: uksouth

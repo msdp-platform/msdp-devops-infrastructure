@@ -1,0 +1,71 @@
+environment: dev # dev|stg|prod
+cloud: azure # aws|azure
+region: uksouth # e.g., us-east-1, uksouth
+bu: food
+app: order
+dictionary_ref: ./dictionary.yaml # use templates for derived names
+
+image:
+  repository: acme.azurecr.io/msdp/order
+  tag: latest
+
+runtime:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    min: 1
+    max: 5
+    cpuTarget: 70
+  keda:
+    trigger: http
+    params:
+      concurrency: 50
+
+ingress:
+  host: api.dev.example.com # derived: {app}.{env}.{base_domain}
+  tls_secret: dev-order-tls # derived: {env}-{app}-tls
+
+secrets:
+  source: akv # akv|kubernetes
+  names:
+    - db_conn
+    - jwt_secret
+
+ownership:
+  owner: team-core
+  cost_center: CC1001
+
+karpenter:
+  provisioner_selector: workload=general
+
+labels:
+  app.kubernetes.io/name: order
+  app.kubernetes.io/instance: order-dev # derived: {app}-{env}
+  app.kubernetes.io/part-of: food
+  platform.msdp.io/env: dev
+  platform.msdp.io/owner: team-core
+  platform.msdp.io/cloud: azure
+
+oidc_validation:
+  aws_region: eu-west-1
+  artifacts_path: infrastructure/environment/dev/artifacts/oidc/github-oidc-out.json
+
+cloud_tags:
+  Environment: dev
+  BusinessUnit: food
+  Application: order
+  Owner: team-core
+  CostCenter: CC1001
+  ManagedBy: msdp
+
+paths:
+  network: infrastructure/environment/dev/azure/network
+  aks: infrastructure/environment/dev/azure/aks
+  artifacts: infrastructure/environment/dev/artifacts
+  preflight_scripts: scripts

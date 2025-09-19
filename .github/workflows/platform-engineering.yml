@@ -1,0 +1,356 @@
+name: Platform Engineering Stack (Backstage + Crossplane)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/platform-engineering/**"
+      - "config/platform-engineering.yaml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action: plan (dry-run), apply (create/update), destroy (tear down)"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: "Target environment"
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+      component:
+        description: "Platform component to deploy"
+        required: true
+        default: all
+        type: choice
+        options: [all, crossplane, backstage]
+      cluster_name:
+        description: "Target AKS cluster name (from config)"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+  ACTION: ${{ github.event.inputs.action || 'plan' }}
+  ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+  COMPONENT: ${{ github.event.inputs.component || 'all' }}
+
+jobs:
+  validate-config:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+      has-clusters: ${{ steps.check-matrix.outputs.has-clusters }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Validate platform engineering configuration
+        run: |
+          python3 scripts/validate-platform-engineering.py \
+            --environment ${{ env.ENVIRONMENT }} \
+            --component ${{ env.COMPONENT }}
+
+      - name: Generate deployment matrix
+        id: generate-matrix
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+
+          env = "${{ env.ENVIRONMENT }}"
+          component = "${{ env.COMPONENT }}"
+          cluster_filter = "${{ github.event.inputs.cluster_name }}"
+
+          # Load environment configuration
+          with open(f'config/{env}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+
+          # Load platform engineering configuration
+          with open('config/platform-engineering.yaml', 'r') as f:
+              platform_config = yaml.safe_load(f)
+
+          clusters = config.get('azure', {}).get('aks', {}).get('clusters', [])
+          components = platform_config.get('components', {})
+
+          matrix_items = []
+
+          for cluster in clusters:
+              if cluster_filter and cluster.get('name') != cluster_filter:
+                  continue
+                  
+              cluster_components = []
+              if component == 'all':
+                  cluster_components = ['crossplane', 'backstage']
+              else:
+                  cluster_components = [component]
+              
+              for comp in cluster_components:
+                  if comp in components:
+                      item = {
+                          'cluster_name': cluster.get('name'),
+                          'component': comp,
+                          'environment': env,
+                          'location': config.get('azure', {}).get('location', 'uksouth'),
+                          'component_config': components[comp]
+                      }
+                      matrix_items.append(item)
+
+          matrix = {"include": matrix_items}
+          print(f"Generated matrix: {json.dumps(matrix, indent=2)}")
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"matrix={json.dumps(matrix)}\n")
+          EOF
+
+      - name: Check matrix
+        id: check-matrix
+        run: |
+          MATRIX='${{ steps.generate-matrix.outputs.matrix }}'
+          HAS_CLUSTERS=false
+
+          if echo "$MATRIX" | jq -e '.include | length > 0' >/dev/null; then
+            HAS_CLUSTERS=true
+          fi
+
+          echo "has-clusters=$HAS_CLUSTERS" >> $GITHUB_OUTPUT
+          echo "Matrix has clusters: $HAS_CLUSTERS"
+
+  deploy-platform-engineering:
+    needs: [validate-config]
+    if: ${{ needs.validate-config.outputs.has-clusters == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.validate-config.outputs.matrix) }}
+
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Kubernetes
+        uses: ./.github/actions/kubernetes-setup
+        with:
+          cluster-name: ${{ matrix.cluster_name }}
+          resource-group: "rg-${{ matrix.cluster_name }}"
+
+      - name: Setup Terraform Backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ matrix.environment }}
+          platform: azure
+          component: platform-engineering
+          instance: ${{ matrix.component }}-${{ matrix.cluster_name }}
+          aws_region: eu-west-1
+          create_resources: "true"
+
+      - name: Generate Component Configuration
+        working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+
+          # Load configurations
+          with open('../../../config/${{ matrix.environment }}.yaml', 'r') as f:
+              env_config = yaml.safe_load(f)
+
+          with open('../../../config/platform-engineering.yaml', 'r') as f:
+              platform_config = yaml.safe_load(f)
+
+          # Get component-specific configuration
+          component_config = platform_config['components']['${{ matrix.component }}']
+          cluster_config = json.loads('''${{ toJson(matrix) }}''')
+
+          # Generate terraform.tfvars.json
+          tfvars = {
+              'cluster_name': '${{ matrix.cluster_name }}',
+              'environment': '${{ matrix.environment }}',
+              'location': '${{ matrix.location }}',
+              'component_config': component_config,
+              'namespace': component_config.get('namespace', '${{ matrix.component }}'),
+              'chart_version': component_config.get('chart_version'),
+              'values_override': component_config.get('values', {}),
+              'tags': env_config.get('tags', {})
+          }
+
+          with open('terraform.tfvars.json', 'w') as f:
+              json.dump(tfvars, f, indent=2)
+
+          print(f"Generated terraform.tfvars.json for ${{ matrix.component }}")
+          print(json.dumps(tfvars, indent=2))
+          EOF
+
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: 1.9.5
+
+      - name: Terraform Plan
+        if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
+        working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed for ${{ matrix.component }} on ${{ matrix.cluster_name }}"
+
+      - name: Terraform Apply
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "✅ ${{ matrix.component }} deployed successfully to ${{ matrix.cluster_name }}"
+
+      - name: Verify Deployment
+        if: ${{ env.ACTION == 'apply' }}
+        run: |
+          echo "=== Verifying ${{ matrix.component }} deployment ==="
+
+          case "${{ matrix.component }}" in
+            "crossplane")
+              kubectl get pods -n crossplane-system
+              kubectl get crds | grep crossplane
+              kubectl get providers
+              ;;
+            "backstage")
+              kubectl get pods -n backstage
+              kubectl get ingress -n backstage
+              kubectl get configmap -n backstage
+              ;;
+          esac
+
+      - name: Show Outputs
+        if: ${{ env.ACTION == 'apply' }}
+        working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+        run: |
+          echo "=== ${{ matrix.component }} Deployment Outputs ==="
+          terraform output -json | jq .
+
+      - name: Terraform Destroy
+        if: ${{ env.ACTION == 'destroy' }}
+        working-directory: infrastructure/platform-engineering/${{ matrix.component }}
+        run: |
+          echo "⚠️  WARNING: Destroying ${{ matrix.component }} on ${{ matrix.cluster_name }}!"
+          terraform destroy -auto-approve
+
+  post-deployment:
+    needs: [deploy-platform-engineering]
+    if: ${{ always() && needs.deploy-platform-engineering.result == 'success' && github.event.inputs.action == 'apply' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure Platform Integration
+        run: |
+          echo "🔗 Configuring platform engineering integration..."
+
+          # Get cluster credentials
+          az aks get-credentials \
+            --resource-group "rg-${{ github.event.inputs.cluster_name || 'aks-msdp-dev-01' }}" \
+            --name "${{ github.event.inputs.cluster_name || 'aks-msdp-dev-01' }}"
+
+          # Configure Crossplane providers if deployed
+          if kubectl get namespace crossplane-system 2>/dev/null; then
+            echo "Configuring Crossplane providers..."
+            kubectl apply -f infrastructure/platform-engineering/crossplane/providers/
+          fi
+
+          # Configure ArgoCD integration (uses existing ArgoCD installation)
+          if kubectl get namespace argocd 2>/dev/null; then
+            echo "✅ ArgoCD already installed via separate pipeline"
+            echo "Configuring integration with platform engineering stack..."
+            # Future: Configure ArgoCD applications for Backstage and Crossplane
+          fi
+
+          # Configure Backstage catalog if deployed
+          if kubectl get namespace backstage 2>/dev/null; then
+            echo "Configuring Backstage catalog..."
+            kubectl apply -f infrastructure/platform-engineering/backstage/catalog/
+          fi
+
+      - name: Generate Access Information
+        run: |
+          echo "🎉 Platform Engineering Stack Deployment Complete!"
+          echo "=================================================="
+
+          # Get external IPs and access information
+          if kubectl get namespace backstage 2>/dev/null; then
+            echo ""
+            echo "🎛️ Backstage Service Catalog:"
+            kubectl get ingress -n backstage -o jsonpath='{range .items[*]}{.spec.rules[0].host}{"\n"}{end}' | while read host; do
+              echo "   https://$host"
+            done
+          fi
+
+          if kubectl get namespace argocd 2>/dev/null; then
+            echo ""
+            echo "🚀 ArgoCD GitOps Platform:"
+            kubectl get ingress -n argocd -o jsonpath='{range .items[*]}{.spec.rules[0].host}{"\n"}{end}' | while read host; do
+              echo "   https://$host"
+            done
+          fi
+
+          if kubectl get namespace crossplane-system 2>/dev/null; then
+            echo ""
+            echo "⚡ Crossplane Infrastructure Engine:"
+            echo "   kubectl get providers"
+            echo "   kubectl get compositions"
+          fi
+
+          echo ""
+          echo "📋 Next Steps:"
+          echo "1. Access Backstage to explore service catalog"
+          echo "2. Configure ArgoCD applications for MSDP services"
+          echo "3. Create Crossplane compositions for infrastructure"
+          echo "4. Test end-to-end platform workflows"

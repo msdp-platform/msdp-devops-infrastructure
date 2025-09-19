@@ -1,0 +1,221 @@
+# KEDA Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Image configuration
+image:
+  keda:
+    repository: ghcr.io/kedacore/keda
+    tag: 2.12.1
+  metricsApiServer:
+    repository: ghcr.io/kedacore/keda-metrics-apiserver
+    tag: 2.12.1
+  webhooks:
+    repository: ghcr.io/kedacore/keda-admission-webhooks
+    tag: 2.12.1
+  pullPolicy: Always
+
+# Operator configuration
+operator:
+  name: keda-operator
+  replicaCount: 1
+  
+  # Resource configuration
+  resources: ${resources}
+  
+  # Security context
+  securityContext: ${security_context}
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+  
+  # Environment variables
+  env:
+    - name: WATCH_NAMESPACE
+      value: ""
+    - name: KEDA_HTTP_DEFAULT_TIMEOUT
+      value: "3000"
+    - name: KEDA_HTTP_MIN_TLS_VERSION
+      value: "TLS12"
+  
+  # Pod annotations
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+  
+  # Pod labels
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+
+# Metrics API Server configuration
+metricsServer:
+  replicaCount: 1
+  
+  # Resource configuration
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1000Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi
+  
+  # Security context
+  securityContext: ${security_context}
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+  
+  # Pod annotations
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+  
+  # Pod labels
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+
+# Admission webhooks configuration
+webhooks:
+  enabled: true
+  name: keda-admission-webhooks
+  replicaCount: 1
+  
+  # Resource configuration
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1000Mi
+    requests:
+      cpu: 100m
+      memory: 100Mi
+  
+  # Security context
+  securityContext: ${security_context}
+  
+  # Pod security context
+  podSecurityContext:
+    fsGroup: 1001
+  
+  # Pod annotations
+  podAnnotations:
+    cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+  
+  # Pod labels
+  podLabels:
+    app.kubernetes.io/managed-by: terraform
+    app.kubernetes.io/part-of: kubernetes-addons
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: keda-operator
+  annotations: {}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Pod disruption budget
+podDisruptionBudget:
+  operator:
+    enabled: false
+    minAvailable: 1
+  metricServer:
+    enabled: false
+    minAvailable: 1
+  webhooks:
+    enabled: false
+    minAvailable: 1
+
+# Prometheus monitoring
+prometheus:
+  metricServer:
+    enabled: ${metrics_enabled}
+    port: ${metrics_port}
+    portName: metrics
+    path: /metrics
+    podMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+      namespace: ""
+      additionalLabels: {}
+  operator:
+    enabled: ${metrics_enabled}
+    port: 8080
+    portName: metrics
+    path: /metrics
+    podMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+      namespace: ""
+      additionalLabels: {}
+  webhooks:
+    enabled: ${metrics_enabled}
+    port: 8080
+    portName: metrics
+    path: /metrics
+    podMonitor:
+      enabled: false
+      interval: 30s
+      scrapeTimeout: 10s
+      namespace: ""
+      additionalLabels: {}
+
+# Logging configuration
+logging:
+  operator:
+    level: ${log_level}
+    format: console
+    timeEncoding: rfc3339
+  metricServer:
+    level: 0
+  webhooks:
+    level: ${log_level}
+    format: console
+    timeEncoding: rfc3339
+
+# Upgrade strategy
+upgradeStrategy:
+  operator:
+    type: RollingUpdate
+  metricsApiServer:
+    type: RollingUpdate
+  webhooks:
+    type: RollingUpdate
+
+# Pod identity
+podIdentity:
+  activeDirectory:
+    identity: ""
+  azureWorkload:
+    enabled: false
+    clientId: ""
+    tenantId: ""
+
+# Additional volumes and volume mounts
+volumes:
+  keda:
+    extraVolumes: []
+    extraVolumeMounts: []
+  metricsApiServer:
+    extraVolumes: []
+    extraVolumeMounts: []
+  webhooks:
+    extraVolumes: []
+    extraVolumeMounts: []
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Priority class
+priorityClassName: ""
+
+# Network policy
+networkPolicy:
+  enabled: false

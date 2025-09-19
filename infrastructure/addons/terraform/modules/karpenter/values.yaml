@@ -1,0 +1,148 @@
+# Karpenter Helm Values Template
+# This template is processed by Terraform with variable substitution
+
+# Service account configuration
+serviceAccount:
+  create: false  # We create it via Terraform
+  name: ${service_account_name}
+
+# Replica count
+replicas: ${replica_count}
+
+# Image configuration
+image:
+  repository: public.ecr.aws/karpenter/karpenter
+  tag: v0.32.1
+  pullPolicy: IfNotPresent
+
+# Resource configuration
+resources: ${resources}
+
+# Security context
+securityContext: ${security_context}
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 65536
+
+# Settings
+settings:
+  aws:
+    clusterName: ${cluster_name}
+    defaultInstanceProfile: ${node_instance_profile}
+    %{if interruption_queue != ""}
+    interruptionQueueName: ${interruption_queue}
+    %{endif}
+    enablePodENI: false
+    enableENILimitedPodDensity: true
+    isolatedVPC: false
+    nodeNameConvention: "ip-name"
+    vmMemoryOverheadPercent: 0.075
+
+# Webhook configuration
+webhook:
+  enabled: true
+  port: ${webhook_port}
+  
+# Controller configuration
+controller:
+  env:
+    - name: CLUSTER_NAME
+      value: ${cluster_name}
+    - name: CLUSTER_ENDPOINT
+      value: ${cluster_endpoint}
+    - name: AWS_REGION
+      value: ${aws_region}
+    - name: AWS_DEFAULT_REGION
+      value: ${aws_region}
+    - name: KARPENTER_SERVICE
+      value: karpenter
+    - name: WEBHOOK_PORT
+      value: "${webhook_port}"
+    - name: METRICS_PORT
+      value: "${metrics_port}"
+    - name: HEALTH_PROBE_PORT
+      value: "${health_probe_port}"
+
+# Logging configuration
+logLevel: ${log_level}
+logEncoding: console
+
+# Metrics configuration
+metrics:
+  port: ${metrics_port}
+
+# Health probe configuration
+healthProbe:
+  port: ${health_probe_port}
+
+# Webhook configuration
+webhookPort: ${webhook_port}
+
+# Pod annotations
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/managed-by: terraform
+  app.kubernetes.io/part-of: kubernetes-addons
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations:
+  - key: CriticalAddonsOnly
+    operator: Exists
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: karpenter.sh/provisioner-name
+          operator: DoesNotExist
+        - key: eks.amazonaws.com/nodegroup
+          operator: Exists
+
+# Pod disruption budget
+podDisruptionBudget:
+  name: karpenter
+  maxUnavailable: 1
+
+# Priority class
+priorityClassName: system-cluster-critical
+
+# Topology spread constraints
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: karpenter
+
+# Additional volumes and volume mounts
+additionalVolumes: []
+additionalVolumeMounts: []
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# ServiceMonitor for Prometheus
+serviceMonitor:
+  enabled: false
+  additionalLabels: {}
+  namespace: ""
+
+# Network policy
+networkPolicy:
+  enabled: false

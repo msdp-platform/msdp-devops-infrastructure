@@ -1,0 +1,5 @@
+# Example terraform.tfvars for AKS dev environment
+# Copy this file to terraform.tfvars and update the values
+
+env = "dev"
+# subscription_id = "your-subscription-id-here"

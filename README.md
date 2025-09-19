@@ -1,359 +1,409 @@
-# 🏗️ MSDP DevOps Infrastructure
+# MSDP DevOps Infrastructure
 
-## 📋 **Repository Overview**
+Enterprise-grade Terraform infrastructure automation with standardized backend management, organizational naming conventions, and multi-cloud support.
 
-This repository contains the complete **DevOps infrastructure** for the Multi-Service Delivery Platform (MSDP), providing a scalable foundation for multi-business unit, multi-country deployment using **Crossplane + ArgoCD + GitHub Actions**.
+## 🎯 Overview
 
-**Repository Name**: `msdp-devops-infrastructure`  
-**Purpose**: Multi-BU infrastructure, CI/CD, and deployment automation  
-**Team**: DevOps/Platform Engineering  
-**Source**: Transformed from existing multi-service-delivery-platform repository
+This repository provides a comprehensive infrastructure-as-code solution with:
 
----
+- **Standardized Backend Management**: S3 + DynamoDB with organizational naming conventions
+- **Multi-Cloud Support**: Azure (primary) and AWS infrastructure
+- **Configuration-Driven**: YAML-based configuration management
+- **GitHub Actions Integration**: Automated CI/CD workflows
+- **Security First**: OIDC authentication, encryption, and access controls
 
-## 🎯 **Infrastructure Overview**
-
-The infrastructure provides a **complete DevOps/CI-CD platform** with:
-
-- **🔄 GitOps**: Complete infrastructure and application deployment automation
-- **☁️ Multi-Cloud**: Azure AKS + AWS Route53 hybrid architecture
-- **💰 Cost Optimization**: Up to 90% cost reduction with Spot instances
-- **🔒 Enterprise Security**: Automated SSL and security policies
-- **⚡ High Availability**: Multi-zone deployment with auto-failover
-- **🧪 Comprehensive Testing**: Infrastructure validation and testing
-- **📊 Full Monitoring**: Complete observability and monitoring
-
----
-
-## 🏗️ **Repository Structure**
+## 🏗️ Architecture
 
 ```
-msdp-devops-infrastructure/
-├── infrastructure/                    # 🏗️ Infrastructure as Code
-│   ├── crossplane/                   # Crossplane compositions and claims
-│   │   ├── compositions/             # Reusable infrastructure compositions
-│   │   ├── claims/                   # Resource claims
-│   │   └── xrds/                     # Composite Resource Definitions
-│   ├── argocd/                       # ArgoCD GitOps configurations
-│   │   └── applications/             # ArgoCD applications
-│   ├── kubernetes/                   # Kubernetes manifests
-│   │   └── backstage/                # Backstage deployment
-│   ├── devops-ci-cd/                 # DevOps/CI-CD infrastructure
-│   │   ├── gitops/                   # GitOps configurations
-│   │   ├── networking/               # Networking infrastructure
-│   │   ├── security/                 # Security infrastructure
-│   │   ├── node-management/          # Node management
-│   │   ├── testing/                  # Testing infrastructure
-│   │   └── monitoring/               # Monitoring infrastructure
-│   └── README.md                     # Infrastructure documentation
-├── ci-cd/                            # 🚀 CI/CD Pipelines
-│   └── workflows/                    # GitHub Actions workflows
-│       ├── deploy-backstage.yml      # Backstage deployment
-│       ├── manage-secrets.yml        # Secrets management
-│       ├── test-backstage.yml        # Testing workflows
-│       └── README.md                 # CI/CD documentation
-├── scripts/                          # 🔧 Automation Scripts
-│   ├── platform-management/          # Platform management
-│   ├── cost-optimization/            # Cost optimization
-│   ├── infrastructure-setup/         # Infrastructure setup
-│   ├── monitoring/                   # Monitoring scripts
-│   ├── testing/                      # Testing scripts
-│   └── utilities/                    # Utility scripts
-├── configs/                          # ⚙️ Configuration Files
-│   ├── environments/                 # Environment configurations
-│   ├── countries/                    # Country-specific configs
-│   └── business-units/               # BU-specific configs
-├── docs/                             # 📚 Documentation
-│   ├── architecture/                 # Architecture documentation
-│   ├── infrastructure/               # Infrastructure guides
-│   ├── setup-guides/                 # Setup guides
-│   ├── operations/                   # Operations documentation
-│   ├── cost-optimization/            # Cost optimization docs
-│   ├── testing/                      # Testing documentation
-│   └── diagrams/                     # Architecture diagrams
-└── README.md                         # This documentation
+Infrastructure Components:
+├── Azure Network (Shared)
+│   ├── Resource Groups
+│   ├── Virtual Networks
+│   ├── Subnets
+│   └── Network Security Groups
+├── Azure AKS (Per Cluster)
+│   ├── Kubernetes Clusters
+│   ├── Node Pools
+│   └── Workload Identity
+└── Shared Services
+    ├── Monitoring
+    ├── DNS
+    └── Security
 ```
 
----
+## 📁 Repository Structure
 
-## 🚀 **Quick Start**
+```
+├── config/                          # Configuration files
+│   ├── global/                      # Global configuration
+│   │   ├── naming.yaml             # Naming conventions
+│   │   └── accounts.yaml           # Account mappings
+│   ├── environments/               # Environment-specific config
+│   │   └── dev.yaml               # Development environment
+│   └── envs/                      # Legacy environment config
+│       └── dev.yaml               # (backward compatibility)
+├── infrastructure/
+│   ├── environment/               # Environment-specific Terraform
+│   │   └── azure/
+│   │       ├── network/          # Shared network infrastructure
+│   │       └── aks/              # AKS cluster infrastructure
+│   └── modules/                  # Reusable Terraform modules
+├── .github/
+│   ├── actions/                  # Composite actions
+│   │   ├── terraform-backend-enhanced/  # Enhanced backend management
+│   │   ├── cloud-login/         # Multi-cloud authentication
+│   │   └── network-tfvars/      # Network configuration generation
+│   └── workflows/               # CI/CD workflows
+│       ├── azure-network.yml    # Network infrastructure
+│       └── aks.yml             # AKS cluster deployment
+├── scripts/                     # Utility scripts
+│   ├── generate-backend-config.py      # Backend config generator
+│   ├── validate-naming-convention.py   # Naming validation
+│   ├── validate-complete-setup.py      # Complete validation
+│   └── migrate-configuration.py        # Configuration migration
+└── docs/                       # Documentation
+    ├── naming-convention-strategy.md   # Naming strategy
+    ├── terraform-backend-best-practices.md  # Backend best practices
+    └── implementation-guide.md         # Implementation guide
+```
 
-### **Prerequisites**
+## 🚀 Quick Start
 
-1. **Azure CLI** configured with AKS access
-2. **kubectl** configured to access your cluster
-3. **Crossplane** installed and configured
-4. **ArgoCD** installed and configured
-5. **GitHub Actions** secrets configured
+### Prerequisites
 
-### **Access Your Live Services**
+1. **GitHub Secrets**: Configure the following secrets in your repository:
+   ```
+   AWS_ROLE_ARN              # AWS IAM role for OIDC
+   AWS_ACCOUNT_ID             # AWS account ID
+   AZURE_CLIENT_ID            # Azure service principal client ID
+   AZURE_TENANT_ID            # Azure tenant ID
+   AZURE_SUBSCRIPTION_ID      # Azure subscription ID
+   ```
 
-- **ArgoCD**: `https://argocd.dev.aztech-msdp.com` (admin/admin123)
-- **Sample App**: `https://app.dev.aztech-msdp.com`
-- **SSL Certificates**: Automatically managed and renewed
-- **DNS**: Managed via AWS Route53
+2. **Permissions**: Ensure the service principals have appropriate permissions:
+   - **AWS**: S3, DynamoDB, and IAM permissions
+   - **Azure**: Contributor access to subscription
 
-### **Platform Management**
+### 1. Validate Setup
 
 ```bash
-# Start platform (scale up nodes)
-./scripts/platform-management/platform start
+# Validate the complete setup
+python3 scripts/validate-complete-setup.py --verbose
 
-# Stop platform (scale down to 0 nodes - saves costs)
-./scripts/platform-management/platform stop
+# Test naming conventions
+python3 scripts/validate-naming-convention.py
 
-# Check platform status
-./scripts/platform-management/platform status
-
-# Optimize costs
-./scripts/platform-management/platform optimize
+# Test backend config generation
+python3 scripts/generate-backend-config.py dev azure network
 ```
 
----
-
-## 🔧 **Infrastructure Components**
-
-### **🔄 GitOps Infrastructure**
-
-#### **Crossplane**
-- **Multi-cloud providers**: AWS, Azure, GCP
-- **Infrastructure compositions**: Database, storage, networking
-- **Resource claims**: Environment-specific resource provisioning
-- **Provider management**: Automated provider installation and configuration
-
-#### **ArgoCD**
-- **Application deployment**: GitOps-driven application deployment
-- **Multi-repo support**: Support for multiple repository structures
-- **Health monitoring**: Application health and sync status
-- **Rollback capabilities**: Automated rollback on failures
-
-### **🌐 Networking Infrastructure**
-
-#### **NGINX Ingress Controller**
-- **Load balancing**: Intelligent traffic routing
-- **SSL termination**: Automated SSL certificate management
-- **Rate limiting**: DDoS protection and rate limiting
-- **Path-based routing**: Service-specific routing rules
-
-#### **Route53 Integration**
-- **DNS management**: Centralized DNS management
-- **Health checks**: Automated health monitoring
-- **Failover**: Multi-region failover support
-- **Cost optimization**: Single public IP setup
-
-### **🔒 Security Infrastructure**
-
-#### **cert-manager**
-- **SSL certificates**: Automated Let's Encrypt certificates
-- **Certificate renewal**: Automatic certificate renewal
-- **Multi-domain support**: Support for multiple domains
-- **Certificate monitoring**: Health checks and status monitoring
-
-#### **Security Policies**
-- **Pod security**: Pod security standards enforcement
-- **Network policies**: Network segmentation and isolation
-- **RBAC**: Role-based access control
-- **Compliance**: GDPR, PCI DSS compliance support
-
-### **⚙️ Node Management Infrastructure**
-
-#### **Karpenter**
-- **Node auto-provisioning**: Intelligent node provisioning
-- **Cost optimization**: Spot instance utilization
-- **Multi-SKU support**: Broad SKU selection for availability
-- **Auto-scaling**: Dynamic scaling based on demand
-
-#### **System Pod Affinity**
-- **Pod scheduling**: System pod isolation
-- **Resource optimization**: Efficient resource utilization
-- **High availability**: Multi-zone deployment
-- **Cost efficiency**: System node pool optimization
-
----
-
-## 🚀 **GitHub Actions CI/CD**
-
-### **Available Workflows**
-
-#### **1. Deploy Backstage (`deploy-backstage.yml`)**
-- **Automatic deployment** on push to main/develop branches
-- **Manual deployment** with custom parameters
-- **Multi-environment support** (dev, staging, prod)
-- **Multi-BU support** (platform-core, food-delivery, etc.)
-- **Multi-country support** (UK, India, global)
-- **Infrastructure validation** and health checks
-- **No hardcoded values** - all configuration via environment variables
-
-#### **2. Manage Secrets (`manage-secrets.yml`)**
-- **Create secrets** for new deployments
-- **Update secrets** with new values
-- **Rotate secrets** for security
-- **Validate secrets** for completeness
-
-#### **3. Test Backstage (`test-backstage.yml`)**
-- **Health checks** - Pod, service, and ingress health
-- **Smoke tests** - Basic functionality testing
-- **Integration tests** - API and service integration
-- **Load tests** - Performance testing with k6
-- **Security tests** - Security configuration validation
-
-### **Required GitHub Secrets**
+### 2. Deploy Network Infrastructure
 
 ```bash
-# Azure Configuration
-AZURE_CLIENT_ID=your-azure-client-id
-AZURE_CLIENT_SECRET=your-azure-client-secret
-AZURE_TENANT_ID=your-azure-tenant-id
-AZURE_SUBSCRIPTION_ID=your-azure-subscription-id
-AZURE_RESOURCE_GROUP=your-resource-group
-AKS_CLUSTER_NAME=your-aks-cluster-name
+# Via GitHub CLI
+gh workflow run azure-network.yml -f action=plan
 
-# Backstage Configuration
-SESSION_SECRET=your-session-secret
-GITHUB_INTEGRATION=your-github-integration-config
-AZURE_INTEGRATION=your-azure-integration-config
-ARGOCD_INTEGRATION=your-argocd-integration-config
-ARGOCD_PASSWORD=your-argocd-password
-
-# Payment Providers
-STRIPE_TOKEN=your-stripe-token
-RAZORPAY_TOKEN=your-razorpay-token
-PAYTM_TOKEN=your-paytm-token
-
-# Government APIs
-HMRC_TOKEN=your-hmrc-token
-FSSAI_TOKEN=your-fssai-token
-GST_TOKEN=your-gst-token
+# Via GitHub UI
+# Go to Actions → azure-network-stack → Run workflow
 ```
 
----
+### 3. Deploy AKS Clusters
 
-## 📊 **Monitoring and Observability**
-
-### **Infrastructure Monitoring**
-- **Azure Monitor**: Cloud-native monitoring and alerting
-- **Prometheus**: Metrics collection and storage
-- **Grafana**: Visualization and dashboards
-- **Log Analytics**: Centralized logging and analysis
-
-### **Application Monitoring**
-- **Application Insights**: Application performance monitoring
-- **Distributed tracing**: Request tracing across services
-- **Error tracking**: Error monitoring and alerting
-- **Performance monitoring**: Response time and throughput
-
-### **Cost Monitoring**
-- **Cost optimization**: Automated cost optimization
-- **Resource utilization**: Resource usage monitoring
-- **Spot instance monitoring**: Spot instance availability and cost
-- **Budget alerts**: Cost threshold monitoring
-
----
-
-## 🔧 **Development Workflow**
-
-### **Infrastructure Changes**
-1. **Make changes** to Crossplane compositions or claims
-2. **Test locally** using Crossplane CLI
-3. **Commit changes** to Git repository
-4. **GitHub Actions** automatically validates and deploys
-5. **ArgoCD** synchronizes changes to cluster
-6. **Monitor** deployment status and health
-
-### **Application Deployment**
-1. **Create ArgoCD application** for new service
-2. **Configure Helm values** for environment-specific settings
-3. **Deploy via GitHub Actions** or ArgoCD UI
-4. **Monitor** application health and performance
-5. **Scale** based on demand and metrics
-
----
-
-## 🛠️ **Troubleshooting**
-
-### **Common Issues**
-
-#### **Crossplane Provider Issues**
 ```bash
-# Check provider status
-kubectl get providers
+# Via GitHub CLI
+gh workflow run aks.yml -f action=plan
 
-# Check provider logs
-kubectl logs -n crossplane-system deployment/crossplane
-
-# Verify provider credentials
-kubectl get secret aws-credentials -n crossplane-system
+# Via GitHub UI
+# Go to Actions → aks → Run workflow
 ```
 
-#### **ArgoCD Sync Issues**
+## 🔧 Configuration
+
+### Global Configuration
+
+#### Naming Conventions (`config/global/naming.yaml`)
+```yaml
+organization:
+  name: msdp
+  full_name: "Microsoft Developer Platform"
+
+naming_conventions:
+  s3_bucket:
+    pattern: "{prefix}-{org}-{account_type}-{region_code}-{suffix}"
+  state_key:
+    pattern: "{platform}/{component}/{environment}/{instance?}/terraform.tfstate"
+```
+
+#### Account Mappings (`config/global/accounts.yaml`)
+```yaml
+accounts:
+  aws:
+    dev:
+      account_id: "319422413814"
+      region: "eu-west-1"
+  azure:
+    dev:
+      subscription_id: "ecd977ed-b8df-4eb6-9cba-98397e1b2491"
+      region: "uksouth"
+```
+
+### Environment Configuration
+
+#### Development Environment (`config/environments/dev.yaml`)
+```yaml
+azure:
+  resource_group: "dev-ops"
+  vnet_name: "dev-ops"
+  vnet_cidr: "10.60.0.0/16"
+  aks_clusters:
+    - name: "dev-ops-01"
+      size: "large"
+    - name: "dev-ops-02"
+      size: "large"
+```
+
+## 🎨 Usage Examples
+
+### Backend Configuration
+
+The system automatically generates backend configurations following organizational standards:
+
+```yaml
+# Azure Network Infrastructure
+- name: Setup Backend
+  uses: ./.github/actions/terraform-backend-enhanced
+  with:
+    environment: dev
+    platform: azure
+    component: network
+
+# Results in:
+# Bucket: tf-state-msdp-dev-euw1-a1b2c3d4
+# Key: azure/network/dev/terraform.tfstate
+```
+
+### Multi-Instance Components
+
+```yaml
+# AKS Cluster with Instance
+- name: Setup Backend
+  uses: ./.github/actions/terraform-backend-enhanced
+  with:
+    environment: dev
+    platform: azure
+    component: aks
+    instance: cluster-01
+
+# Results in:
+# Bucket: tf-state-msdp-dev-euw1-a1b2c3d4 (shared)
+# Key: azure/aks/dev/cluster-01/terraform.tfstate
+```
+
+## 🔒 Security Features
+
+### Authentication
+- **GitHub OIDC**: No long-lived credentials
+- **Multi-Cloud**: Unified authentication for AWS and Azure
+- **Least Privilege**: Minimal required permissions
+
+### Backend Security
+- **Encryption**: AES256 encryption at rest
+- **Versioning**: State file versioning enabled
+- **Access Control**: IAM-based access restrictions
+- **Audit Logging**: CloudTrail integration
+
+### Network Security
+- **Private Endpoints**: VNet integration where possible
+- **Network Policies**: Kubernetes network policies
+- **Security Groups**: Restrictive security group rules
+
+## 📊 Generated Examples
+
+### Development Environment
+```
+S3 Bucket: tf-state-msdp-dev-euw1-a1b2c3d4
+DynamoDB:  tf-locks-msdp-dev-euw1
+
+State Keys:
+├── azure/network/dev/terraform.tfstate
+├── azure/aks/dev/dev-ops-01/terraform.tfstate
+├── azure/aks/dev/dev-ops-02/terraform.tfstate
+└── shared/monitoring/dev/terraform.tfstate
+```
+
+### Production Environment
+```
+S3 Bucket: tf-state-msdp-prod-euw1-e5f6g7h8
+DynamoDB:  tf-locks-msdp-prod-euw1
+
+State Keys:
+├── azure/network/prod/terraform.tfstate
+├── azure/aks/prod/primary/terraform.tfstate
+└── shared/monitoring/prod/terraform.tfstate
+```
+
+## 🛠️ Development Workflow
+
+### 1. Local Development
+
 ```bash
-# Check application status
-kubectl get applications -n argocd
+# Generate configuration locally
+python3 scripts/generate-backend-config.py dev azure network
 
-# Check application logs
-kubectl logs -n argocd deployment/argocd-application-controller
+# Initialize Terraform
+cd infrastructure/environment/azure/network
+terraform init -backend-config=../../../environment/dev/backend/backend-config-azure-network.json
 
-# Force sync application
-kubectl patch application <app-name> -n argocd --type merge -p '{"operation":{"sync":{"syncStrategy":{"force":true}}}}'
+# Plan changes
+terraform plan
 ```
 
-#### **Infrastructure Issues**
+### 2. CI/CD Pipeline
+
 ```bash
-# Check managed resources
-kubectl get managed
+# Plan (automatic on PR)
+gh workflow run azure-network.yml -f action=plan
 
-# Check resource claims
-kubectl get claims
+# Apply (manual approval)
+gh workflow run azure-network.yml -f action=apply
 
-# Check resource status
-kubectl describe <resource-type> <resource-name>
+# Destroy (manual with confirmation)
+gh workflow run azure-network.yml -f action=destroy
 ```
 
-### **Logs and Debugging**
+## 🔄 Migration Guide
+
+### From Legacy Configuration
+
+If you have existing configuration in the old format:
+
 ```bash
-# Crossplane logs
-kubectl logs -n crossplane-system deployment/crossplane
+# Run migration script
+python3 scripts/migrate-configuration.py --dry-run
 
-# ArgoCD logs
-kubectl logs -n argocd deployment/argocd-server
-kubectl logs -n argocd deployment/argocd-application-controller
+# Apply migration
+python3 scripts/migrate-configuration.py
 
-# Application logs
-kubectl logs -n <namespace> deployment/<app-name>
+# Validate migration
+python3 scripts/validate-complete-setup.py
 ```
 
+### From Other Backend Systems
+
+1. **Backup existing state**:
+   ```bash
+   terraform state pull > backup-state.json
+   ```
+
+2. **Update backend configuration**:
+   ```bash
+   # Generate new backend config
+   python3 scripts/generate-backend-config.py dev azure network
+   ```
+
+3. **Migrate state**:
+   ```bash
+   terraform init -migrate-state
+   ```
+
+## 📈 Monitoring and Alerting
+
+### Cost Monitoring
+- S3 storage costs: ~$5-15/month per environment
+- DynamoDB costs: ~$1-5/month per environment
+- Total backend costs: ~$10-25/month per environment
+
+### Operational Metrics
+- Deployment success rate: Target 99.9%
+- Backend initialization time: Target <2 minutes
+- State lock conflicts: Target <1% of operations
+
+### Alerts
+- Failed deployments
+- State lock timeouts
+- Unusual backend access patterns
+- Cost threshold breaches
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+#### 1. Backend Configuration Not Found
+```
+Error: Backend config file not found
+```
+**Solution**: Ensure the terraform-backend-enhanced action runs before terraform-init.
+
+#### 2. State Lock Errors
+```
+Error: Error acquiring the state lock
+```
+**Solution**: Check DynamoDB table exists and has correct permissions.
+
+#### 3. Resource Already Exists
+```
+Error: A resource with the ID already exists
+```
+**Solution**: Import existing resources or use data sources instead of creating new ones.
+
+### Validation Commands
+
+```bash
+# Complete setup validation
+python3 scripts/validate-complete-setup.py --verbose
+
+# Test specific backend config
+python3 scripts/generate-backend-config.py dev azure network
+
+# Verify AWS access
+aws sts get-caller-identity
+
+# Verify Azure access
+az account show
+```
+
+## 📚 Documentation
+
+- [Naming Convention Strategy](docs/naming-convention-strategy.md)
+- [Backend Best Practices](docs/terraform-backend-best-practices.md)
+- [Implementation Guide](docs/implementation-guide.md)
+- [Codebase Analysis](docs/codebase-analysis-and-cleanup-plan.md)
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make changes and test**: `python3 scripts/validate-complete-setup.py`
+4. **Commit changes**: `git commit -m 'Add amazing feature'`
+5. **Push to branch**: `git push origin feature/amazing-feature`
+6. **Open a Pull Request**
+
+### Development Guidelines
+
+- Follow the established naming conventions
+- Add tests for new functionality
+- Update documentation for changes
+- Validate changes with the provided scripts
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Issues**: Create a GitHub issue for bugs or feature requests
+- **Discussions**: Use GitHub Discussions for questions and ideas
+- **Documentation**: Check the `docs/` directory for detailed guides
+
+## 🎯 Roadmap
+
+- [ ] **Multi-Region Support**: Deploy across multiple Azure regions
+- [ ] **AWS Integration**: Add AWS EKS and VPC modules
+- [ ] **Policy as Code**: Implement Azure Policy and AWS Config
+- [ ] **Cost Optimization**: Advanced cost monitoring and optimization
+- [ ] **Disaster Recovery**: Cross-region backup and recovery procedures
+- [ ] **GitOps Integration**: ArgoCD and Flux integration
+
 ---
 
-## 📚 **Additional Resources**
-
-- [Crossplane Documentation](https://docs.crossplane.io/)
-- [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
-- [Azure AKS Documentation](https://docs.microsoft.com/en-us/azure/aks/)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-
----
-
-## 🤝 **Contributing**
-
-When adding new infrastructure components:
-
-1. **Crossplane Compositions**: Add to `infrastructure/crossplane/compositions/`
-2. **ArgoCD Applications**: Add to `infrastructure/argocd/applications/`
-3. **Kubernetes Manifests**: Add to `infrastructure/kubernetes/`
-4. **CI/CD Workflows**: Add to `ci-cd/workflows/`
-5. **Scripts**: Add to `scripts/` with appropriate categorization
-6. **Documentation**: Update relevant documentation
-
----
-
-## 📄 **License**
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
----
-
-**Repository Version**: 1.0.0  
-**Last Updated**: $(date)  
-**Target Launch**: ASAP (2025)  
-**Infrastructure Status**: Production Ready
+**Built with ❤️ by the MSDP Platform Team**

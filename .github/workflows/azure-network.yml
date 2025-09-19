@@ -1,0 +1,139 @@
+name: Azure Network Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "infrastructure/environment/azure/network/**"
+      - "config/dev.yaml"
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action to perform"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      environment:
+        description: "Environment"
+        required: true
+        default: dev
+        type: choice
+        options: [dev, staging, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_INPUT: "false"
+  ARM_USE_OIDC: "true"
+
+jobs:
+  network:
+    runs-on: ubuntu-latest
+    
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_USE_OIDC: "true"
+      ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Cloud Login
+        uses: ./.github/actions/cloud-login
+        with:
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Terraform Variables
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          
+          # Load configuration
+          with open('../../../../config/${{ env.ENVIRONMENT }}.yaml', 'r') as f:
+              config = yaml.safe_load(f)
+          
+          # Extract network configuration
+          network_config = config['azure']['network']
+          tags = config.get('tags', {})
+          
+          # Generate terraform.tfvars.json
+          tfvars = {
+              'resource_group_name': network_config['resource_group_name'],
+              'location': config['azure']['location'],
+              'vnet_name': network_config['vnet_name'],
+              'vnet_cidr': network_config['vnet_cidr'],
+              'subnets': network_config['subnets'],
+              'tags': tags
+          }
+          
+          with open('terraform.tfvars.json', 'w') as f:
+              json.dump(tfvars, f, indent=2)
+          
+          print("Generated terraform.tfvars.json:")
+          print(json.dumps(tfvars, indent=2))
+          EOF
+
+      - name: Setup Terraform Backend
+        uses: ./.github/actions/terraform-backend-enhanced
+        with:
+          environment: ${{ env.ENVIRONMENT }}
+          platform: azure
+          component: network
+          aws_region: eu-west-1
+          create_resources: "true"
+
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
+        with:
+          working-directory: infrastructure/environment/azure/network
+          backend-config-file: ${{ env.TF_BACKEND_CONFIG_FILE }}
+          terraform-version: 1.9.5
+
+      - name: Terraform Plan
+        if: ${{ github.event.inputs.action == 'plan' || github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          terraform plan -out=tfplan
+          echo "✅ Terraform plan completed successfully"
+
+      - name: Terraform Apply
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          terraform apply -auto-approve tfplan
+          echo "✅ Terraform apply completed successfully"
+
+      - name: Show Outputs
+        if: ${{ github.event.inputs.action == 'apply' }}
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          echo "=== Network Infrastructure Outputs ==="
+          terraform output -json | jq .
+
+      - name: Terraform Destroy
+        if: ${{ github.event.inputs.action == 'destroy' }}
+        working-directory: infrastructure/environment/azure/network
+        run: |
+          echo "⚠️  WARNING: This will destroy the network infrastructure!"
+          echo "Make sure no AKS clusters are using this network."
+          terraform destroy -auto-approve

@@ -1,0 +1,34 @@
+name: "Bootstrap Environment"
+description: "Export Terraform config and backend paths for workflows"
+
+inputs:
+  env:
+    description: "Environment name (e.g., dev)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Export config paths
+      shell: bash
+      run: |
+        set -euo pipefail
+        REPO_ROOT="$GITHUB_WORKSPACE"
+        
+        # Use current config structure
+        echo "TF_VAR_global_config_path=$REPO_ROOT/config/global/naming.yaml" >> "$GITHUB_ENV"
+        echo "TF_VAR_accounts_config_path=$REPO_ROOT/config/global/accounts.yaml" >> "$GITHUB_ENV"
+        echo "TF_VAR_env_config_path=$REPO_ROOT/config/envs/${{ inputs.env }}.yaml" >> "$GITHUB_ENV"
+        
+        # Validate required config files exist
+        for config_file in \
+          "$REPO_ROOT/config/global/naming.yaml" \
+          "$REPO_ROOT/config/global/accounts.yaml" \
+          "$REPO_ROOT/config/envs/${{ inputs.env }}.yaml"; do
+          if [ ! -f "$config_file" ]; then
+            echo "❌ Required config file not found: $config_file" >&2
+            exit 1
+          fi
+        done
+        
+        echo "✅ All required config files validated"

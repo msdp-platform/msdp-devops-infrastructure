@@ -1,0 +1,8 @@
+{
+  "bucket": "msdp-terraform-state-dev",
+  "region": "eu-west-1",
+  "dynamodb_table": "msdp-terraform-locks-dev",
+  "key": "dev/terraform.tfstate",
+  "network_key": "network/dev.tfstate",
+  "aks_key": "aks/dev.tfstate"
+}

@@ -1,0 +1,56 @@
+# Example terraform.tfvars for AWS Network dev environment
+# Copy this file to terraform.tfvars and update the values
+
+# VPC Configuration
+vpc_name = "vpc-msdp-dev"
+vpc_cidr = "10.50.0.0/16"
+
+# Availability Zones
+availability_zones = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+
+# Public Subnets (for NAT gateways and load balancers)
+public_subnets = [
+  {
+    name              = "subnet-public-dev-1a"
+    cidr              = "10.50.1.0/24"
+    availability_zone = "eu-west-1a"
+  },
+  {
+    name              = "subnet-public-dev-1b"
+    cidr              = "10.50.2.0/24"
+    availability_zone = "eu-west-1b"
+  },
+  {
+    name              = "subnet-public-dev-1c"
+    cidr              = "10.50.3.0/24"
+    availability_zone = "eu-west-1c"
+  }
+]
+
+# Private Subnets (for EKS worker nodes)
+private_subnets = [
+  {
+    name              = "subnet-private-dev-1a"
+    cidr              = "10.50.11.0/24"
+    availability_zone = "eu-west-1a"
+  },
+  {
+    name              = "subnet-private-dev-1b"
+    cidr              = "10.50.12.0/24"
+    availability_zone = "eu-west-1b"
+  },
+  {
+    name              = "subnet-private-dev-1c"
+    cidr              = "10.50.13.0/24"
+    availability_zone = "eu-west-1c"
+  }
+]
+
+# Tags
+tags = {
+  Environment = "dev"
+  Project     = "msdp"
+  ManagedBy   = "terraform"
+  Owner       = "platform-team"
+  CostCenter  = "engineering"
+}

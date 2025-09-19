@@ -1,0 +1,139 @@
+# External DNS Helm Values for AWS
+# This file contains AWS-specific configuration for External DNS
+
+# Image configuration
+image:
+  repository: registry.k8s.io/external-dns/external-dns
+  tag: v0.14.0
+  pullPolicy: IfNotPresent
+
+# External DNS configuration
+provider: aws
+
+# AWS-specific settings
+aws:
+  region: ${AWS_REGION}
+  zoneType: ${AWS_ZONE_TYPE:-public}
+  assumeRoleArn: ${AWS_ASSUME_ROLE_ARN:-}
+  batchChangeSize: 1000
+  batchChangeInterval: 1s
+  evaluateTargetHealth: true
+
+# Domain configuration
+domainFilters: 
+  - ${DOMAIN_FILTERS}
+
+# TXT record configuration
+txtOwnerId: ${TXT_OWNER_ID}
+txtPrefix: ${TXT_PREFIX:-external-dns-}
+
+# Policy configuration
+policy: ${POLICY:-sync}
+registry: ${REGISTRY:-txt}
+
+# Source configuration
+sources:
+  - service
+  - ingress
+
+# Deployment configuration
+replicaCount: 1
+
+# Resource configuration
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65534
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 65534
+
+# Service account configuration
+serviceAccount:
+  create: true
+  name: external-dns
+  annotations:
+    eks.amazonaws.com/role-arn: ${AWS_ROLE_ARN:-}
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Monitoring configuration
+metrics:
+  enabled: true
+  port: 7979
+
+# Health check configuration
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+  successThreshold: 1
+
+readinessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+# Logging configuration
+logLevel: ${LOG_LEVEL:-info}
+logFormat: ${LOG_FORMAT:-text}
+
+# Additional arguments
+extraArgs:
+  - --aws-batch-change-size=1000
+  - --aws-batch-change-interval=1s
+  - --aws-evaluate-target-health
+
+# Node selector and tolerations
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Pod annotations
+podAnnotations:
+  cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+
+# Pod labels
+podLabels:
+  app.kubernetes.io/managed-by: plugin-manager
+  app.kubernetes.io/part-of: external-dns
+
+# Service configuration
+service:
+  enabled: true
+  type: ClusterIP
+  port: 7979
+  annotations: {}
+
+# ServiceMonitor for Prometheus (if available)
+serviceMonitor:
+  enabled: false
+  namespace: ""
+  labels: {}
+  annotations: {}
+  interval: 30s
+  scrapeTimeout: 10s
