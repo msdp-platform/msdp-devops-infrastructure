@@ -5,6 +5,9 @@ This directory contains scripts that are no longer actively used but are kept fo
 ## Scripts
 
 - `cleanup-old-terraform-files.sh` - One-time cleanup script for old Terraform files (used during refactoring)
+- `migrate-configuration.py` - Configuration migration script (superseded by mature config structure)
+- `deploy-azure-infrastructure.sh` - Infrastructure deployment script (superseded by GitHub workflows)
+- `azure_infra_orchestrator.py` - Infrastructure orchestration script (superseded by GitHub workflows)
 
 These scripts should not be used in production workflows.
 
