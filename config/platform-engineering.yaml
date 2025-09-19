@@ -84,6 +84,7 @@ components:
     enabled: true
     namespace: "backstage"
     chart_version: "2.6.1"
+    app_version: "1.43.2"
     repository: "https://backstage.github.io/charts"
 
     # MSDP-specific configuration

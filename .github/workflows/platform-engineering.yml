@@ -251,8 +251,38 @@ jobs:
               env_config = yaml.safe_load(f)
 
           with open('../../../config/platform-engineering.yaml', 'r') as f:
-              platform_config = yaml.safe_load(f)
+              platform_config_raw = f.read()
 
+          # Process template variables
+          import re
+          
+          # Define template variable replacements
+          template_vars = {
+              'ORG_NAME': '${{ vars.ORG_NAME || 'MSDP' }}',
+              'ORG_DOMAIN': '${{ vars.ORG_DOMAIN || 'aztech-msdp.com' }}',
+              'ORG_GITHUB': '${{ vars.ORG_GITHUB || 'msdp-platform' }}',
+              'MSDP_API_ENDPOINT': '${{ vars.MSDP_API_ENDPOINT || 'http://192.168.1.189:3000' }}',
+              'LOCATION_API_ENDPOINT': '${{ vars.LOCATION_API_ENDPOINT || 'http://192.168.1.189:3001' }}',
+              'MERCHANT_API_ENDPOINT': '${{ vars.MERCHANT_API_ENDPOINT || 'http://192.168.1.189:3002' }}',
+              'USER_API_ENDPOINT': '${{ vars.USER_API_ENDPOINT || 'http://192.168.1.189:3003' }}',
+              'ORDER_API_ENDPOINT': '${{ vars.ORDER_API_ENDPOINT || 'http://192.168.1.189:3006' }}',
+              'PAYMENT_API_ENDPOINT': '${{ vars.PAYMENT_API_ENDPOINT || 'http://192.168.1.189:3007' }}'
+          }
+          
+          # Process template variables in the YAML content
+          processed_config = platform_config_raw
+          for var_name, var_value in template_vars.items():
+              # Replace {{ VAR_NAME | default('fallback') }} patterns
+              pattern = r'\{\{\s*' + var_name + r'\s*\|\s*default\([^)]+\)\s*\}\}'
+              processed_config = re.sub(pattern, var_value, processed_config)
+              
+              # Replace {{ VAR_NAME | lower | default('fallback') }} patterns  
+              pattern = r'\{\{\s*' + var_name + r'\s*\|\s*lower\s*\|\s*default\([^)]+\)\s*\}\}'
+              processed_config = re.sub(pattern, var_value.lower(), processed_config)
+
+          # Load processed configuration
+          platform_config = yaml.safe_load(processed_config)
+          
           # Get component-specific configuration
           component_config = platform_config['components']['${{ matrix.component }}']
           cluster_config = json.loads('''${{ toJson(matrix) }}''')
@@ -269,8 +299,8 @@ jobs:
               'tags': env_config.get('tags', {})
           }
           
-          # Add Azure credentials for crossplane and backstage
-          if '${{ matrix.component }}' in ['crossplane', 'backstage']:
+          # Add component-specific credentials
+          if '${{ matrix.component }}' == 'crossplane':
               tfvars.update({
                   'azure_client_id': '${{ secrets.AZURE_CLIENT_ID }}',
                   'azure_client_secret': '${{ secrets.AZURE_CLIENT_SECRET }}',
@@ -280,9 +310,7 @@ jobs:
                   'aws_secret_access_key': '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
                   'aws_region': 'eu-west-1'
               })
-          
-          # Add GitHub credentials for backstage
-          if '${{ matrix.component }}' == 'backstage':
+          elif '${{ matrix.component }}' == 'backstage':
               tfvars.update({
                   'github_client_id': '${{ secrets.GITHUB_CLIENT_ID }}',
                   'github_client_secret': '${{ secrets.GITHUB_CLIENT_SECRET }}',
