@@ -33,6 +33,7 @@ components:
     - keyvault
     - appgateway
     - firewall
+    - platform-engineering
   aws:
     - network
     - vpc
@@ -42,6 +43,7 @@ components:
     - iam
     - alb
     - route53
+    - platform-engineering
   shared:
     - monitoring
     - dns
@@ -49,6 +51,7 @@ components:
     - security
     - logging
     - addons
+    - platform-engineering
 
 environments:
   - dev
