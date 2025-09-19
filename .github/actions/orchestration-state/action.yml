@@ -1,0 +1,240 @@
+name: 'Orchestration State Manager'
+description: 'Manages infrastructure deployment state and dependencies'
+author: 'Platform Team'
+
+inputs:
+  action:
+    description: 'Action to perform: get, set, validate'
+    required: true
+  component:
+    description: 'Component name (network, clusters, addons, platform)'
+    required: false
+  environment:
+    description: 'Target environment'
+    required: true
+  cloud_provider:
+    description: 'Cloud provider (aws, azure)'
+    required: true
+  status:
+    description: 'Component status to set (pending, deploying, deployed, failed)'
+    required: false
+  metadata:
+    description: 'Additional metadata as JSON string'
+    required: false
+    default: '{}'
+
+outputs:
+  state:
+    description: 'Current orchestration state as JSON'
+  component_status:
+    description: 'Status of the specified component'
+  dependencies_ready:
+    description: 'Whether component dependencies are satisfied'
+  next_components:
+    description: 'Components ready for deployment'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install PyYAML
+
+    - name: Manage Orchestration State
+      shell: bash
+      run: |
+        python3 << 'EOF'
+        import yaml
+        import json
+        import os
+        from datetime import datetime
+        import hashlib
+        
+        # Input parameters
+        action = "${{ inputs.action }}"
+        component = "${{ inputs.component }}"
+        environment = "${{ inputs.environment }}"
+        cloud_provider = "${{ inputs.cloud_provider }}"
+        status = "${{ inputs.status }}"
+        metadata = json.loads('${{ inputs.metadata }}')
+        
+        # State file path
+        state_file = f".orchestration-state-{environment}-{cloud_provider}.json"
+        
+        # Component dependencies
+        dependencies = {
+            'network': [],
+            'clusters': ['network'],
+            'addons': ['clusters'],
+            'platform': ['addons']
+        }
+        
+        def load_state():
+            """Load current orchestration state"""
+            if os.path.exists(state_file):
+                with open(state_file, 'r') as f:
+                    return json.load(f)
+            else:
+                return {
+                    'environment': environment,
+                    'cloud_provider': cloud_provider,
+                    'created_at': datetime.utcnow().isoformat(),
+                    'components': {},
+                    'last_updated': datetime.utcnow().isoformat()
+                }
+        
+        def save_state(state):
+            """Save orchestration state"""
+            state['last_updated'] = datetime.utcnow().isoformat()
+            with open(state_file, 'w') as f:
+                json.dump(state, f, indent=2)
+        
+        def get_component_status(state, comp):
+            """Get status of a component"""
+            return state.get('components', {}).get(comp, {}).get('status', 'not_deployed')
+        
+        def check_dependencies_ready(state, comp):
+            """Check if component dependencies are satisfied"""
+            deps = dependencies.get(comp, [])
+            for dep in deps:
+                dep_status = get_component_status(state, dep)
+                if dep_status != 'deployed':
+                    return False
+            return True
+        
+        def get_next_components(state):
+            """Get components ready for deployment"""
+            ready = []
+            for comp in dependencies.keys():
+                comp_status = get_component_status(state, comp)
+                if comp_status in ['not_deployed', 'failed'] and check_dependencies_ready(state, comp):
+                    ready.append(comp)
+            return ready
+        
+        # Load current state
+        state = load_state()
+        
+        # Perform action
+        if action == 'get':
+            print(f"📊 Current orchestration state for {environment}-{cloud_provider}")
+            for comp, info in state.get('components', {}).items():
+                status_emoji = {
+                    'not_deployed': '⚪',
+                    'pending': '🟡',
+                    'deploying': '🔵',
+                    'deployed': '🟢',
+                    'failed': '🔴'
+                }.get(info.get('status', 'not_deployed'), '❓')
+                print(f"  {status_emoji} {comp}: {info.get('status', 'not_deployed')}")
+            
+            # Set outputs
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"state={json.dumps(state)}\n")
+                if component:
+                    comp_status = get_component_status(state, component)
+                    deps_ready = check_dependencies_ready(state, component)
+                    f.write(f"component_status={comp_status}\n")
+                    f.write(f"dependencies_ready={str(deps_ready).lower()}\n")
+                
+                next_comps = get_next_components(state)
+                f.write(f"next_components={json.dumps(next_comps)}\n")
+        
+        elif action == 'set':
+            if not component or not status:
+                print("❌ Component and status required for 'set' action")
+                exit(1)
+            
+            print(f"📝 Setting {component} status to {status}")
+            
+            # Initialize component if not exists
+            if 'components' not in state:
+                state['components'] = {}
+            if component not in state['components']:
+                state['components'][component] = {}
+            
+            # Update component info
+            state['components'][component].update({
+                'status': status,
+                'updated_at': datetime.utcnow().isoformat(),
+                'metadata': metadata
+            })
+            
+            # Save state
+            save_state(state)
+            
+            # Set outputs
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"state={json.dumps(state)}\n")
+                f.write(f"component_status={status}\n")
+                deps_ready = check_dependencies_ready(state, component)
+                f.write(f"dependencies_ready={str(deps_ready).lower()}\n")
+                next_comps = get_next_components(state)
+                f.write(f"next_components={json.dumps(next_comps)}\n")
+        
+        elif action == 'validate':
+            print(f"🔍 Validating orchestration state")
+            
+            # Check for circular dependencies
+            def has_circular_deps():
+                visited = set()
+                rec_stack = set()
+                
+                def dfs(node):
+                    visited.add(node)
+                    rec_stack.add(node)
+                    
+                    for dep in dependencies.get(node, []):
+                        if dep not in visited:
+                            if dfs(dep):
+                                return True
+                        elif dep in rec_stack:
+                            return True
+                    
+                    rec_stack.remove(node)
+                    return False
+                
+                for comp in dependencies.keys():
+                    if comp not in visited:
+                        if dfs(comp):
+                            return True
+                return False
+            
+            if has_circular_deps():
+                print("❌ Circular dependency detected!")
+                exit(1)
+            
+            # Validate component statuses
+            issues = []
+            for comp, info in state.get('components', {}).items():
+                comp_status = info.get('status', 'not_deployed')
+                if comp_status == 'deployed':
+                    # Check if dependencies are also deployed
+                    for dep in dependencies.get(comp, []):
+                        dep_status = get_component_status(state, dep)
+                        if dep_status != 'deployed':
+                            issues.append(f"{comp} is deployed but dependency {dep} is {dep_status}")
+            
+            if issues:
+                print("⚠️ State validation issues found:")
+                for issue in issues:
+                    print(f"  - {issue}")
+            else:
+                print("✅ State validation passed")
+            
+            # Set outputs
+            with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                f.write(f"state={json.dumps(state)}\n")
+                next_comps = get_next_components(state)
+                f.write(f"next_components={json.dumps(next_comps)}\n")
+        
+        else:
+            print(f"❌ Unknown action: {action}")
+            exit(1)
+        
+        print("✅ Orchestration state management completed")
+        EOF

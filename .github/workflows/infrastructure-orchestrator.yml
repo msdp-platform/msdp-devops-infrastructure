@@ -1,0 +1,323 @@
+name: Infrastructure Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "Target environment for deployment"
+        required: true
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      components:
+        description: "Components to deploy (comma-separated: network,clusters,addons,platform)"
+        required: true
+        default: "network,clusters,addons"
+        type: string
+      action:
+        description: "Action to perform"
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply, destroy]
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+        default: azure
+      force_sequential:
+        description: "Force sequential execution (disable parallelization)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+
+env:
+  ENVIRONMENT: ${{ github.event.inputs.target_environment }}
+  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+  ACTION: ${{ github.event.inputs.action }}
+  COMPONENTS: ${{ github.event.inputs.components }}
+
+jobs:
+  orchestration-plan:
+    runs-on: ubuntu-latest
+    outputs:
+      execution-plan: ${{ steps.plan.outputs.execution_plan }}
+      network-required: ${{ steps.plan.outputs.network_required }}
+      clusters-required: ${{ steps.plan.outputs.clusters_required }}
+      addons-required: ${{ steps.plan.outputs.addons_required }}
+      platform-required: ${{ steps.plan.outputs.platform_required }}
+      parallel-execution: ${{ steps.plan.outputs.parallel_execution }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Generate Orchestration Plan
+        id: plan
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+          
+          # Parse inputs
+          environment = "${{ env.ENVIRONMENT }}"
+          cloud_provider = "${{ env.CLOUD_PROVIDER }}"
+          action = "${{ env.ACTION }}"
+          components_input = "${{ env.COMPONENTS }}"
+          force_sequential = "${{ github.event.inputs.force_sequential }}" == "true"
+          
+          # Parse components
+          requested_components = [c.strip() for c in components_input.split(',')]
+          
+          print(f"🎯 Orchestration Plan for {environment} environment")
+          print(f"☁️  Cloud Provider: {cloud_provider}")
+          print(f"🔧 Action: {action}")
+          print(f"📦 Requested Components: {requested_components}")
+          
+          # Define component dependencies
+          dependencies = {
+              'network': [],
+              'clusters': ['network'],
+              'addons': ['clusters'],
+              'platform': ['addons']
+          }
+          
+          # Resolve dependencies
+          def resolve_dependencies(components):
+              resolved = set()
+              to_process = set(components)
+              
+              while to_process:
+                  # Find components with satisfied dependencies
+                  ready = []
+                  for comp in to_process:
+                      deps = dependencies.get(comp, [])
+                      if all(dep in resolved or dep not in requested_components for dep in deps):
+                          ready.append(comp)
+                  
+                  if not ready:
+                      raise ValueError(f"Circular dependency detected in: {to_process}")
+                  
+                  # Add ready components to resolved
+                  for comp in ready:
+                      resolved.add(comp)
+                      to_process.remove(comp)
+              
+              return list(resolved)
+          
+          # Generate execution plan
+          try:
+              all_components = resolve_dependencies(requested_components)
+              
+              # Create execution phases
+              phases = []
+              remaining = set(all_components)
+              
+              while remaining:
+                  # Find components that can run in parallel
+                  current_phase = []
+                  for comp in list(remaining):
+                      deps = dependencies.get(comp, [])
+                      if all(dep not in remaining for dep in deps):
+                          current_phase.append(comp)
+                  
+                  if not current_phase:
+                      raise ValueError("Cannot resolve execution order")
+                  
+                  # Remove from remaining
+                  for comp in current_phase:
+                      remaining.remove(comp)
+                  
+                  phases.append(current_phase)
+              
+              # Force sequential if requested
+              if force_sequential:
+                  phases = [[comp] for phase in phases for comp in phase]
+              
+              execution_plan = {
+                  'phases': phases,
+                  'total_components': len(all_components),
+                  'parallel_phases': len([p for p in phases if len(p) > 1])
+              }
+              
+              print(f"📋 Execution Plan:")
+              for i, phase in enumerate(phases, 1):
+                  if len(phase) == 1:
+                      print(f"  Phase {i}: {phase[0]}")
+                  else:
+                      print(f"  Phase {i}: {', '.join(phase)} (parallel)")
+              
+              # Set outputs
+              with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+                  f.write(f"execution_plan={json.dumps(execution_plan)}\n")
+                  f.write(f"network_required={'network' in all_components}\n")
+                  f.write(f"clusters_required={'clusters' in all_components}\n")
+                  f.write(f"addons_required={'addons' in all_components}\n")
+                  f.write(f"platform_required={'platform' in all_components}\n")
+                  f.write(f"parallel_execution={not force_sequential}\n")
+              
+              print("✅ Orchestration plan generated successfully")
+              
+          except Exception as e:
+              print(f"❌ Error generating orchestration plan: {e}")
+              exit(1)
+          EOF
+
+  # Phase 1: Network Infrastructure
+  deploy-network:
+    needs: orchestration-plan
+    if: ${{ needs.orchestration-plan.outputs.network-required == 'true' }}
+    uses: ./.github/workflows/network-infrastructure.yml
+    with:
+      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      action: ${{ github.event.inputs.action }}
+      environment: ${{ github.event.inputs.target_environment }}
+    secrets: inherit
+
+  # Phase 2: Kubernetes Clusters (depends on network)
+  deploy-clusters:
+    needs: [orchestration-plan, deploy-network]
+    if: ${{ always() && needs.orchestration-plan.outputs.clusters-required == 'true' && (needs.deploy-network.result == 'success' || needs.deploy-network.result == 'skipped') }}
+    uses: ./.github/workflows/kubernetes-clusters.yml
+    with:
+      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      action: ${{ github.event.inputs.action }}
+      environment: ${{ github.event.inputs.target_environment }}
+    secrets: inherit
+
+  # Phase 3: Kubernetes Addons (depends on clusters)
+  deploy-addons:
+    needs: [orchestration-plan, deploy-clusters]
+    if: ${{ always() && needs.orchestration-plan.outputs.addons-required == 'true' && (needs.deploy-clusters.result == 'success' || needs.deploy-clusters.result == 'skipped') }}
+    uses: ./.github/workflows/k8s-addons-terraform.yml
+    with:
+      environment: ${{ github.event.inputs.target_environment }}
+      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      cluster_name: "" # Deploy to all clusters
+      action: ${{ github.event.inputs.action }}
+    secrets: inherit
+
+  # Phase 4: Platform Engineering Stack (depends on addons)
+  deploy-platform:
+    needs: [orchestration-plan, deploy-addons]
+    if: ${{ always() && needs.orchestration-plan.outputs.platform-required == 'true' && (needs.deploy-addons.result == 'success' || needs.deploy-addons.result == 'skipped') }}
+    uses: ./.github/workflows/platform-engineering.yml
+    with:
+      environment: ${{ github.event.inputs.target_environment }}
+      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      action: ${{ github.event.inputs.action }}
+    secrets: inherit
+
+  # Orchestration Summary
+  orchestration-summary:
+    needs: [orchestration-plan, deploy-network, deploy-clusters, deploy-addons, deploy-platform]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Orchestration Summary
+        run: |
+          echo "# 🎯 Infrastructure Orchestration Summary"
+          echo ""
+          echo "**Environment**: ${{ env.ENVIRONMENT }}"
+          echo "**Cloud Provider**: ${{ env.CLOUD_PROVIDER }}"
+          echo "**Action**: ${{ env.ACTION }}"
+          echo "**Components**: ${{ env.COMPONENTS }}"
+          echo ""
+          echo "## Execution Results"
+          echo ""
+          
+          # Network
+          if [[ "${{ needs.orchestration-plan.outputs.network-required }}" == "true" ]]; then
+            case "${{ needs.deploy-network.result }}" in
+              "success") echo "✅ **Network**: Deployed successfully" ;;
+              "failure") echo "❌ **Network**: Deployment failed" ;;
+              "cancelled") echo "⏹️ **Network**: Deployment cancelled" ;;
+              "skipped") echo "⏭️ **Network**: Deployment skipped" ;;
+              *) echo "❓ **Network**: Unknown status" ;;
+            esac
+          fi
+          
+          # Clusters
+          if [[ "${{ needs.orchestration-plan.outputs.clusters-required }}" == "true" ]]; then
+            case "${{ needs.deploy-clusters.result }}" in
+              "success") echo "✅ **Clusters**: Deployed successfully" ;;
+              "failure") echo "❌ **Clusters**: Deployment failed" ;;
+              "cancelled") echo "⏹️ **Clusters**: Deployment cancelled" ;;
+              "skipped") echo "⏭️ **Clusters**: Deployment skipped" ;;
+              *) echo "❓ **Clusters**: Unknown status" ;;
+            esac
+          fi
+          
+          # Addons
+          if [[ "${{ needs.orchestration-plan.outputs.addons-required }}" == "true" ]]; then
+            case "${{ needs.deploy-addons.result }}" in
+              "success") echo "✅ **Addons**: Deployed successfully" ;;
+              "failure") echo "❌ **Addons**: Deployment failed" ;;
+              "cancelled") echo "⏹️ **Addons**: Deployment cancelled" ;;
+              "skipped") echo "⏭️ **Addons**: Deployment skipped" ;;
+              *) echo "❓ **Addons**: Unknown status" ;;
+            esac
+          fi
+          
+          # Platform
+          if [[ "${{ needs.orchestration-plan.outputs.platform-required }}" == "true" ]]; then
+            case "${{ needs.deploy-platform.result }}" in
+              "success") echo "✅ **Platform**: Deployed successfully" ;;
+              "failure") echo "❌ **Platform**: Deployment failed" ;;
+              "cancelled") echo "⏹️ **Platform**: Deployment cancelled" ;;
+              "skipped") echo "⏭️ **Platform**: Deployment skipped" ;;
+              *) echo "❓ **Platform**: Unknown status" ;;
+            esac
+          fi
+          
+          echo ""
+          echo "## Next Steps"
+          
+          # Check overall success
+          OVERALL_SUCCESS=true
+          for result in "${{ needs.deploy-network.result }}" "${{ needs.deploy-clusters.result }}" "${{ needs.deploy-addons.result }}" "${{ needs.deploy-platform.result }}"; do
+            if [[ "$result" == "failure" ]]; then
+              OVERALL_SUCCESS=false
+              break
+            fi
+          done
+          
+          if [[ "$OVERALL_SUCCESS" == "true" ]]; then
+            echo "🎉 **Overall Status**: All components deployed successfully!"
+            echo ""
+            echo "Your ${{ env.ENVIRONMENT }} environment is ready for use."
+            if [[ "${{ env.CLOUD_PROVIDER }}" == "azure" ]]; then
+              echo ""
+              echo "To connect to your AKS clusters:"
+              echo "\`\`\`bash"
+              echo "az aks get-credentials --resource-group rg-<cluster-name> --name <cluster-name>"
+              echo "kubectl get nodes"
+              echo "\`\`\`"
+            else
+              echo ""
+              echo "To connect to your EKS clusters:"
+              echo "\`\`\`bash"
+              echo "aws eks update-kubeconfig --region eu-west-1 --name <cluster-name>"
+              echo "kubectl get nodes"
+              echo "\`\`\`"
+            fi
+          else
+            echo "⚠️ **Overall Status**: Some components failed to deploy."
+            echo ""
+            echo "Please check the individual workflow logs and retry failed components."
+            echo "You can re-run this orchestrator with only the failed components."
+          fi

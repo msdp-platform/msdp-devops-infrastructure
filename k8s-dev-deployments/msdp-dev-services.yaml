@@ -1,0 +1,390 @@
+# MSDP Development Services Deployment
+# Deploy all MSDP services to the msdp-dev namespace for individual development
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: msdp-dev
+  labels:
+    environment: development
+    team: msdp-platform
+    purpose: individual-development
+
+---
+# API Gateway Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-api-gateway
+  namespace: msdp-dev
+  labels:
+    app: msdp-api-gateway
+    service: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-api-gateway
+  template:
+    metadata:
+      labels:
+        app: msdp-api-gateway
+        service: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: your-registry/msdp-api-gateway:latest # Replace with your image
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3000"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-api-gateway
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-api-gateway
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP
+
+---
+# Location Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-location-service
+  namespace: msdp-dev
+  labels:
+    app: msdp-location-service
+    service: location
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-location-service
+  template:
+    metadata:
+      labels:
+        app: msdp-location-service
+        service: location
+    spec:
+      containers:
+        - name: location-service
+          image: your-registry/msdp-location-service:latest # Replace with your image
+          ports:
+            - containerPort: 3001
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3001"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-location-service
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-location-service
+  ports:
+    - port: 3001
+      targetPort: 3001
+  type: ClusterIP
+
+---
+# Merchant Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-merchant-service
+  namespace: msdp-dev
+  labels:
+    app: msdp-merchant-service
+    service: merchant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-merchant-service
+  template:
+    metadata:
+      labels:
+        app: msdp-merchant-service
+        service: merchant
+    spec:
+      containers:
+        - name: merchant-service
+          image: your-registry/msdp-merchant-service:latest # Replace with your image
+          ports:
+            - containerPort: 3002
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3002"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-merchant-service
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-merchant-service
+  ports:
+    - port: 3002
+      targetPort: 3002
+  type: ClusterIP
+
+---
+# User Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-user-service
+  namespace: msdp-dev
+  labels:
+    app: msdp-user-service
+    service: user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-user-service
+  template:
+    metadata:
+      labels:
+        app: msdp-user-service
+        service: user
+    spec:
+      containers:
+        - name: user-service
+          image: your-registry/msdp-user-service:latest # Replace with your image
+          ports:
+            - containerPort: 3003
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3003"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-user-service
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-user-service
+  ports:
+    - port: 3003
+      targetPort: 3003
+  type: ClusterIP
+
+---
+# Order Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-order-service
+  namespace: msdp-dev
+  labels:
+    app: msdp-order-service
+    service: order
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-order-service
+  template:
+    metadata:
+      labels:
+        app: msdp-order-service
+        service: order
+    spec:
+      containers:
+        - name: order-service
+          image: your-registry/msdp-order-service:latest # Replace with your image
+          ports:
+            - containerPort: 3006
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3006"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-order-service
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-order-service
+  ports:
+    - port: 3006
+      targetPort: 3006
+  type: ClusterIP
+
+---
+# Payment Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: msdp-payment-service
+  namespace: msdp-dev
+  labels:
+    app: msdp-payment-service
+    service: payment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: msdp-payment-service
+  template:
+    metadata:
+      labels:
+        app: msdp-payment-service
+        service: payment
+    spec:
+      containers:
+        - name: payment-service
+          image: your-registry/msdp-payment-service:latest # Replace with your image
+          ports:
+            - containerPort: 3007
+          env:
+            - name: NODE_ENV
+              value: "development"
+            - name: PORT
+              value: "3007"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msdp-payment-service
+  namespace: msdp-dev
+spec:
+  selector:
+    app: msdp-payment-service
+  ports:
+    - port: 3007
+      targetPort: 3007
+  type: ClusterIP
+
+---
+# Ingress for external access to services
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: msdp-dev-ingress
+  namespace: msdp-dev
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Content-Type, Authorization"
+spec:
+  rules:
+    - host: msdp-dev.aztech-msdp.com # Replace with your domain
+      http:
+        paths:
+          - path: /api/gateway
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-api-gateway
+                port:
+                  number: 3000
+          - path: /api/location
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-location-service
+                port:
+                  number: 3001
+          - path: /api/merchant
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-merchant-service
+                port:
+                  number: 3002
+          - path: /api/user
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-user-service
+                port:
+                  number: 3003
+          - path: /api/order
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-order-service
+                port:
+                  number: 3006
+          - path: /api/payment
+            pathType: Prefix
+            backend:
+              service:
+                name: msdp-payment-service
+                port:
+                  number: 3007

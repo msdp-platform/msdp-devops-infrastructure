@@ -1,0 +1,349 @@
+name: Environment Promotion
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_environment:
+        description: "Source environment"
+        required: true
+        type: choice
+        options: [dev, staging]
+        default: dev
+      target_environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options: [staging, prod]
+        default: staging
+      components:
+        description: "Components to promote (comma-separated: network,clusters,addons,platform)"
+        required: true
+        default: "network,clusters,addons"
+        type: string
+      cloud_provider:
+        description: "Cloud provider"
+        required: true
+        type: choice
+        options: [aws, azure]
+        default: azure
+      auto_approve:
+        description: "Auto-approve deployment (skip manual approval for non-prod)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  id-token: write
+  contents: read
+  actions: write
+  issues: write
+
+env:
+  SOURCE_ENV: ${{ github.event.inputs.source_environment }}
+  TARGET_ENV: ${{ github.event.inputs.target_environment }}
+  CLOUD_PROVIDER: ${{ github.event.inputs.cloud_provider }}
+  COMPONENTS: ${{ github.event.inputs.components }}
+
+jobs:
+  promotion-validation:
+    runs-on: ubuntu-latest
+    outputs:
+      config-diff: ${{ steps.diff.outputs.config_diff }}
+      validation-passed: ${{ steps.validate.outputs.passed }}
+      requires-approval: ${{ steps.approval-check.outputs.required }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Generate Configuration Diff
+        id: diff
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+          
+          source_env = "${{ env.SOURCE_ENV }}"
+          target_env = "${{ env.TARGET_ENV }}"
+          
+          print(f"🔍 Analyzing configuration differences: {source_env} → {target_env}")
+          
+          # Load configurations
+          try:
+              with open(f'config/{source_env}.yaml', 'r') as f:
+                  source_config = yaml.safe_load(f)
+              with open(f'config/{target_env}.yaml', 'r') as f:
+                  target_config = yaml.safe_load(f)
+          except FileNotFoundError as e:
+              print(f"❌ Configuration file not found: {e}")
+              exit(1)
+          
+          # Compare configurations
+          def deep_diff(obj1, obj2, path=""):
+              differences = []
+              
+              if isinstance(obj1, dict) and isinstance(obj2, dict):
+                  all_keys = set(obj1.keys()) | set(obj2.keys())
+                  for key in all_keys:
+                      new_path = f"{path}.{key}" if path else key
+                      if key not in obj1:
+                          differences.append(f"+ {new_path}: {obj2[key]} (added)")
+                      elif key not in obj2:
+                          differences.append(f"- {new_path}: {obj1[key]} (removed)")
+                      else:
+                          differences.extend(deep_diff(obj1[key], obj2[key], new_path))
+              elif obj1 != obj2:
+                  differences.append(f"~ {path}: {obj1} → {obj2} (changed)")
+              
+              return differences
+          
+          differences = deep_diff(source_config, target_config)
+          
+          if differences:
+              print("📋 Configuration differences found:")
+              for diff in differences[:10]:  # Limit output
+                  print(f"  {diff}")
+              if len(differences) > 10:
+                  print(f"  ... and {len(differences) - 10} more differences")
+          else:
+              print("✅ No configuration differences found")
+          
+          # Create diff summary
+          diff_summary = {
+              'total_differences': len(differences),
+              'differences': differences[:20],  # Limit for output
+              'has_differences': len(differences) > 0
+          }
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"config_diff={json.dumps(diff_summary)}\n")
+          EOF
+
+      - name: Validate Source Environment
+        id: validate
+        run: |
+          python3 << 'EOF'
+          import yaml
+          import json
+          import os
+          
+          source_env = "${{ env.SOURCE_ENV }}"
+          cloud_provider = "${{ env.CLOUD_PROVIDER }}"
+          
+          print(f"🔍 Validating {source_env} environment readiness")
+          
+          # Load orchestration state
+          state_file = f".orchestration-state-{source_env}-{cloud_provider}.json"
+          
+          if os.path.exists(state_file):
+              with open(state_file, 'r') as f:
+                  state = json.load(f)
+              
+              # Check component statuses
+              components = state.get('components', {})
+              failed_components = []
+              
+              for comp, info in components.items():
+                  status = info.get('status', 'not_deployed')
+                  if status in ['failed', 'deploying', 'pending']:
+                      failed_components.append(f"{comp}: {status}")
+              
+              if failed_components:
+                  print("❌ Source environment validation failed:")
+                  for comp in failed_components:
+                      print(f"  - {comp}")
+                  validation_passed = False
+              else:
+                  print("✅ Source environment validation passed")
+                  validation_passed = True
+          else:
+              print("⚠️ No orchestration state found - assuming validation passed")
+              validation_passed = True
+          
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"passed={str(validation_passed).lower()}\n")
+          EOF
+
+      - name: Check Approval Requirements
+        id: approval-check
+        run: |
+          TARGET_ENV="${{ env.TARGET_ENV }}"
+          AUTO_APPROVE="${{ github.event.inputs.auto_approve }}"
+          
+          if [[ "$TARGET_ENV" == "prod" ]]; then
+              echo "🔒 Production deployment requires manual approval"
+              echo "required=true" >> $GITHUB_OUTPUT
+          elif [[ "$AUTO_APPROVE" == "true" ]]; then
+              echo "⚡ Auto-approval enabled for non-production environment"
+              echo "required=false" >> $GITHUB_OUTPUT
+          else
+              echo "👤 Manual approval required (auto-approve disabled)"
+              echo "required=true" >> $GITHUB_OUTPUT
+          fi
+
+  manual-approval:
+    needs: promotion-validation
+    if: ${{ needs.promotion-validation.outputs.requires-approval == 'true' && needs.promotion-validation.outputs.validation-passed == 'true' }}
+    runs-on: ubuntu-latest
+    environment: 
+      name: ${{ github.event.inputs.target_environment }}-approval
+    steps:
+      - name: Display Promotion Summary
+        run: |
+          echo "# 🚀 Environment Promotion Approval Required"
+          echo ""
+          echo "**Source Environment**: ${{ env.SOURCE_ENV }}"
+          echo "**Target Environment**: ${{ env.TARGET_ENV }}"
+          echo "**Cloud Provider**: ${{ env.CLOUD_PROVIDER }}"
+          echo "**Components**: ${{ env.COMPONENTS }}"
+          echo ""
+          
+          CONFIG_DIFF='${{ needs.promotion-validation.outputs.config-diff }}'
+          DIFF_COUNT=$(echo "$CONFIG_DIFF" | jq -r '.total_differences')
+          
+          if [[ "$DIFF_COUNT" -gt 0 ]]; then
+              echo "## ⚠️ Configuration Changes Detected"
+              echo ""
+              echo "**Total Differences**: $DIFF_COUNT"
+              echo ""
+              echo "Please review the configuration differences before approving."
+          else
+              echo "## ✅ No Configuration Changes"
+              echo ""
+              echo "Configurations are identical between environments."
+          fi
+          echo ""
+          echo "**Approval Required**: This deployment targets ${{ env.TARGET_ENV }} environment"
+          echo ""
+          echo "Click **Approve and deploy** to proceed with the promotion."
+
+  execute-promotion:
+    needs: [promotion-validation, manual-approval]
+    if: ${{ always() && needs.promotion-validation.outputs.validation-passed == 'true' && (needs.manual-approval.result == 'success' || needs.manual-approval.result == 'skipped') }}
+    uses: ./.github/workflows/infrastructure-orchestrator.yml
+    with:
+      target_environment: ${{ github.event.inputs.target_environment }}
+      components: ${{ github.event.inputs.components }}
+      action: apply
+      cloud_provider: ${{ github.event.inputs.cloud_provider }}
+      force_sequential: false
+    secrets: inherit
+
+  promotion-summary:
+    needs: [promotion-validation, manual-approval, execute-promotion]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Promotion Summary
+        run: |
+          echo "# 🎯 Environment Promotion Summary"
+          echo ""
+          echo "**Source**: ${{ env.SOURCE_ENV }} → **Target**: ${{ env.TARGET_ENV }}"
+          echo "**Cloud Provider**: ${{ env.CLOUD_PROVIDER }}"
+          echo "**Components**: ${{ env.COMPONENTS }}"
+          echo "**Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo ""
+          
+          # Validation results
+          echo "## Validation Results"
+          if [[ "${{ needs.promotion-validation.outputs.validation-passed }}" == "true" ]]; then
+              echo "✅ **Source Environment Validation**: Passed"
+          else
+              echo "❌ **Source Environment Validation**: Failed"
+          fi
+          
+          # Configuration differences
+          CONFIG_DIFF='${{ needs.promotion-validation.outputs.config-diff }}'
+          DIFF_COUNT=$(echo "$CONFIG_DIFF" | jq -r '.total_differences // 0')
+          echo "📋 **Configuration Differences**: $DIFF_COUNT changes detected"
+          
+          # Approval status
+          echo ""
+          echo "## Approval Status"
+          if [[ "${{ needs.promotion-validation.outputs.requires-approval }}" == "true" ]]; then
+              case "${{ needs.manual-approval.result }}" in
+                  "success") echo "✅ **Manual Approval**: Approved and executed" ;;
+                  "failure") echo "❌ **Manual Approval**: Rejected or failed" ;;
+                  "cancelled") echo "⏹️ **Manual Approval**: Cancelled" ;;
+                  "skipped") echo "⏭️ **Manual Approval**: Skipped (auto-approved)" ;;
+                  *) echo "❓ **Manual Approval**: Unknown status" ;;
+              esac
+          else
+              echo "⚡ **Manual Approval**: Not required (auto-approved)"
+          fi
+          
+          # Deployment results
+          echo ""
+          echo "## Deployment Results"
+          case "${{ needs.execute-promotion.result }}" in
+              "success") 
+                  echo "🎉 **Overall Status**: Promotion completed successfully!"
+                  echo ""
+                  echo "Your ${{ env.TARGET_ENV }} environment has been updated with the latest changes."
+                  ;;
+              "failure") 
+                  echo "❌ **Overall Status**: Promotion failed during deployment"
+                  echo ""
+                  echo "Please check the orchestrator workflow logs for details."
+                  ;;
+              "cancelled") 
+                  echo "⏹️ **Overall Status**: Promotion was cancelled"
+                  ;;
+              "skipped") 
+                  echo "⏭️ **Overall Status**: Promotion was skipped"
+                  echo ""
+                  echo "This may be due to validation failures or approval rejection."
+                  ;;
+              *) 
+                  echo "❓ **Overall Status**: Unknown deployment status"
+                  ;;
+          esac
+          
+          # Next steps
+          echo ""
+          echo "## Next Steps"
+          if [[ "${{ needs.execute-promotion.result }}" == "success" ]]; then
+              echo "- Verify the deployment in ${{ env.TARGET_ENV }} environment"
+              echo "- Run validation tests to ensure everything is working correctly"
+              echo "- Monitor the environment for any issues"
+              if [[ "${{ env.TARGET_ENV }}" != "prod" ]]; then
+                  echo "- Consider promoting to the next environment when ready"
+              fi
+          else
+              echo "- Review the deployment logs to identify the cause of failure"
+              echo "- Fix any issues and retry the promotion"
+              echo "- Consider rolling back if necessary"
+          fi
+
+      - name: Create Promotion Issue
+        if: ${{ needs.execute-promotion.result == 'failure' }}
+        run: |
+          gh issue create \
+            --title "🚨 Environment Promotion Failed: ${{ env.SOURCE_ENV }} → ${{ env.TARGET_ENV }}" \
+            --body "**Promotion Details:**
+          - Source: ${{ env.SOURCE_ENV }}
+          - Target: ${{ env.TARGET_ENV }}
+          - Cloud Provider: ${{ env.CLOUD_PROVIDER }}
+          - Components: ${{ env.COMPONENTS }}
+          - Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          
+          **Status:** Deployment failed during orchestration
+          
+          **Action Required:**
+          1. Review the orchestrator workflow logs
+          2. Identify and fix the root cause
+          3. Retry the promotion when ready
+          
+          **Assignees:** @platform-team" \
+            --label "incident,infrastructure,promotion-failure" \
+            --assignee "${{ github.actor }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
