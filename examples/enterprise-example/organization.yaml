@@ -1,0 +1,65 @@
+# Enterprise Organization Configuration
+# Optimized for large organizations, multi-cloud, compliance-focused
+
+organization:
+  name: "enterprise-corp"
+  domain: "enterprise-corp.com"
+  email: "platform-engineering@enterprise-corp.com"
+  github_org: "enterprise-corp"
+
+cloud_accounts:
+  aws:
+    account_id: "111111111111"
+    default_region: "us-east-1"
+    regions:
+      primary: "us-east-1"
+      secondary: "us-west-2"
+      dr: "eu-west-1"  # Disaster recovery
+  
+  azure:
+    subscription_id: "11111111-1111-1111-1111-111111111111"
+    default_location: "eastus"
+    locations:
+      primary: "eastus"
+      secondary: "westus2"
+      dr: "northeurope"  # Disaster recovery
+
+dns:
+  provider: "route53"
+  route53:
+    zone_id: "Z1111111111111"
+
+registries:
+  ghcr: "ghcr.io/enterprise-corp"
+  aws_ecr: "111111111111.dkr.ecr.us-east-1.amazonaws.com"
+  azure_acr: "enterprisecorp.azurecr.io"
+  default: "aws_ecr"  # Enterprise prefers ECR
+
+naming:
+  prefix: "ent"
+  environments:
+    - "dev"
+    - "staging"
+    - "prod"
+    - "dr"  # Disaster recovery
+  cluster_pattern: "{prefix}-{cloud}-{env}-{region}"
+
+defaults:
+  kubernetes_version: "1.31.2"
+  vm_sizes:
+    aws:
+      small: "m5.large"     # Enterprise-grade
+      medium: "m5.xlarge"
+      large: "m5.2xlarge"
+    azure:
+      small: "Standard_D4s_v3"
+      medium: "Standard_D8s_v3"
+      large: "Standard_D16s_v3"
+
+security:
+  sign_images: true         # Required for compliance
+  vulnerability_scanning: true
+  network_policies: true    # Required for compliance
+  pod_security_standards: "restricted"
+  encryption_at_rest: true
+  encryption_in_transit: true

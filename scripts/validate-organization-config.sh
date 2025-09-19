@@ -132,19 +132,52 @@ if command -v gh &> /dev/null; then
             print_status "OK" "GitHub CLI authenticated and repository variables accessible"
             
             # Check for organization-specific variables
-            if echo "$REPO_VARS" | grep -q "ORG_DOMAIN"; then
-                print_status "OK" "ORG_DOMAIN repository variable found"
-            else
-                print_status "WARN" "ORG_DOMAIN repository variable not found"
-                print_status "INFO" "Set with: gh variable set ORG_DOMAIN --body 'your-domain.com'"
-            fi
+            REQUIRED_VARS=("ORG_DOMAIN" "ORG_EMAIL" "ORG_NAME" "AWS_ACCOUNT_ID" "AZURE_SUBSCRIPTION_ID" "ROUTE53_ZONE_ID")
             
-            if echo "$REPO_VARS" | grep -q "ORG_EMAIL"; then
-                print_status "OK" "ORG_EMAIL repository variable found"
-            else
-                print_status "WARN" "ORG_EMAIL repository variable not found"
-                print_status "INFO" "Set with: gh variable set ORG_EMAIL --body 'devops@your-domain.com'"
-            fi
+            for var in "${REQUIRED_VARS[@]}"; do
+                if echo "$REPO_VARS" | grep -q "$var"; then
+                    print_status "OK" "$var repository variable found"
+                else
+                    print_status "WARN" "$var repository variable not found"
+                    case $var in
+                        "ORG_DOMAIN")
+                            print_status "INFO" "Set with: gh variable set ORG_DOMAIN --body 'your-domain.com'"
+                            ;;
+                        "ORG_EMAIL")
+                            print_status "INFO" "Set with: gh variable set ORG_EMAIL --body 'devops@your-domain.com'"
+                            ;;
+                        "ORG_NAME")
+                            print_status "INFO" "Set with: gh variable set ORG_NAME --body 'your-org'"
+                            ;;
+                        "AWS_ACCOUNT_ID")
+                            print_status "INFO" "Set with: gh variable set AWS_ACCOUNT_ID --body '123456789012'"
+                            ;;
+                        "AZURE_SUBSCRIPTION_ID")
+                            print_status "INFO" "Set with: gh variable set AZURE_SUBSCRIPTION_ID --body 'your-subscription-id'"
+                            ;;
+                        "ROUTE53_ZONE_ID")
+                            print_status "INFO" "Set with: gh variable set ROUTE53_ZONE_ID --body 'Z1234567890ABC'"
+                            ;;
+                    esac
+                fi
+            done
+            
+            # Check repository secrets
+            echo ""
+            echo "🔐 Checking Repository Secrets"
+            REPO_SECRETS=$(gh secret list --json name 2>/dev/null || echo "[]")
+            
+            REQUIRED_SECRETS=("AZURE_CLIENT_ID" "AZURE_TENANT_ID" "AZURE_SUBSCRIPTION_ID" "AWS_ROLE_ARN_FOR_AZURE")
+            
+            for secret in "${REQUIRED_SECRETS[@]}"; do
+                if echo "$REPO_SECRETS" | grep -q "$secret"; then
+                    print_status "OK" "$secret repository secret found"
+                else
+                    print_status "WARN" "$secret repository secret not found"
+                    print_status "INFO" "Add via GitHub repository settings → Secrets and variables → Actions"
+                fi
+            done
+            
         else
             print_status "WARN" "No repository variables found"
         fi
@@ -154,6 +187,69 @@ if command -v gh &> /dev/null; then
     fi
 else
     print_status "INFO" "GitHub CLI not available - skipping repository variable check"
+fi
+
+# DNS Resolution Check
+echo ""
+echo "🌐 DNS Resolution Check"
+echo "----------------------"
+
+if [[ -n "${ORG_DOMAIN:-}" ]]; then
+    if nslookup "$ORG_DOMAIN" &> /dev/null; then
+        print_status "OK" "Domain $ORG_DOMAIN resolves correctly"
+    else
+        print_status "WARN" "Domain $ORG_DOMAIN does not resolve"
+        print_status "INFO" "Check DNS configuration and nameservers"
+    fi
+else
+    print_status "INFO" "ORG_DOMAIN not set - skipping DNS resolution check"
+fi
+
+# Cloud CLI Authentication Check
+echo ""
+echo "☁️  Cloud CLI Authentication"
+echo "---------------------------"
+
+# AWS CLI check
+if command -v aws &> /dev/null; then
+    if aws sts get-caller-identity &> /dev/null; then
+        AWS_ACCOUNT=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
+        print_status "OK" "AWS CLI authenticated (Account: $AWS_ACCOUNT)"
+        
+        # Check Route53 access
+        if aws route53 list-hosted-zones &> /dev/null; then
+            print_status "OK" "AWS Route53 access confirmed"
+        else
+            print_status "WARN" "AWS Route53 access failed"
+            print_status "INFO" "Check IAM permissions for Route53"
+        fi
+    else
+        print_status "WARN" "AWS CLI not authenticated"
+        print_status "INFO" "Run: aws configure"
+    fi
+else
+    print_status "INFO" "AWS CLI not available"
+fi
+
+# Azure CLI check
+if command -v az &> /dev/null; then
+    if az account show &> /dev/null; then
+        AZURE_SUBSCRIPTION=$(az account show --query name --output tsv 2>/dev/null)
+        print_status "OK" "Azure CLI authenticated (Subscription: $AZURE_SUBSCRIPTION)"
+        
+        # Check resource group access
+        if az group list &> /dev/null; then
+            print_status "OK" "Azure resource group access confirmed"
+        else
+            print_status "WARN" "Azure resource group access failed"
+            print_status "INFO" "Check Azure permissions"
+        fi
+    else
+        print_status "WARN" "Azure CLI not authenticated"
+        print_status "INFO" "Run: az login"
+    fi
+else
+    print_status "INFO" "Azure CLI not available"
 fi
 
 # Terraform validation

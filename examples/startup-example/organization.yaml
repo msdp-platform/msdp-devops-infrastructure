@@ -1,0 +1,50 @@
+# Startup Organization Configuration
+# Optimized for small teams, single cloud, cost-conscious approach
+
+organization:
+  name: "acme-startup"
+  domain: "acme-startup.com"
+  email: "devops@acme-startup.com"
+  github_org: "acme-startup"
+
+cloud_accounts:
+  aws:
+    account_id: "123456789012"
+    default_region: "us-east-1"
+    regions:
+      primary: "us-east-1"
+      # Single region for cost optimization
+  
+  # Azure not used in startup example (cost optimization)
+  azure:
+    subscription_id: ""
+    default_location: ""
+
+dns:
+  provider: "route53"
+  route53:
+    zone_id: "Z1234567890ABC"
+
+registries:
+  ghcr: "ghcr.io/acme-startup"
+  default: "ghcr"
+
+naming:
+  prefix: "acme"
+  environments:
+    - "dev"
+    - "prod"  # Skip staging for simplicity
+  cluster_pattern: "{prefix}-{cloud}-{env}"
+
+defaults:
+  kubernetes_version: "1.31.2"
+  vm_sizes:
+    aws:
+      small: "t3.micro"    # Cost-optimized
+      medium: "t3.small"
+      large: "t3.medium"
+
+security:
+  sign_images: false        # Skip for simplicity
+  vulnerability_scanning: true
+  network_policies: false   # Skip for simplicity
