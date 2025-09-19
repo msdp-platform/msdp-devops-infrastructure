@@ -63,6 +63,18 @@ az ad app federated-credential create \
     \"audiences\": [\"api://AzureADTokenExchange\"]
   }" 2>/dev/null || echo "   (Credential may already exist)"
 
+# For dev branch
+echo "   Adding credential for dev branch..."
+az ad app federated-credential create \
+  --id "$APP_ID" \
+  --parameters "{
+    \"name\": \"GitHub-Actions-Dev-Branch\",
+    \"issuer\": \"https://token.actions.githubusercontent.com\",
+    \"subject\": \"repo:$REPO:ref:refs/heads/dev\",
+    \"description\": \"GitHub Actions Dev Branch\",
+    \"audiences\": [\"api://AzureADTokenExchange\"]
+  }" 2>/dev/null || echo "   (Credential may already exist)"
+
 # For pull requests
 echo "   Adding credential for pull requests..."
 az ad app federated-credential create \
