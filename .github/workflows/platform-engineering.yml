@@ -252,7 +252,7 @@ jobs:
         with:
           working-directory: infrastructure/platform-engineering/${{ matrix.component }}
           backend-config-file: ${{ steps.backend.outputs.backend_config_file }}
-          terraform-version: 1.9.5
+          terraform-version: 1.9.8
 
       - name: Terraform Plan
         if: ${{ env.ACTION == 'plan' || env.ACTION == 'apply' }}
