@@ -141,14 +141,15 @@ resource "helm_release" "flowable" {
       # Resources
       resources = var.resources.flowable
       
-      # Environment variables for MSDP integration
+      # Environment variables (vanilla setup)
       env = {
-        MSDP_API_GATEWAY_URL = var.msdp_api_gateway_url
-        MSDP_ORDER_SERVICE_URL = var.msdp_order_service_url
-        MSDP_PAYMENT_SERVICE_URL = var.msdp_payment_service_url
-        MSDP_MERCHANT_SERVICE_URL = var.msdp_merchant_service_url
-        MSDP_USER_SERVICE_URL = var.msdp_user_service_url
-        MSDP_ADMIN_SERVICE_URL = var.msdp_admin_service_url
+        # Basic Flowable configuration
+        FLOWABLE_DATABASE_TYPE = local.flowable_config.database.type
+        FLOWABLE_DATABASE_HOST = local.flowable_config.database.host
+        FLOWABLE_DATABASE_PORT = tostring(local.flowable_config.database.port)
+        FLOWABLE_DATABASE_NAME = local.flowable_config.database.name
+        FLOWABLE_DATABASE_USERNAME = local.flowable_config.database.username
+        FLOWABLE_DATABASE_PASSWORD = local.flowable_config.database.password
       }
       
       # Health checks
@@ -174,44 +175,15 @@ resource "helm_release" "flowable" {
         failureThreshold = 3
       }
       
-      # Workflow configuration for MSDP
-      workflows = var.workflow_config
+      # Basic Flowable configuration (vanilla setup)
+      # No custom workflows - using default Flowable setup
     })
   ]
   
   depends_on = [kubernetes_namespace.flowable, helm_release.flowable_postgresql]
 }
 
-# MSDP Integration ConfigMap
-resource "kubernetes_config_map" "flowable_msdp_config" {
-  count = var.component_config.enabled ? 1 : 0
-  
-  metadata {
-    name      = "flowable-msdp-config"
-    namespace = kubernetes_namespace.flowable[0].metadata[0].name
-    labels    = local.common_labels
-  }
-  
-  data = {
-    "msdp-integration.properties" = <<-EOT
-      # MSDP Service Integration Configuration
-      msdp.api.gateway.url=${var.msdp_api_gateway_url}
-      msdp.services.order.url=${var.msdp_order_service_url}
-      msdp.services.payment.url=${var.msdp_payment_service_url}
-      msdp.services.merchant.url=${var.msdp_merchant_service_url}
-      msdp.services.user.url=${var.msdp_user_service_url}
-      msdp.services.admin.url=${var.msdp_admin_service_url}
-      
-      # Workflow Configuration
-      msdp.workflows.order.approval.enabled=${var.workflow_config.order_approval.enabled}
-      msdp.workflows.order.approval.threshold=${var.workflow_config.order_approval.approval_threshold}
-      msdp.workflows.merchant.onboarding.enabled=${var.workflow_config.merchant_onboarding.enabled}
-      msdp.workflows.merchant.onboarding.approval=${var.workflow_config.merchant_onboarding.approval_required}
-      msdp.workflows.payment.authorization.enabled=${var.workflow_config.payment_authorization.enabled}
-      msdp.workflows.payment.authorization.threshold=${var.workflow_config.payment_authorization.amount_threshold}
-    EOT
-  }
-}
+# Vanilla Flowable setup - no custom integrations for now
 
 # Outputs
 output "namespace" {

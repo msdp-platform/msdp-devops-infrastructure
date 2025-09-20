@@ -87,42 +87,34 @@ components:
     app_version: "8.0.0"
     repository: "https://flowable.github.io/flowable-engine"
 
-    # MSDP BPM Configuration
-    bpm_config:
-      hostname: "flowable.{{ ORG_DOMAIN | default('aztech-msdp.com') }}"
-      
-      # Database configuration
-      database:
-        type: "postgres"
-        host: "flowable-postgres"
-        port: 5432
-        name: "flowable"
-        username: "flowable"
-        password: "flowable-dev-password"
-      
-      # MSDP Service Integration
-      msdp_integration:
-        api_gateway_url: "{{ MSDP_API_ENDPOINT | default('http://api-gateway:3000') }}"
-        order_service_url: "{{ ORDER_API_ENDPOINT | default('http://order-service:3006') }}"
-        payment_service_url: "{{ PAYMENT_API_ENDPOINT | default('http://payment-service:3007') }}"
-        merchant_service_url: "{{ MERCHANT_API_ENDPOINT | default('http://merchant-service:3002') }}"
-        user_service_url: "{{ USER_API_ENDPOINT | default('http://user-service:3003') }}"
-        admin_service_url: "{{ ADMIN_API_ENDPOINT | default('http://admin-service:3005') }}"
-      
-      # Workflow Configuration
-      workflows:
-        order_approval:
-          enabled: true
-          approval_threshold: 1000
-          auto_approve_merchants: []
-        merchant_onboarding:
-          enabled: true
-          verification_steps: ["identity", "business", "financial"]
-          approval_required: true
-        payment_authorization:
-          enabled: true
-          amount_threshold: 5000
-          multi_step_approval: true
+    # Vanilla Flowable Configuration
+    hostname: "flowable.{{ ORG_DOMAIN | default('aztech-msdp.com') }}"
+    
+    # Basic database configuration
+    database:
+      type: "postgres"
+      host: "flowable-postgresql"
+      port: 5432
+      name: "flowable"
+      username: "flowable"
+      password: "flowable-dev-password"
+    
+    # Resource limits
+    resources:
+      flowable:
+        requests:
+          cpu: "500m"
+          memory: "1Gi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+      postgres:
+        requests:
+          cpu: "250m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "512Mi"
 
   backstage:
     enabled: true
