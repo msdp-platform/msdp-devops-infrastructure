@@ -1,21 +1,6 @@
 # Flowable BPM Platform Deployment
 # Business Process Management and Workflow Automation for MSDP
 
-terraform {
-  required_version = ">= 1.5"
-  
-  required_providers {
-    helm = {
-      source  = "hashicorp/helm"
-      version = "~> 2.15"
-    }
-    kubernetes = {
-      source  = "hashicorp/kubernetes"
-      version = "~> 2.24"
-    }
-  }
-}
-
 # Flowable namespace
 resource "kubernetes_namespace" "flowable" {
   count = var.component_config.enabled ? 1 : 0
