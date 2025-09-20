@@ -294,9 +294,9 @@ output "flowable_url" {
   value       = var.component_config.enabled ? "https://${var.flowable_hostname}" : null
 }
 
-output "flowable_release_name" {
-  description = "Flowable Helm release name"
-  value       = var.component_config.enabled ? helm_release.flowable[0].name : null
+output "flowable_deployment_name" {
+  description = "Flowable Kubernetes deployment name"
+  value       = var.component_config.enabled ? kubernetes_deployment.flowable[0].metadata[0].name : null
 }
 
 output "database_release_name" {
