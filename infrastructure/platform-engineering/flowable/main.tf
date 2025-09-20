@@ -2,6 +2,21 @@
 # Following official Flowable Azure deployment guide
 # https://documentation.flowable.com/latest/admin/cloud-deployment/terraform-azure
 
+terraform {
+  required_version = ">= 1.5"
+  
+  required_providers {
+    helm = {
+      source  = "hashicorp/helm"
+      version = "~> 2.15"
+    }
+    kubernetes = {
+      source  = "hashicorp/kubernetes"
+      version = "~> 2.24"
+    }
+  }
+}
+
 # Local configuration
 locals {
   namespace = var.namespace
