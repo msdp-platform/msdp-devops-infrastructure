@@ -17,6 +17,17 @@ terraform {
   }
 }
 
+# Provider configurations - explicitly use kubeconfig
+provider "kubernetes" {
+  # Uses KUBECONFIG environment variable set by GitHub Actions
+}
+
+provider "helm" {
+  kubernetes {
+    # Uses KUBECONFIG environment variable set by GitHub Actions
+  }
+}
+
 # Local configuration
 locals {
   namespace = var.namespace

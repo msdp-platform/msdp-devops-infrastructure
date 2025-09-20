@@ -18,6 +18,21 @@ terraform {
   }
 }
 
+# Provider configurations - explicitly use kubeconfig
+provider "kubernetes" {
+  # Uses KUBECONFIG environment variable set by GitHub Actions
+}
+
+provider "helm" {
+  kubernetes {
+    # Uses KUBECONFIG environment variable set by GitHub Actions
+  }
+}
+
+provider "kubectl" {
+  # Uses KUBECONFIG environment variable set by GitHub Actions
+}
+
 # Load configuration from tfvars
 locals {
   component_config = var.component_config
