@@ -25,7 +25,7 @@ name: Platform Engineering Stack (Backstage + Crossplane)
         required: true
         default: all
         type: choice
-        options: [all, crossplane, backstage]
+        options: [all, crossplane, backstage, flowable]
       cluster_name:
         description: "Target AKS cluster name (from config)"
         required: false
@@ -361,6 +361,12 @@ jobs:
               kubectl get ingress -n backstage
               kubectl get configmap -n backstage
               ;;
+            "flowable")
+              kubectl get pods -n flowable
+              kubectl get services -n flowable
+              kubectl get ingress -n flowable
+              kubectl get configmap -n flowable
+              ;;
           esac
 
       - name: Show Outputs
@@ -422,6 +428,13 @@ jobs:
             kubectl apply -f infrastructure/platform-engineering/backstage/catalog/
           fi
 
+          # Configure Flowable integration if deployed
+          if kubectl get namespace flowable 2>/dev/null; then
+            echo "Configuring Flowable BPM integration..."
+            # Future: Configure Flowable process definitions and integrations
+            kubectl get services -n flowable
+          fi
+
       - name: Generate Access Information
         run: |
           echo "🎉 Platform Engineering Stack Deployment Complete!"
@@ -449,6 +462,14 @@ jobs:
             echo "⚡ Crossplane Infrastructure Engine:"
             echo "   kubectl get providers"
             echo "   kubectl get compositions"
+          fi
+
+          if kubectl get namespace flowable 2>/dev/null; then
+            echo ""
+            echo "🔄 Flowable BPM Platform:"
+            kubectl get ingress -n flowable -o jsonpath='{range .items[*]}{.spec.rules[0].host}{"\n"}{end}' | while read host; do
+              echo "   https://$host"
+            done
           fi
 
           echo ""
