@@ -107,106 +107,179 @@ resource "helm_release" "flowable_postgresql" {
   depends_on = [kubernetes_namespace.flowable]
 }
 
-# Flowable Helm release using official approach
-resource "helm_release" "flowable" {
+# Flowable Deployment (using Kubernetes resources since no official Helm chart)
+resource "kubernetes_deployment" "flowable" {
   count = var.component_config.enabled ? 1 : 0
-  
-  name       = "flowable"
-  repository = "https://flowable.github.io/flowable-engine"
-  chart      = "flowable"
-  version    = var.component_config.chart_version
-  namespace  = kubernetes_namespace.flowable[0].metadata[0].name
-  
-  # Flowable values following Azure deployment guide
-  values = [
-    yamlencode({
-      # Image configuration
-      image = {
-        repository = "flowable/all-in-one"
-        tag        = var.component_config.app_version
-        pullPolicy = "IfNotPresent"
+
+  metadata {
+    name      = "flowable"
+    namespace = kubernetes_namespace.flowable[0].metadata[0].name
+    labels    = local.common_labels
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app = "flowable"
       }
-      
-      # Service configuration
-      service = {
-        type = "ClusterIP"
-        port = 80
-        targetPort = 8080
-      }
-      
-      # Database configuration
-      database = {
-        type     = local.flowable_config.database.type
-        host     = "flowable-postgresql"
-        port     = local.flowable_config.database.port
-        name     = local.flowable_config.database.name
-        username = local.flowable_config.database.username
-        password = local.flowable_config.database.password
-      }
-      
-      # Ingress configuration
-      ingress = {
-        enabled = var.ingress_config.enabled
-        className = var.ingress_config.class_name
-        annotations = merge(var.ingress_config.annotations, {
-          "cert-manager.io/cluster-issuer" = var.ingress_config.cluster_issuer_name
+    }
+
+    template {
+      metadata {
+        labels = merge(local.common_labels, {
+          app = "flowable"
         })
-        hosts = [{
-          host = var.flowable_hostname
-          paths = [{
-            path = "/"
-            pathType = "Prefix"
-          }]
-        }]
-        tls = [{
-          secretName = "flowable-tls"
-          hosts = [var.flowable_hostname]
-        }]
       }
-      
-      # Resources
-      resources = var.resources.flowable
-      
-      # Environment variables (vanilla setup)
-      env = {
-        # Basic Flowable configuration
-        FLOWABLE_DATABASE_TYPE = local.flowable_config.database.type
-        FLOWABLE_DATABASE_HOST = local.flowable_config.database.host
-        FLOWABLE_DATABASE_PORT = tostring(local.flowable_config.database.port)
-        FLOWABLE_DATABASE_NAME = local.flowable_config.database.name
-        FLOWABLE_DATABASE_USERNAME = local.flowable_config.database.username
-        FLOWABLE_DATABASE_PASSWORD = local.flowable_config.database.password
-      }
-      
-      # Health checks
-      livenessProbe = {
-        httpGet = {
-          path = "/flowable-ui"
-          port = 8080
+
+      spec {
+        container {
+          name  = "flowable"
+          image = "flowable/all-in-one:${var.component_config.app_version}"
+
+          port {
+            container_port = 8080
+            name          = "http"
+          }
+
+          env {
+            name  = "FLOWABLE_DATABASE_TYPE"
+            value = local.flowable_config.database.type
+          }
+          env {
+            name  = "FLOWABLE_DATABASE_HOST"
+            value = local.flowable_config.database.host
+          }
+          env {
+            name  = "FLOWABLE_DATABASE_PORT"
+            value = tostring(local.flowable_config.database.port)
+          }
+          env {
+            name  = "FLOWABLE_DATABASE_NAME"
+            value = local.flowable_config.database.name
+          }
+          env {
+            name  = "FLOWABLE_DATABASE_USERNAME"
+            value = local.flowable_config.database.username
+          }
+          env {
+            name  = "FLOWABLE_DATABASE_PASSWORD"
+            value = local.flowable_config.database.password
+          }
+
+          resources {
+            requests = {
+              cpu    = var.resources.flowable.requests.cpu
+              memory = var.resources.flowable.requests.memory
+            }
+            limits = {
+              cpu    = var.resources.flowable.limits.cpu
+              memory = var.resources.flowable.limits.memory
+            }
+          }
+
+          liveness_probe {
+            http_get {
+              path = "/flowable-ui"
+              port = 8080
+            }
+            initial_delay_seconds = 120
+            period_seconds        = 30
+            timeout_seconds       = 10
+            failure_threshold     = 5
+          }
+
+          readiness_probe {
+            http_get {
+              path = "/flowable-ui"
+              port = 8080
+            }
+            initial_delay_seconds = 60
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
         }
-        initialDelaySeconds = 120
-        periodSeconds = 30
-        timeoutSeconds = 10
-        failureThreshold = 3
       }
-      
-      readinessProbe = {
-        httpGet = {
-          path = "/flowable-ui"
-          port = 8080
-        }
-        initialDelaySeconds = 60
-        periodSeconds = 10
-        timeoutSeconds = 5
-        failureThreshold = 3
-      }
-      
-      # Basic Flowable configuration (vanilla setup)
-      # No custom workflows - using default Flowable setup
-    })
-  ]
-  
+    }
+  }
+
   depends_on = [kubernetes_namespace.flowable, helm_release.flowable_postgresql]
+}
+
+# Flowable Service
+resource "kubernetes_service" "flowable" {
+  count = var.component_config.enabled ? 1 : 0
+
+  metadata {
+    name      = "flowable"
+    namespace = kubernetes_namespace.flowable[0].metadata[0].name
+    labels    = local.common_labels
+  }
+
+  spec {
+    selector = {
+      app = "flowable"
+    }
+
+    port {
+      name        = "http"
+      port        = 80
+      target_port = 8080
+      protocol    = "TCP"
+    }
+
+    type = "ClusterIP"
+  }
+}
+
+# Flowable Ingress
+resource "kubernetes_ingress_v1" "flowable" {
+  count = var.component_config.enabled ? 1 : 0
+
+  metadata {
+    name      = "flowable"
+    namespace = kubernetes_namespace.flowable[0].metadata[0].name
+    labels    = local.common_labels
+    annotations = {
+      "cert-manager.io/cluster-issuer"                = "letsencrypt-prod"
+      "nginx.ingress.kubernetes.io/ssl-redirect"      = "true"
+      "nginx.ingress.kubernetes.io/force-ssl-redirect" = "true"
+      "nginx.ingress.kubernetes.io/proxy-body-size"   = "50m"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" = "300"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" = "300"
+    }
+  }
+
+  spec {
+    ingress_class_name = "nginx"
+
+    tls {
+      hosts       = [var.flowable_hostname]
+      secret_name = "flowable-tls"
+    }
+
+    rule {
+      host = var.flowable_hostname
+
+      http {
+        path {
+          path      = "/"
+          path_type = "Prefix"
+
+          backend {
+            service {
+              name = kubernetes_service.flowable[0].metadata[0].name
+              port {
+                number = 80
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 # Vanilla Flowable setup - no custom integrations for now

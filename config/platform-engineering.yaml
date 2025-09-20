@@ -83,9 +83,9 @@ components:
   flowable:
     enabled: true
     namespace: "flowable"
-    chart_version: "8.0.0"
-    app_version: "8.0.0"
-    repository: "https://flowable.github.io/flowable-engine"
+    chart_version: "latest"
+    app_version: "7.2.0"
+    repository: "direct-kubernetes"
 
     # Vanilla Flowable Configuration
     hostname: "flowable.{{ ORG_DOMAIN | default('aztech-msdp.com') }}"
