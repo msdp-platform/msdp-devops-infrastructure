@@ -303,77 +303,8 @@ resource "kubectl_manifest" "aws_provider_credentials" {
   depends_on = [time_sleep.wait_for_providers]
 }
 
-# MSDP Aurora Serverless Composition (for your hybrid strategy)
-resource "kubectl_manifest" "msdp_aurora_composition" {
-  yaml_body = yamlencode({
-    apiVersion = "apiextensions.crossplane.io/v1"
-    kind       = "Composition"
-    metadata = {
-      name = "msdp-aurora-serverless"
-      labels = merge(local.common_labels, {
-        "msdp.platform/composition" = "aurora-serverless"
-        "provider"                  = "aws"
-      })
-    }
-    spec = {
-      compositeTypeRef = {
-        apiVersion = "msdp.platform/v1alpha1"
-        kind       = "XAuroraServerless"
-      }
-
-      resources = [
-        {
-          name = "aurora-cluster"
-          base = {
-            apiVersion = "rds.aws.crossplane.io/v1alpha1"
-            kind       = "Cluster"
-            spec = {
-              forProvider = {
-                engine        = "aurora-postgresql"
-                engineMode    = "provisioned"
-                engineVersion = "15.4"
-                serverlessV2ScalingConfiguration = {
-                  maxCapacity = 16
-                  minCapacity = 0.5
-                }
-                databaseName               = "msdp"
-                masterUsername             = "msdp_admin"
-                storageEncrypted           = true
-                backupRetentionPeriod      = 7
-                preferredBackupWindow      = "03:00-04:00"
-                preferredMaintenanceWindow = "sun:04:00-sun:05:00"
-
-                # Following your tagging strategy
-                tags = {
-                  Environment = "{{ .environment }}"
-                  Project     = "msdp"
-                  Component   = "database"
-                  ManagedBy   = "crossplane"
-                  Owner       = "platform-team"
-                }
-              }
-            }
-          }
-
-          patches = [
-            {
-              type          = "FromCompositeFieldPath"
-              fromFieldPath = "spec.parameters.clusterIdentifier"
-              toFieldPath   = "spec.forProvider.clusterIdentifier"
-            },
-            {
-              type          = "FromCompositeFieldPath"
-              fromFieldPath = "spec.parameters.region"
-              toFieldPath   = "spec.forProvider.region"
-            }
-          ]
-        }
-      ]
-    }
-  })
-
-  depends_on = [kubectl_manifest.aws_provider_credentials]
-}
+# Note: Aurora Serverless Composition removed for initial deployment
+# Will be added back with proper Crossplane v2.x Pipeline format later
 
 # Outputs following your convention
 output "crossplane_namespace" {
