@@ -167,7 +167,7 @@ resource "kubernetes_deployment" "flowable" {
       spec {
         container {
           name  = "flowable"
-          image = "flowable/all-in-one:8.0.0"
+          image = "flowable/all-in-one:7.2.0"
           
           port {
             container_port = 8080

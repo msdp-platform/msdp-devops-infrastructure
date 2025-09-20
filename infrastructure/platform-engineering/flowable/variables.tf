@@ -26,8 +26,8 @@ variable "component_config" {
   type = object({
     enabled       = bool
     namespace     = optional(string, "flowable")
-    chart_version = optional(string, "8.0.0")
-    app_version   = optional(string, "8.0.0")
+    chart_version = optional(string, "7.2.0")
+    app_version   = optional(string, "7.2.0")
     values        = optional(map(any), {})
   })
 }
