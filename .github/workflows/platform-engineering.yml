@@ -339,6 +339,19 @@ jobs:
                   'github_client_secret': '${{ secrets.GITHUB_CLIENT_SECRET }}',
                   'github_token': '${{ secrets.GITHUB_TOKEN }}'
               })
+          elif '${{ matrix.component }}' == 'flowable':
+              # Extract hostname from component config and add database config
+              tfvars.update({
+                  'flowable_hostname': component_config.get('hostname', 'flowable.aztech-msdp.com'),
+                  'database_config': component_config.get('database', {
+                      'type': 'postgres',
+                      'host': 'flowable-postgresql',
+                      'port': 5432,
+                      'name': 'flowable',
+                      'username': 'flowable',
+                      'password': 'flowable-dev-password'
+                  })
+              })
 
           with open('terraform.tfvars.json', 'w') as f:
               json.dump(tfvars, f, indent=2)
