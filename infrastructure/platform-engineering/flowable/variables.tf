@@ -26,8 +26,9 @@ variable "component_config" {
   type = object({
     enabled       = bool
     namespace     = optional(string, "flowable")
-    chart_version = optional(string, "7.2.0")
-    app_version   = optional(string, "7.2.0")
+    chart_version = optional(string, "8.0.0")
+    app_version   = optional(string, "8.0.0")
+    repository    = optional(string, "https://flowable.github.io/flowable-engine")
     values        = optional(map(any), {})
   })
 }
@@ -36,6 +37,50 @@ variable "flowable_hostname" {
   description = "Hostname for Flowable ingress"
   type        = string
   default     = ""
+}
+
+# Database configuration
+variable "database_config" {
+  description = "Database configuration for Flowable"
+  type = object({
+    type     = optional(string, "postgres")
+    host     = optional(string, "flowable-postgresql")
+    port     = optional(number, 5432)
+    name     = optional(string, "flowable")
+    username = optional(string, "flowable")
+    password = optional(string, "flowable-dev-password")
+  })
+  default = {
+    type     = "postgres"
+    host     = "flowable-postgresql"
+    port     = 5432
+    name     = "flowable"
+    username = "flowable"
+    password = "flowable-dev-password"
+  }
+}
+
+# Ingress configuration
+variable "ingress_config" {
+  description = "Ingress configuration for Flowable"
+  type = object({
+    enabled             = optional(bool, true)
+    class_name          = optional(string, "nginx")
+    cluster_issuer_name = optional(string, "letsencrypt-prod")
+    annotations         = optional(map(string), {})
+  })
+  default = {
+    enabled             = true
+    class_name          = "nginx"
+    cluster_issuer_name = "letsencrypt-prod"
+    annotations = {
+      "nginx.ingress.kubernetes.io/ssl-redirect"       = "true"
+      "nginx.ingress.kubernetes.io/force-ssl-redirect" = "true"
+      "nginx.ingress.kubernetes.io/proxy-body-size"    = "50m"
+      "nginx.ingress.kubernetes.io/proxy-read-timeout" = "300"
+      "nginx.ingress.kubernetes.io/proxy-send-timeout" = "300"
+    }
+  }
 }
 
 # MSDP Integration URLs
