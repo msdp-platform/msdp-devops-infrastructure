@@ -191,19 +191,87 @@ components:
             target: https://github.com/{{ ORG_GITHUB | default('msdp-platform') }}/{{ ORG_GITHUB | default('msdp-platform') }}-core/blob/dev/backstage-platform/templates/
 
         providers:
-          # Crossplane integration
-          crossplane:
+          # GitHub provider for repository discovery
+          github:
             production:
-              baseUrl: "https://crossplane-api.{{ ORG_DOMAIN | default('msdp.platform') }}"
+              host: github.com
+              organization: "{{ ORG_GITHUB | default('msdp-platform') }}"
               schedule:
-                frequency: { minutes: 10 }
+                frequency: { minutes: 30 }
+                timeout: { minutes: 3 }
 
-          # ArgoCD integration (uses existing ArgoCD installation)
-          argocd:
-            production:
-              baseUrl: "https://argocd.{{ ORG_DOMAIN | default('msdp.platform') }}"
-              schedule:
-                frequency: { minutes: 5 }
+      # ArgoCD integration for GitOps visibility
+      argocd:
+        username: admin
+        password: "${ARGOCD_PASSWORD}"
+        appLocatorMethods:
+          - type: 'config'
+            instances:
+              - name: argocd
+                url: "https://argocd.{{ ORG_DOMAIN | default('dev.aztech-msdp.com') }}"
+                token: "${ARGOCD_TOKEN}"
+
+      # Kubernetes integration for pod/service visibility
+      kubernetes:
+        serviceLocatorMethod:
+          type: 'multiTenant'
+        clusterLocatorMethods:
+          - type: 'config'
+            clusters:
+              - url: "${KUBERNETES_API_URL}"
+                name: aks-msdp-dev-01
+                authProvider: 'serviceAccount'
+                skipTLSVerify: false
+                skipMetricsLookup: false
+                dashboardUrl: "https://k8s-dashboard.dev.aztech-msdp.com"
+                dashboardApp: kubernetes-dashboard
+        customResources:
+          - group: 'argoproj.io'
+            apiVersion: 'v1alpha1'
+            plural: 'applications'
+          - group: 'pkg.crossplane.io'
+            apiVersion: 'v1'
+            plural: 'providers'
+          - group: 'apiextensions.crossplane.io'
+            apiVersion: 'v1'
+            plural: 'compositions'
+
+      # Crossplane integration for infrastructure management
+      crossplane:
+        baseUrl: "http://crossplane-system.crossplane-system.svc.cluster.local:80"
+
+      # Tech Docs configuration for documentation
+      techdocs:
+        builder: 'local'
+        generator:
+          runIn: 'local'
+        publisher:
+          type: 'local'
+
+      # Search configuration
+      search:
+        pg:
+          highlightPreTag: '<mark>'
+          highlightPostTag: '</mark>'
+
+      # Scaffolder configuration for templates
+      scaffolder:
+        defaultAuthor:
+          name: 'MSDP Platform Team'
+          email: 'platform@msdp.com'
+        defaultCommitMessage: 'Initial commit from Backstage scaffolder'
+
+      # Integrations for external services
+      integrations:
+        github:
+          - host: github.com
+            token: "${GITHUB_TOKEN}"
+            apps:
+              - appId: "${GITHUB_APP_ID}"
+                privateKey: "${GITHUB_PRIVATE_KEY}"
+                webhookSecret: "${GITHUB_WEBHOOK_SECRET}"
+                clientId: "${GITHUB_CLIENT_ID}"
+                clientSecret: "${GITHUB_CLIENT_SECRET}"
 
       # MSDP service proxies (configurable for different environments)
       proxy:
@@ -226,14 +294,12 @@ components:
           target: "{{ PAYMENT_API_ENDPOINT | default('http://192.168.1.189:3007') }}"
           changeOrigin: true
 
-      integrations:
-        github:
-          - host: github.com
-            token: "${GITHUB_TOKEN}"
-
-        azure:
-          - host: dev.azure.com
-            token: "${AZURE_DEVOPS_TOKEN}"
+        "/api/argocd":
+          target: "https://argocd.{{ ORG_DOMAIN | default('dev.aztech-msdp.com') }}"
+          changeOrigin: true
+        "/api/crossplane":
+          target: "http://crossplane-system.crossplane-system.svc.cluster.local:80"
+          changeOrigin: true
 
     # Database configuration
     postgresql:

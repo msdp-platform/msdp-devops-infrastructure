@@ -174,6 +174,30 @@ resource "helm_release" "backstage" {
                 key  = "POSTGRES_PASSWORD"
               }
             }
+          },
+          {
+            name = "ARGOCD_PASSWORD"
+            value = "admin-password-changeme"
+          },
+          {
+            name = "ARGOCD_TOKEN"
+            value = "argocd-token-placeholder"
+          },
+          {
+            name = "KUBERNETES_API_URL"
+            value = "https://kubernetes.default.svc"
+          },
+          {
+            name = "GITHUB_APP_ID"
+            value = "your-github-app-id"
+          },
+          {
+            name = "GITHUB_PRIVATE_KEY"
+            value = "your-github-private-key"
+          },
+          {
+            name = "GITHUB_WEBHOOK_SECRET"
+            value = "your-webhook-secret"
           }
         ]
 
