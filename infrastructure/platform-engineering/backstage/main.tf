@@ -199,10 +199,9 @@ resource "helm_release" "backstage" {
         }
       }
 
-      # Service configuration (simplified)
+      # Service configuration (use chart defaults)
       service = {
         type = "ClusterIP"
-        port = 7007
       }
     })
   ]
