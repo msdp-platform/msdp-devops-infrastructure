@@ -118,19 +118,14 @@ resource "helm_release" "backstage" {
   version    = local.chart_version
   namespace  = kubernetes_namespace.backstage.metadata[0].name
 
-  # Backstage values following MSDP requirements
+  # Simplified Backstage values compatible with chart schema
   values = [
     yamlencode({
-      # Backstage configuration
+      # Basic Backstage configuration
       backstage = {
         image = {
           repository = "backstage/backstage"
           tag        = var.component_config.app_version
-        }
-
-        # App configuration via ConfigMap
-        appConfig = {
-          configMapRef = kubernetes_config_map.backstage_config.metadata[0].name
         }
 
         # Environment variables from secrets
@@ -182,40 +177,32 @@ resource "helm_release" "backstage" {
           }
         ]
 
-        # Resource configuration following your patterns
+        # Resource configuration
         resources = local.component_config.resources
-
-        # Security context
-        securityContext = {
-          runAsNonRoot = true
-          runAsUser    = 1001
-          runAsGroup   = 1001
-        }
       }
 
       # PostgreSQL configuration (if enabled)
       postgresql = local.postgresql_config
 
-      # Ingress configuration
-      ingress = local.ingress_config
-
-      # Service configuration
-      service = {
-        type = "ClusterIP"
-        ports = {
-          backend  = 7007
-          frontend = 3000
+      # Ingress configuration (simplified)
+      ingress = {
+        enabled = true
+        className = "nginx"
+        annotations = {
+          "cert-manager.io/cluster-issuer" = "letsencrypt-prod"
+          "nginx.ingress.kubernetes.io/ssl-redirect" = "true"
+        }
+        host = var.backstage_hostname
+        tls = {
+          enabled = true
+          secretName = "backstage-tls"
         }
       }
 
-      # Additional security following your patterns
-      podSecurityContext = {
-        fsGroup = 1001
-      }
-
-      # Node selector for user nodes
-      nodeSelector = {
-        "kubernetes.io/os" = "linux"
+      # Service configuration (simplified)
+      service = {
+        type = "ClusterIP"
+        port = 7007
       }
     })
   ]

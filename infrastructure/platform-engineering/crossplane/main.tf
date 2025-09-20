@@ -133,11 +133,10 @@ resource "helm_release" "crossplane" {
       # Package manager for provider installation
       packageManager = local.component_config.values.packageManager
 
-      # Additional configuration
+      # Additional configuration for Crossplane 2.x
       args = [
-        "--enable-composition-revisions",
-        "--enable-environment-configs",
-        "--enable-usages"
+        "--enable-usages",
+        "--enable-realtime-compositions"
       ]
 
       # Metrics and monitoring

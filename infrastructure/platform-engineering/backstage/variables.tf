@@ -107,6 +107,12 @@ variable "kubeconfig_path" {
   default     = null
 }
 
+variable "backstage_hostname" {
+  description = "Hostname for Backstage ingress"
+  type        = string
+  default     = "backstage.dev.aztech-msdp.com"
+}
+
 # GitHub integration credentials
 variable "github_client_id" {
   description = "GitHub OAuth Client ID for Backstage authentication"
