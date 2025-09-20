@@ -14,9 +14,9 @@ terraform {
     }
   }
 
-  backend "azurerm" {
+  backend "s3" {
     # Backend configuration will be provided by GitHub Actions
-    # via -backend-config parameters
+    # via -backend-config parameters (bucket, region, dynamodb_table, etc.)
   }
 }
 
