@@ -122,7 +122,7 @@ jobs:
                   
               cluster_components = []
               if component == 'all':
-                  cluster_components = ['crossplane', 'backstage']
+                  cluster_components = ['crossplane', 'backstage', 'flowable']
               else:
                   cluster_components = [component]
               
@@ -226,6 +226,29 @@ jobs:
           echo "Using kubeconfig: $KUBECONFIG"
           ls -l "$KUBECONFIG"
           kubectl config current-context
+
+      - name: Set Terraform Variables
+        run: |
+          echo "🔧 Setting Terraform variables for platform engineering..."
+
+          # Common variables (use repository variables or fallback to defaults)
+          echo "TF_VAR_domain_name=${{ vars.ORG_DOMAIN || 'aztech-msdp.com' }}" >> $GITHUB_ENV
+          echo "TF_VAR_hosted_zone_id=${{ vars.ROUTE53_ZONE_ID || 'Z0581458B5QGVNLDPESN' }}" >> $GITHUB_ENV
+          echo "TF_VAR_cert_manager_email=${{ vars.ORG_EMAIL || 'devops@aztech-msdp.com' }}" >> $GITHUB_ENV
+
+          # Azure-specific variables
+          echo "TF_VAR_azure_subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" >> $GITHUB_ENV
+          echo "TF_VAR_azure_tenant_id=${{ secrets.AZURE_TENANT_ID }}" >> $GITHUB_ENV
+          echo "TF_VAR_azure_resource_group=${{ env.AZURE_RESOURCE_GROUP }}" >> $GITHUB_ENV
+          
+          # Set AWS OIDC configuration for cross-cloud DNS access
+          if [[ -n "${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" ]]; then
+            echo "TF_VAR_aws_role_arn_for_azure=${{ secrets.AWS_ROLE_ARN_FOR_AZURE }}" >> $GITHUB_ENV
+          fi
+          
+          if [[ -n "${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" ]]; then
+            echo "TF_VAR_azure_workload_identity_client_id=${{ secrets.AZURE_WORKLOAD_IDENTITY_CLIENT_ID }}" >> $GITHUB_ENV
+          fi
 
       - name: Setup Terraform Backend
         id: backend

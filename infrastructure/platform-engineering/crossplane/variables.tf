@@ -53,6 +53,12 @@ variable "namespace" {
   default     = "crossplane-system"
 }
 
+variable "kubeconfig_path" {
+  description = "Path to kubeconfig file for Kubernetes provider"
+  type        = string
+  default     = null
+}
+
 # Azure credentials (from GitHub secrets)
 variable "azure_client_id" {
   description = "Azure Service Principal Client ID"

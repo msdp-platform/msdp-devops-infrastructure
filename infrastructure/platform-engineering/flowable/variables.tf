@@ -21,6 +21,12 @@ variable "namespace" {
   default     = "flowable"
 }
 
+variable "kubeconfig_path" {
+  description = "Path to kubeconfig file for Kubernetes provider"
+  type        = string
+  default     = null
+}
+
 variable "component_config" {
   description = "Flowable component configuration from platform-engineering.yaml"
   type = object({

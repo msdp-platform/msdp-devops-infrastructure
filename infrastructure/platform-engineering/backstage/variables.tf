@@ -101,6 +101,12 @@ variable "namespace" {
   default     = "backstage"
 }
 
+variable "kubeconfig_path" {
+  description = "Path to kubeconfig file for Kubernetes provider"
+  type        = string
+  default     = null
+}
+
 # GitHub integration credentials
 variable "github_client_id" {
   description = "GitHub OAuth Client ID for Backstage authentication"

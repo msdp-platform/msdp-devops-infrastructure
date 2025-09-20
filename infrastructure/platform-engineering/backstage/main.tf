@@ -16,12 +16,12 @@ terraform {
 
 # Provider configurations - explicitly use kubeconfig
 provider "kubernetes" {
-  # Uses KUBECONFIG environment variable set by GitHub Actions
+  config_path = var.kubeconfig_path
 }
 
 provider "helm" {
   kubernetes {
-    # Uses KUBECONFIG environment variable set by GitHub Actions
+    config_path = var.kubeconfig_path
   }
 }
 
